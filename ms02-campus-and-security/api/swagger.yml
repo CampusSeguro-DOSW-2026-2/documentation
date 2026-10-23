@@ -1,0 +1,1070 @@
+openapi: 3.0.3
+info:
+  title: ms02-campus-and-security
+  version: 1.2.0
+  description: 'Edificios, zonas seguras, rutas de evacuación y su consulta (MS02 - CampusSeguro).
+
+
+    **Entradas de identidad:** todos los endpoints reciben `X-User-Id` y `X-User-Role` (roles separados por coma) y aceptan `X-Correlation-ID`. Si faltan las de identidad, MS02 responde 401. Cada endpoint declara el permiso que exige (`x-permiso`) y los roles autorizados (`x-roles`) según la matriz de roles y permisos del repositorio `documentation` (`roles_y_permisos/matriz-roles-permisos.md`). Un usuario con varios roles tiene la unión de sus permisos. Si el rol de `X-User-Role` no tiene el permiso, responde 403.
+
+
+    **Eliminación:** MS02 no expone eliminación física. Un edificio, una zona segura o una ruta solo se inactiva o cambia de estado; un elemento referenciado por una ruta activa nunca se elimina.
+
+
+    **Auditoría:** MS02 no expone endpoints de auditoría; la centraliza `ms08-analytics-and-audit`.
+
+
+    **Pendiente:** pisos y espacios (RF-02 y RF-03) y la información preventiva por edificio o espacio (`ms02:preventive_info:read`) aún no están implementados, por lo que no figuran en este contrato. Se agregarán cuando existan.'
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Acceso externo (API Gateway)
+tags:
+  - name: Edificios
+  - name: Zonas seguras
+  - name: Rutas de evacuación
+  - name: Consulta de rutas de evacuación
+paths:
+  /buildings:
+    post:
+      tags:
+        - Edificios
+      summary: Crear edificio (RF-01) - ADMIN
+      x-permiso: ms02:building:write
+      x-roles: [ADMIN]
+      description: Crea el edificio con estado ACTIVO. El código es único.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EdificioRequest'
+      responses:
+        '201':
+          description: Edificio creado.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Edificio'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Código de edificio ya registrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El código del edificio ya está registrado.
+                errores:
+                  - campo: codigo
+                    mensaje: Ya existe un edificio con ese código.
+                correlation_id: c19b-472d-a12b
+    get:
+      tags:
+        - Edificios
+      summary: Listar edificios (RF-01) - Autenticado
+      x-permiso: ms02:campus:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Lista de edificios.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Edificio'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /buildings/{id}:
+    get:
+      tags:
+        - Edificios
+      summary: Consultar edificio por id (RF-01) - Autenticado
+      x-permiso: ms02:campus:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Edificio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Edificio'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Edificios
+      summary: Modificar edificio (RF-01) - ADMIN
+      x-permiso: ms02:building:write
+      x-roles: [ADMIN]
+      description: Reemplaza código, nombre y descripción. El estado no se modifica aquí (ver inactivar).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EdificioRequest'
+      responses:
+        '200':
+          description: Edificio actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Edificio'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: El código ya pertenece a otro edificio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El código del edificio ya está registrado.
+                errores:
+                  - campo: codigo
+                    mensaje: Ya existe un edificio con ese código.
+                correlation_id: c19b-472d-a12b
+  /buildings/{id}/deactivate:
+    patch:
+      tags:
+        - Edificios
+      summary: Inactivar edificio (RF-01) - ADMIN
+      x-permiso: ms02:building:write
+      x-roles: [ADMIN]
+      description: Cambia el estado a INACTIVO. No hay eliminación física. No requiere cuerpo. Se rechaza con 409 si el edificio está referenciado por una ruta activa.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Edificio inactivado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Edificio'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: El edificio está referenciado por una ruta activa y no puede inactivarse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El edificio está referenciado por una ruta activa y no puede inactivarse.
+                errores: []
+                correlation_id: c19b-472d-a12b
+  /safe-zones:
+    post:
+      tags:
+        - Zonas seguras
+      summary: Crear zona segura (RF-04) - ADMIN
+      x-permiso: ms02:safe_zone:write
+      x-roles: [ADMIN]
+      description: Crea la zona segura / punto de encuentro con estado ACTIVO.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZonaSeguraRequest'
+      responses:
+        '201':
+          description: Zona segura creada.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZonaSegura'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags:
+        - Zonas seguras
+      summary: Listar zonas seguras (RF-04) - Autenticado
+      x-permiso: ms02:campus:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Lista de zonas seguras.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ZonaSegura'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /safe-zones/{id}:
+    get:
+      tags:
+        - Zonas seguras
+      summary: Consultar zona segura por id (RF-04) - Autenticado
+      x-permiso: ms02:campus:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Zona segura.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZonaSegura'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Zonas seguras
+      summary: Modificar zona segura (RF-04) - ADMIN
+      x-permiso: ms02:safe_zone:write
+      x-roles: [ADMIN]
+      description: Reemplaza nombre, ubicación, descripción y capacidad. El estado no se modifica aquí (ver inactivar).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ZonaSeguraRequest'
+      responses:
+        '200':
+          description: Zona segura actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZonaSegura'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /safe-zones/{id}/deactivate:
+    patch:
+      tags:
+        - Zonas seguras
+      summary: Inactivar zona segura (RF-04) - ADMIN
+      x-permiso: ms02:safe_zone:write
+      x-roles: [ADMIN]
+      description: Cambia el estado a INACTIVO. No hay eliminación física. No requiere cuerpo. Se rechaza con 409 si la zona segura está referenciada por una ruta activa.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Zona segura inactivada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZonaSegura'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: La zona segura está referenciada por una ruta activa y no puede inactivarse.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: La zona segura está referenciada por una ruta activa y no puede inactivarse.
+                errores: []
+                correlation_id: c19b-472d-a12b
+  /evacuation-routes:
+    post:
+      tags:
+        - Rutas de evacuación
+      summary: Crear ruta de evacuación (RF-05) - ADMIN
+      x-permiso: ms02:route:write
+      x-roles: [ADMIN]
+      description: Asocia un espacio con una zona segura de destino. Un espacio tiene a lo sumo una ruta. El espacio y la zona deben existir y estar activos.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearRutaRequest'
+      responses:
+        '201':
+          description: Ruta creada.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+            Location:
+              description: URL de la ruta creada.
+              schema:
+                type: string
+                example: /api/v1/evacuation-routes/7
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: El espacio, la zona segura o la ruta alternativa no existen.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: El espacio 11 no existe.
+                errores: []
+                correlation_id: c19b-472d-a12b
+        '409':
+          description: El espacio ya tiene una ruta asociada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El espacio 11 ya tiene una ruta asociada.
+                errores: []
+                correlation_id: c19b-472d-a12b
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+    get:
+      tags:
+        - Rutas de evacuación
+      summary: Listar rutas de evacuación (RF-05) - Autenticado
+      x-permiso: ms02:route:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Lista de rutas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ruta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /evacuation-routes/{id}:
+    get:
+      tags:
+        - Rutas de evacuación
+      summary: Consultar ruta por id (RF-05) - Autenticado
+      x-permiso: ms02:route:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Ruta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Rutas de evacuación
+      summary: Modificar ruta de evacuación (RF-05) - ADMIN
+      x-permiso: ms02:route:write
+      x-roles: [ADMIN]
+      description: Modifica la descripción o el destino de una ruta existente. El espacio de origen no cambia y el estado se modifica con `PATCH /evacuation-routes/{id}/status`. La zona segura de destino y el espacio de la ruta deben existir y estar activos.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModificarRutaRequest'
+      responses:
+        '200':
+          description: Ruta actualizada. El cambio se refleja de inmediato en las consultas (RF-06).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: La ruta, la zona segura de destino o la ruta alternativa no existen.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: La ruta 7 no existe.
+                errores: []
+                correlation_id: c19b-472d-a12b
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /evacuation-routes/{id}/status:
+    patch:
+      tags:
+        - Rutas de evacuación
+      summary: Cambiar estado de una ruta (RF-05) - ADMIN, COORDINADOR
+      x-permiso: ms02:route_status:write
+      x-roles: [ADMIN, COORDINADOR]
+      description: Bloquear (`BLOQUEADA`), restringir (`RESTRINGIDA`) o habilitar (`DISPONIBLE`) una ruta existente. El cambio se refleja de inmediato en las consultas (RF-06).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambiarEstadoRutaRequest'
+      responses:
+        '200':
+          description: Estado actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ruta'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /spaces/{spaceId}/evacuation-route:
+    get:
+      tags:
+        - Consulta de rutas de evacuación
+      summary: Consultar la ruta recomendada de un espacio (RF-06) - Autenticado
+      x-permiso: ms02:route:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      description: 'Devuelve siempre 200 si el espacio existe. Casos: sin ruta (`tieneRuta=false`), ruta bloqueada o restringida (`estado` y `mensaje` lo indican) y destino inactivo (`destinoActivo=false`).'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/SpaceId'
+      responses:
+        '200':
+          description: Resultado de la consulta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RutaConsultada'
+              examples:
+                disponible:
+                  summary: Ruta disponible
+                  value:
+                    espacioId: 11
+                    espacioNombre: Laboratorio de Redes
+                    tieneRuta: true
+                    zonaSeguraId: 3
+                    zonaSeguraNombre: Parqueadero norte
+                    zonaSeguraUbicacion: Costado norte del campus
+                    recorrido: Salga por la puerta principal y avance hasta el parqueadero.
+                    estado: DISPONIBLE
+                    destinoActivo: true
+                    mensaje: Ruta disponible.
+                sinRuta:
+                  summary: Espacio sin ruta
+                  value:
+                    espacioId: 12
+                    espacioNombre: Oficina 201
+                    tieneRuta: false
+                    zonaSeguraId: null
+                    zonaSeguraNombre: null
+                    zonaSeguraUbicacion: null
+                    recorrido: null
+                    estado: null
+                    destinoActivo: false
+                    mensaje: No existe una ruta recomendada para la selección.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /buildings/{buildingId}/evacuation-routes:
+    get:
+      tags:
+        - Consulta de rutas de evacuación
+      summary: Consultar las rutas de un edificio (RF-06) - Autenticado
+      x-permiso: ms02:route:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      description: Devuelve el resultado de consulta de cada espacio del edificio. Un edificio inactivo responde 422.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/BuildingId'
+      responses:
+        '200':
+          description: Resultados por espacio.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RutaConsultada'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+components:
+  headers:
+    XCorrelationID:
+      description: UUID generado por el Gateway que enlaza logs y eventos de auditoría.
+      schema:
+        type: string
+        example: c19b-472d-a12b
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Id numérico positivo. Un valor con formato inválido responde 400.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        example: 1
+    SpaceId:
+      name: spaceId
+      in: path
+      required: true
+      description: Id del espacio. Un valor con formato inválido responde 400.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        example: 11
+    BuildingId:
+      name: buildingId
+      in: path
+      required: true
+      description: Id del edificio. Un valor con formato inválido responde 400.
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+        example: 1
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: Id del usuario autenticado.
+      schema:
+        type: string
+        example: USR-1034
+    XUserRole:
+      name: X-User-Role
+      in: header
+      required: true
+      description: Roles del usuario autenticado separados por coma.
+      schema:
+        type: string
+        example: ESTUDIANTE,BRIGADISTA
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Identificador de trazabilidad de la petición.
+      schema:
+        type: string
+        example: c19b-472d-a12b
+  responses:
+    BadRequest:
+      description: Validación fallida (indica campo y regla). También aplica cuando un id de la ruta no tiene formato válido.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            campoInvalido:
+              summary: Campo del cuerpo inválido
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: nombre
+                    mensaje: El nombre es obligatorio.
+                correlation_id: c19b-472d-a12b
+            idInvalido:
+              summary: Id de la ruta con formato inválido
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: id
+                    mensaje: El id debe ser un número entero positivo.
+                correlation_id: c19b-472d-a12b
+    Unauthorized:
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Faltan las cabeceras de identidad.
+            errores: []
+            correlation_id: c19b-472d-a12b
+    Forbidden:
+      description: Ninguno de los roles de X-User-Role tiene el permiso que exige el endpoint (`x-permiso`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No tiene permiso para realizar esta operación.
+            errores: []
+            correlation_id: c19b-472d-a12b
+    NotFound:
+      description: Recurso no encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: El edificio 99 no existe.
+            errores: []
+            correlation_id: c19b-472d-a12b
+    UnprocessableEntity:
+      description: Regla de negocio incumplida (por ejemplo, espacio, zona segura o edificio inactivos).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: La zona segura 'Parqueadero norte' está inactiva.
+            errores: []
+            correlation_id: c19b-472d-a12b
+  schemas:
+    Estado:
+      type: string
+      enum:
+        - ACTIVO
+        - INACTIVO
+    EstadoRuta:
+      type: string
+      enum:
+        - DISPONIBLE
+        - BLOQUEADA
+        - RESTRINGIDA
+      example: DISPONIBLE
+    EdificioRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - codigo
+        - nombre
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Único entre edificios.
+          example: A
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Edificio A
+        descripcion:
+          type: string
+          description: Opcional.
+          example: Edificio principal de aulas.
+    Edificio:
+      type: object
+      required:
+        - id
+        - codigo
+        - nombre
+        - estado
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        codigo:
+          type: string
+          example: A
+        nombre:
+          type: string
+          example: Edificio A
+        descripcion:
+          type: string
+          nullable: true
+          example: Edificio principal de aulas.
+        estado:
+          $ref: '#/components/schemas/Estado'
+    ZonaSeguraRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - nombre
+        - ubicacion
+        - descripcion
+        - capacidad
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Parqueadero norte
+        ubicacion:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Costado norte del campus
+        descripcion:
+          type: string
+          minLength: 1
+          example: Zona abierta con capacidad para evacuación masiva.
+        capacidad:
+          type: integer
+          minimum: 1
+          description: Capacidad aproximada de personas.
+          example: 500
+    ZonaSegura:
+      type: object
+      required:
+        - id
+        - nombre
+        - ubicacion
+        - descripcion
+        - capacidad
+        - estado
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 3
+        nombre:
+          type: string
+          example: Parqueadero norte
+        ubicacion:
+          type: string
+          example: Costado norte del campus
+        descripcion:
+          type: string
+          example: Zona abierta con capacidad para evacuación masiva.
+        capacidad:
+          type: integer
+          example: 500
+        estado:
+          $ref: '#/components/schemas/Estado'
+    CrearRutaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - espacioOrigenId
+        - zonaSeguraDestinoId
+        - descripcion
+        - estado
+      properties:
+        espacioOrigenId:
+          type: integer
+          format: int64
+          description: Debe existir, estar activo y no tener ya una ruta.
+          example: 11
+        zonaSeguraDestinoId:
+          type: integer
+          format: int64
+          description: Debe existir y estar activa.
+          example: 3
+        descripcion:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Recorrido recomendado.
+          example: Salga por la puerta principal y avance hasta el parqueadero.
+        estado:
+          $ref: '#/components/schemas/EstadoRuta'
+        rutaAlternativaId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Opcional. Ruta alternativa; debe existir.
+          example: null
+    ModificarRutaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - zonaSeguraDestinoId
+        - descripcion
+      properties:
+        zonaSeguraDestinoId:
+          type: integer
+          format: int64
+          description: Destino de la ruta (puede ser el mismo). Debe existir y estar activa.
+          example: 3
+        descripcion:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Recorrido recomendado.
+          example: Salga por la puerta lateral y avance hasta el parqueadero.
+        rutaAlternativaId:
+          type: integer
+          format: int64
+          nullable: true
+          description: Opcional. Ruta alternativa; debe existir.
+          example: null
+    CambiarEstadoRutaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - estado
+      properties:
+        estado:
+          $ref: '#/components/schemas/EstadoRuta'
+    Ruta:
+      type: object
+      required:
+        - id
+        - espacioOrigenId
+        - zonaSeguraDestinoId
+        - descripcion
+        - estado
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 7
+        espacioOrigenId:
+          type: integer
+          format: int64
+          example: 11
+        zonaSeguraDestinoId:
+          type: integer
+          format: int64
+          example: 3
+        rutaAlternativaId:
+          type: integer
+          format: int64
+          nullable: true
+          example: null
+        descripcion:
+          type: string
+          example: Salga por la puerta principal y avance hasta el parqueadero.
+        estado:
+          $ref: '#/components/schemas/EstadoRuta'
+        actualizadaEn:
+          type: string
+          format: date-time
+          example: '2026-10-20T15:30:00Z'
+    RutaConsultada:
+      type: object
+      required:
+        - espacioId
+        - tieneRuta
+        - destinoActivo
+        - mensaje
+      properties:
+        espacioId:
+          type: integer
+          format: int64
+          example: 11
+        espacioNombre:
+          type: string
+          example: Laboratorio de Redes
+        tieneRuta:
+          type: boolean
+          description: Falso si el espacio no tiene ruta asociada.
+          example: true
+        zonaSeguraId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 3
+        zonaSeguraNombre:
+          type: string
+          nullable: true
+          example: Parqueadero norte
+        zonaSeguraUbicacion:
+          type: string
+          nullable: true
+          example: Costado norte del campus
+        recorrido:
+          type: string
+          nullable: true
+          example: Salga por la puerta principal y avance hasta el parqueadero.
+        estado:
+          type: string
+          nullable: true
+          enum:
+            - DISPONIBLE
+            - BLOQUEADA
+            - RESTRINGIDA
+            - null
+          example: DISPONIBLE
+        destinoActivo:
+          type: boolean
+          description: Falso si la zona segura de destino está inactiva (o no hay ruta).
+          example: true
+        mensaje:
+          type: string
+          description: Texto para mostrar al usuario según el caso.
+          example: Ruta disponible.
+    ErrorResponse:
+      type: object
+      description: Cuerpo de error normalizado, sin trazas internas.
+      required:
+        - status
+        - codigo
+        - mensaje
+      properties:
+        status:
+          type: integer
+          example: 400
+        codigo:
+          type: string
+          example: VALIDACION
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            required:
+              - campo
+              - mensaje
+            properties:
+              campo:
+                type: string
+              mensaje:
+                type: string
+        correlation_id:
+          type: string
+          example: c19b-472d-a12b
