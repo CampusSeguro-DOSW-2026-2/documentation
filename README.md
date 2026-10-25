@@ -32,7 +32,7 @@ Cada carpeta usa el nombre del repositorio del MS y la misma estructura:
 |---|---|---|
 | MS01 — Identidad y acceso | [`ms01-identity-and-access/`](ms01-identity-and-access/) | Publicado |
 | MS02–MS08 | — | Pendiente de cada squad |
-| GW — API Gateway | Repositorio [`api-gateway`](https://github.com/CampusSeguro-DOSW-2026-2/api-gateway) (`docs/`) | Temporal; se moverá aquí |
+| GW — API Gateway | [`api-gateway/`](api-gateway/) | Publicado |
 
 ## Reglas
 

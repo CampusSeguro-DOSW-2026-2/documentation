@@ -1,0 +1,724 @@
+openapi: 3.0.3
+info:
+  title: api-gateway
+  version: 1.0.0
+  description: 'Puerta única de CampusSeguro para el tráfico externo y entre microservicios (GW - CampusSeguro).
+
+
+    **Qué define este contrato:** lo que ve quien llama al GW: rutas expuestas, política de acceso de cada una, credenciales, cabeceras y errores propios del GW. Los valores transversales están en los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales) (EST); la tabla de rutas y la configuración, en [02-contratos-integracion.md](../02-contratos-integracion.md) (GW-C). Los cuerpos de cada operación se referencian desde el `swagger.yml` del MS dueño y no se copian aquí.
+
+
+    **Políticas (`x-politica`):** `PUBLICA` sin credencial; `PROTEGIDA` con JWT **o** clave de servicio (por defecto); `INTERNA` solo con clave de servicio. `x-destino` indica la variable del MS al que se reenvía.
+
+
+    **Cómo llamar al GW:**
+
+    * **Clientes externos** (frontend, Postman): `Authorization: Bearer <JWT>` emitido por `POST /api/v1/auth/login`.
+
+    * **Microservicios** (EST §5): `${GATEWAY_URL}/api/v1/...` con `X-Service-Key`, el `X-Correlation-ID` recibido y, si actúan en nombre de un usuario, los `X-User-Id`/`X-User-Role` recibidos sin modificarlos. Nunca envían `Authorization` junto con `X-Service-Key`.
+
+
+    **Qué recibe el MS destino** (EST §4): `X-User-Id`, `X-User-Role` y `X-Correlation-ID`; además `X-Service-Name` (`ms01`…`ms08`) en las llamadas internas. Nunca recibe `Authorization` ni `X-Service-Key`. El método, la ruta, los query params y el cuerpo llegan sin cambios.
+
+
+    **Errores:** los del GW usan `ErrorResponse` (GW-C §4). Los errores de un MS se propagan sin cambios si cumplen `ErrorResponse` (cinco campos, `status` = código HTTP, `correlation_id` = el de la petición); si no, el GW responde `502`. Cada operación lista solo su respuesta exitosa y los errores del GW; los errores de negocio están en el contrato del MS.
+
+
+    **Rutas no listadas:** `404 NO_ENCONTRADO` sin llamar a ningún MS. El preflight CORS (`OPTIONS`) lo resuelve el GW (EST §2.1). Una ruta se agrega aquí y en GW-C solo cuando el MS la publica en su `swagger.yml`.'
+servers:
+  - url: http://localhost:8080
+    description: Acceso externo (desarrollo local)
+  - url: http://api-gateway:8080
+    description: Acceso interno desde los MS (red Docker, `GATEWAY_URL`)
+tags:
+  - name: Gateway
+    description: Endpoints propios del GW (no se enrutan).
+  - name: MS01 · Público
+    description: Rutas públicas de `ms01-identity-and-access` (lista cerrada de EST §2).
+  - name: MS01 · Protegido
+    description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con la Matriz Rol‐Permiso; el GW no autoriza por rol.
+  - name: MS08 · Interno
+    description: Rutas internas de `ms08-analytics-and-audit` (solo MS con clave de servicio).
+security:
+  - bearerAuth: []
+  - serviceKey: []
+paths:
+  /actuator/health:
+    get:
+      tags:
+        - Gateway
+      summary: Healthcheck del GW (RF-GW-07)
+      description: Responde en ≤ 200 ms con el estado propio del GW, sin consultar a otros servicios. El resto de Actuator solo está en el puerto de gestión interno.
+      x-politica: PUBLICA
+      x-destino: GW
+      security: []
+      responses:
+        '200':
+          description: GW en funcionamiento.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/v1/auth/register:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Registrar usuario institucional (RF-MS01-01)
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Usuario creado (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/login:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Autenticar usuario y obtener el JWT (RF-MS01-02)
+      description: El GW nunca registra el cuerpo ni el token (RF-GW-07).
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/password/forgot:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Solicitar código de recuperación (RF-MS01-08)
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MensajeOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/password/reset:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Restablecer contraseña con código (RF-MS01-08)
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MensajeOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - MS01 · Protegido
+      summary: Cerrar sesión (RF-MS01-04)
+      description: Protegida aunque esté bajo `/auth` (GW-C §3).
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      responses:
+        '200':
+          $ref: '#/components/responses/MensajeOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/me:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Consultar usuario autenticado (RF-MS01-03, RF-MS01-06)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+    put:
+      tags:
+        - MS01 · Protegido
+      summary: Actualizar perfil propio (RF-MS01-06)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/UserOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/me/password:
+    put:
+      tags:
+        - MS01 · Protegido
+      summary: Cambiar contraseña autenticado (RF-MS01-08)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MensajeOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Listar y buscar usuarios (RF-MS01-07)
+      description: Los query params (`correo`, `estado`, `rol`, `page`, `size`) son los del contrato MS01 y se reenvían sin cambios.
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      responses:
+        '200':
+          description: Página de usuarios (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/{id}:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Consultar usuario por id (RF-MS01-05, RF-MS01-07)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - name: id
+          in: path
+          required: true
+          description: UUID del usuario. El GW lo reenvía sin validarlo.
+          schema:
+            type: string
+            format: uuid
+            example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+      responses:
+        '200':
+          $ref: '#/components/responses/UserOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/status:
+    patch:
+      tags:
+        - MS01 · Protegido
+      summary: Activar/inactivar uno o varios usuarios (RF-MS01-07)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200':
+          description: Resultado por usuario (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ChangeStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/roles:
+    patch:
+      tags:
+        - MS01 · Protegido
+      summary: Agregar/retirar roles a uno o varios usuarios (RF-MS01-05)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ChangeRolesRequest'
+      responses:
+        '200':
+          description: Roles resultantes por usuario (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ChangeRolesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/roles:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Consultar roles y permisos (RF-MS01-05)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      responses:
+        '200':
+          description: Roles con sus permisos (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RolePermissions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/audit/events:
+    post:
+      tags:
+        - MS08 · Interno
+      summary: Registrar un evento de auditoría (EST §12)
+      description: '**Pendiente** del OpenAPI de MS08 (decisión abierta 1 de EST); el GW no la enruta hasta que se publique. El cuerpo del evento está definido en EST §12. El MS la invoca de forma asíncrona y no espera el resultado. Un cliente externo sin clave recibe 401 (CA-GW-08-03).'
+      x-politica: INTERNA
+      x-destino: MS08_URI
+      x-estado: PENDIENTE
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Evento de auditoría de EST §12.
+      responses:
+        '202':
+          description: Evento aceptado (MS08).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT RS256 emitido por MS01 y validado localmente por el GW (EST §3). Solo para clientes externos. El GW lo elimina antes de reenviar, incluso en rutas públicas.'
+    serviceKey:
+      type: apiKey
+      in: header
+      name: X-Service-Key
+      description: 'Clave de servicio del MS llamante (`GATEWAY_SERVICE_KEY`, EST §5). Solo para llamadas entre MS. El GW la valida en tiempo constante, la elimina e inyecta `X-Service-Name`.'
+  headers:
+    XCorrelationID:
+      description: UUID v4 de la petición, conservado o generado por el GW. Va en toda respuesta.
+      schema:
+        type: string
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  parameters:
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: UUID v4 de trazabilidad. Un MS llamante envía el que recibió. Si falta o no es un UUID v4 válido, el GW genera uno nuevo y nunca rechaza la petición.
+      schema:
+        type: string
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: false
+      description: 'Solo en llamadas internas con `X-Service-Key`, cuando el MS actúa en nombre de un usuario: el valor recibido, sin modificarlo. Va junto con `X-User-Role`; si falta uno de los dos o tiene formato inválido, 400. En peticiones externas el GW lo elimina y usa el `sub` del JWT.'
+      schema:
+        type: string
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    XUserRole:
+      name: X-User-Role
+      in: header
+      required: false
+      description: 'Solo en llamadas internas con `X-Service-Key`, junto con `X-User-Id`: los roles recibidos, sin modificarlos (separados por coma, sin espacios, en orden alfabético). En peticiones externas el GW lo elimina y usa los `roles` del JWT.'
+      schema:
+        type: string
+        pattern: ^[A-Z][A-Z0-9_]*(,[A-Z][A-Z0-9_]*)*$
+        example: BRIGADISTA,ESTUDIANTE
+  responses:
+    MensajeOk:
+      description: Operación exitosa (MS).
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/MensajeResponse'
+    UserOk:
+      description: Usuario (MS01).
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/User'
+    BadRequest:
+      description: 'GW: varias cabeceras `Authorization`, `Authorization` junto con `X-Service-Key`, o `X-User-*` inválidos en una llamada interna. También se propagan los 400 válidos del MS.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Solicitud inválida.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Unauthorized:
+      description: 'GW: JWT ausente o inválido (RF-GW-02), o clave de servicio ausente o inválida (RF-GW-08). El MS no recibe la petición.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Token ausente, inválido o expirado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    CorsForbidden:
+      description: 'GW: preflight CORS con origen, método o cabeceras no permitidos (RF-GW-04).'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: Acceso denegado por la política perimetral.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    NotFound:
+      description: 'GW: ruta sin destino (RF-GW-01). No se invoca ningún MS.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: Ruta no encontrada.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalError:
+      description: 'GW: excepción no controlada (RF-GW-05). También se propagan los 500 válidos del MS.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 500
+            codigo: ERROR_INTERNO
+            mensaje: Error interno del servidor.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    BadGateway:
+      description: 'GW: MS inalcanzable o error downstream que no cumple `ErrorResponse` (RF-GW-05). El detalle queda solo en el log del GW.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 502
+            codigo: SERVICIO_NO_DISPONIBLE
+            mensaje: Servicio temporalmente no disponible.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    GatewayTimeout:
+      description: 'GW: el MS supera `GATEWAY_DOWNSTREAM_TIMEOUT_MS` (RF-GW-01). Sin reintentos.'
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 504
+            codigo: TIEMPO_AGOTADO
+            mensaje: El servicio de destino no respondió a tiempo.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - UP
+          example: UP
+    ErrorResponse:
+      type: object
+      description: Cuerpo de error de EST §7.1. Los cinco campos son obligatorios y nunca `null`; sin trazas, URIs internas, IPs ni secretos.
+      additionalProperties: false
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+        - correlation_id
+      properties:
+        status:
+          type: integer
+          description: Igual al código HTTP.
+          example: 401
+        codigo:
+          type: string
+          description: Código del catálogo de EST §7.2.
+          example: NO_AUTENTICADO
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            required:
+              - campo
+              - mensaje
+            properties:
+              campo:
+                type: string
+              mensaje:
+                type: string
+        correlation_id:
+          type: string
+          format: uuid
+          description: Igual a la cabecera X-Correlation-ID.
+          example: c19b472d-7a2a-4d3b-a12b-abcdef123456

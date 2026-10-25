@@ -1,0 +1,55 @@
+@startuml componentes-gateway-simple
+' Diagrama de componentes simplificado del API Gateway (GW) — CampusSeguro
+' Fuente: api-gateway (README, pom.xml) y 01-requerimientos-funcionales (RF-GW-01…08).
+' Versión detallada: componentes-gateway.puml
+
+!include <C4/C4_Component.puml>
+
+LAYOUT_WITH_LEGEND()
+
+title API Gateway — Diagrama de componentes
+
+Person(cliente, "Frontend / Clientes HTTP", "Consumen la API de CampusSeguro")
+Person(devops, "DevOps / Monitoreo", "Supervisa el estado del GW")
+
+System_Boundary(campus, "CampusSeguro") {
+
+Container_Boundary(gw, "API Gateway (Spring Cloud Gateway · Java 21 · :8080)") {
+
+    Component(correlacion, "Correlación", "Filtro", "Conserva o genera X-Correlation-ID (RF-GW-06)")
+    Component(cors, "CORS", "Filtro", "Aplica la política CORS y responde el preflight (RF-GW-04)")
+    Component(seguridad, "Seguridad", "Filtro", "Valida JWT RS256 o X-Service-Key (RF-GW-02, RF-GW-08)")
+    Component(identidad, "Propagación de identidad", "Filtro", "Inyecta X-User-Id, X-User-Role y X-Service-Name (RF-GW-03)")
+    Component(enrutador, "Enrutador", "Spring Cloud Gateway", "Reenvía al MS por tabla de rutas, con timeout (RF-GW-01)")
+    Component(errores, "Manejo de errores", "Filtro", "Devuelve ErrorResponse; 502 si el MS no cumple (RF-GW-05)")
+    Component(observabilidad, "Logging y health", "Spring Boot Actuator", "Log por solicitud y /actuator/health (RF-GW-07)")
+    ComponentDb(config, "Configuración externa", "Variables de entorno", "Rutas, URIs, JWT, CORS y claves")
+}
+
+Container(ms01, "MS01 Identity and Access", "Microservicio", "Emite el JWT")
+Container(msOtros, "MS02 … MS08", "Microservicios", "Lógica de dominio")
+}
+
+' Entradas
+Rel(cliente, correlacion, "Solicitudes /api/v1/**", "HTTP :8080")
+Rel(devops, observabilidad, "Consulta estado", "/actuator")
+
+' Pipeline
+Rel(correlacion, cors, "")
+Rel(cors, seguridad, "")
+Rel(seguridad, identidad, "")
+Rel(identidad, enrutador, "")
+Rel(enrutador, errores, "Respuesta / fallo")
+Rel(errores, observabilidad, "Registra")
+Rel(config, seguridad, "Llaves y claves")
+Rel(config, enrutador, "Rutas y URIs")
+
+' Microservicios
+Rel(enrutador, ms01, "Reenvía", "HTTP interno")
+Rel(enrutador, msOtros, "Reenvía", "HTTP interno")
+Rel(ms01, correlacion, "Llamada interna", "X-Service-Key")
+Rel(msOtros, correlacion, "Llamada interna", "X-Service-Key")
+
+' https://www.vpascode.com/es/editor
+
+@enduml
