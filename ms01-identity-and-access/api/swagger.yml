@@ -5,7 +5,10 @@ info:
   description: 'Usuarios, autenticación, roles, permisos y sesiones (MS01 - CampusSeguro).
 
 
-    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 (RN-MS01-23).
+    **Estándares:** cabeceras, errores, paginación y JWT siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales); `x-permiso`/`x-roles` siguen la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
+
+
+    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 `NO_AUTENTICADO` (RN-MS01-23).
 
 
     **Auditoría:** MS01 no expone endpoints de auditoría; emite eventos asíncronos a `ms08-analytics-and-audit` (RNF-MS01-10).'
@@ -54,7 +57,7 @@ paths:
                 codigo: CONFLICTO
                 mensaje: El correo ya está registrado.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/login:
@@ -88,7 +91,7 @@ paths:
                 codigo: CREDENCIALES_INCORRECTAS
                 mensaje: Credenciales incorrectas.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '403':
           description: Cuenta inactiva.
           content:
@@ -100,7 +103,7 @@ paths:
                 codigo: CUENTA_INACTIVA
                 mensaje: Cuenta inactiva. Contacte al administrador.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/logout:
@@ -108,7 +111,7 @@ paths:
       tags:
         - Autenticación y sesión
       summary: Cerrar sesión (RF-MS01-04)
-      x-permiso: ms01:session:write
+      x-permiso: ms01:session:logout
       x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       description: Registra el logout (evento a MS08). El cliente descarta el token.
       responses:
@@ -178,7 +181,7 @@ paths:
                 codigo: CODIGO_INVALIDO
                 mensaje: Código incorrecto o vencido.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /users/me/password:
@@ -186,7 +189,7 @@ paths:
       tags:
         - Recuperación y cambio de clave
       summary: Cambiar contraseña autenticado (RF-MS01-08, F-06)
-      x-permiso: ms01:password:write
+      x-permiso: ms01:password:change
       x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
       requestBody:
         required: true
@@ -347,7 +350,7 @@ paths:
       tags:
         - Administración de usuarios
       summary: Activar/inactivar uno o varios usuarios (RF-MS01-07, F-08)
-      x-permiso: ms01:user_status:write
+      x-permiso: ms01:user:status
       x-roles: [ADMIN]
       description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404. En ambos casos no se aplica ningún cambio.
       requestBody:
@@ -378,7 +381,7 @@ paths:
                 codigo: PROHIBIDO
                 mensaje: No puede cambiar su propio estado.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
       parameters:
@@ -390,7 +393,7 @@ paths:
       tags:
         - Roles y permisos
       summary: Consultar roles y permisos (RF-MS01-05)
-      x-permiso: ms01:role:read
+      x-permiso: [ms01:role:read_own, ms01:role:read_all]
       x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       description: ADMIN recibe el catálogo completo; los demás usuarios solo sus propios roles (según `X-User-Role`).
       responses:
@@ -413,11 +416,12 @@ paths:
       tags:
         - Roles y permisos
       summary: Agregar/retirar roles a uno o varios usuarios (RF-MS01-05, F-09)
-      x-permiso: ms01:user_roles:write
+      x-permiso: ms01:user:roles
       x-roles: [ADMIN]
       description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404; si algún usuario quedaría sin roles, listas vacías o un rol en ambas listas, 400. En todos
         los casos de error no se aplica ningún cambio.
       parameters:
+        - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
         - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
@@ -448,16 +452,17 @@ paths:
                 codigo: PROHIBIDO
                 mensaje: No puede modificar sus propios roles.
                 errores: []
-                correlation_id: c19b-472d-a12b
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
 components:
   headers:
     XCorrelationID:
-      description: UUID generado por el Gateway que enlaza logs y eventos de auditoría.
+      description: UUID v4 de la petición (conservado o generado por el Gateway); enlaza logs y eventos de auditoría.
       schema:
         type: string
-        example: c19b-472d-a12b
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
   parameters:
     UserId:
       name: id
@@ -465,31 +470,34 @@ components:
       required: true
       schema:
         type: string
-        example: USR-1034
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
     XUserId:
       name: X-User-Id
       in: header
       required: true
-      description: Id del usuario autenticado.
+      description: UUID del usuario autenticado (claim `sub`).
       schema:
         type: string
-        example: USR-1034
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
     XUserRole:
       name: X-User-Role
       in: header
       required: true
-      description: Roles del usuario autenticado separados por coma.
+      description: Roles del usuario autenticado separados por coma, en orden alfabético.
       schema:
         type: string
-        example: ESTUDIANTE,BRIGADISTA
+        example: BRIGADISTA,ESTUDIANTE
     XCorrelationId:
       name: X-Correlation-ID
       in: header
       required: false
-      description: Identificador de trazabilidad de la petición.
+      description: UUID v4 de trazabilidad de la petición.
       schema:
         type: string
-        example: c19b-472d-a12b
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
   responses:
     BadRequest:
       description: Validación fallida (indica campo y regla; RG-05).
@@ -504,19 +512,31 @@ components:
             errores:
               - campo: primer_nombre
                 mensaje: El primer nombre debe tener entre 2 y 30 letras.
-            correlation_id: c19b-472d-a12b
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
       description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: No autenticado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Forbidden:
-      description: X-User-Role no incluye ADMIN.
+      description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No cuenta con los permisos suficientes para realizar esta operación.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     NotFound:
       description: Usuario no encontrado.
       content:
@@ -528,7 +548,7 @@ components:
             codigo: NO_ENCONTRADO
             mensaje: Usuario no encontrado.
             errores: []
-            correlation_id: c19b-472d-a12b
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
   schemas:
     Estado:
       type: string
@@ -623,7 +643,8 @@ components:
       properties:
         id:
           type: string
-          example: USR-1034
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         correo:
           $ref: '#/components/schemas/Correo'
         roles:
@@ -662,8 +683,8 @@ components:
       properties:
         token:
           type: string
-          description: JWT firmado.
-          example: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJVU1ItMTAzNCJ9.firma
+          description: JWT firmado con RS256 (ver 3_jwt-spec.md).
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZjZjMmE5ZSJ9.firma
         tipo:
           type: string
           example: Bearer
@@ -680,7 +701,8 @@ components:
           properties:
             id:
               type: string
-              example: USR-1034
+              format: uuid
+              example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
             correo:
               $ref: '#/components/schemas/Correo'
             roles:
@@ -771,7 +793,8 @@ components:
       properties:
         id:
           type: string
-          example: USR-1034
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         primer_nombre:
           $ref: '#/components/schemas/PrimerNombre'
         segundo_nombre:
@@ -787,8 +810,8 @@ components:
           items:
             $ref: '#/components/schemas/Rol'
           example:
-            - ESTUDIANTE
             - BRIGADISTA
+            - ESTUDIANTE
         estado:
           $ref: '#/components/schemas/Estado'
     UserPage:
@@ -828,8 +851,9 @@ components:
           minItems: 1
           items:
             type: string
+            format: uuid
           example:
-            - USR-1034
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         estado:
           $ref: '#/components/schemas/Estado'
     ChangeStatusResponse:
@@ -848,7 +872,8 @@ components:
             properties:
               id:
                 type: string
-                example: USR-1034
+                format: uuid
+                example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
               estado_anterior:
                 $ref: '#/components/schemas/Estado'
               estado_nuevo:
@@ -865,7 +890,7 @@ components:
           type: array
           items:
             type: string
-          description: Códigos de permiso del rol (ver 3_matriz-roles-permisos.md, RN-MS01-14).
+          description: Códigos de permiso del rol según la Matriz Rol‐Permiso de la wiki (RN-MS01-14).
           example:
             - ms02:campus:read
             - ms04:checkin:write
@@ -879,11 +904,14 @@ components:
           example: Operación exitosa.
     ErrorResponse:
       type: object
-      description: Cuerpo de error normalizado (RNF-MS01-04), sin trazas internas.
+      description: Cuerpo de error normalizado (RNF-MS01-04 y Estándares). Los cinco campos son obligatorios; sin trazas internas.
+      additionalProperties: false
       required:
         - status
         - codigo
         - mensaje
+        - errores
+        - correlation_id
       properties:
         status:
           type: integer
@@ -907,7 +935,9 @@ components:
                 type: string
         correlation_id:
           type: string
-          example: c19b-472d-a12b
+          format: uuid
+          description: Igual a la cabecera X-Correlation-ID.
+          example: c19b472d-7a2a-4d3b-a12b-abcdef123456
     ChangeRolesRequest:
       type: object
       additionalProperties: false
@@ -924,8 +954,9 @@ components:
           minItems: 1
           items:
             type: string
+            format: uuid
           example:
-            - USR-1034
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         agregar:
           type: array
           minItems: 1
@@ -959,11 +990,12 @@ components:
             properties:
               id:
                 type: string
-                example: USR-1034
+                format: uuid
+                example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
               roles:
                 type: array
                 items:
                   $ref: '#/components/schemas/Rol'
                 example:
-                  - ESTUDIANTE
                   - BRIGADISTA
+                  - ESTUDIANTE
