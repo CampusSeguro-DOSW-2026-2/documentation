@@ -22,6 +22,7 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 | [01-requerimientos-funcionales.md](01-requerimientos-funcionales.md) | RF-GW-01…08 con reglas y criterios de aceptación. |
 | [02-contratos-integracion.md](02-contratos-integracion.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios y configuración. |
 | [03-calidad-y-pruebas.md](03-calidad-y-pruebas.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…15. |
+| [adr/](adr/) | Decisiones de arquitectura ADR-001…005 (enrutamiento, errores, JWT, CORS, llamadas internas). |
 | [api/swagger.yml](api/swagger.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. **Estándar para que el frontend y los MS llamen al GW.** |
 | [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso) (wiki) | Permisos por rol (el GW no la aplica; la usa cada MS). |
 | [Contratos OpenAPI de los MS](https://github.com/CampusSeguro-DOSW-2026-2/documentation) | El GW solo enruta lo publicado allí. |

@@ -32,7 +32,7 @@
 | **Postcondiciones** | El cliente nunca conoce las URI, IPs ni puertos internos. |
 | **Criterios de aceptación** | **CA-GW-01-01:** `POST /api/v1/auth/login` llega a MS01 con el método, la ruta, el cuerpo y los query params sin cambios.<br>**CA-GW-01-02:** una ruta no configurada devuelve `404 NO_ENCONTRADO` sin invocar a un MS.<br>**CA-GW-01-03:** un destino caído devuelve `502` y un destino que demora más que `GATEWAY_DOWNSTREAM_TIMEOUT_MS` devuelve `504`.<br>**CA-GW-01-04:** ninguna respuesta expone URI internas, IPs, nombres de contenedores ni clases.<br>**CA-GW-01-05:** una configuración con prefijos duplicados, destino ausente o URI inválida impide el arranque y el log indica la causa. |
 | **Requerimientos asociados** | RF-GW-02…08, RNF-GW-01, RNF-GW-02, RNF-GW-06. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-02"></a>
 ### RF-GW-02 Validación del JWT
@@ -48,7 +48,7 @@
 | **Postcondiciones** | Las solicitudes protegidas rechazadas no consumen recursos de los MS. |
 | **Criterios de aceptación** | **CA-GW-02-01:** un JWT válido emitido por MS01 permite la solicitud.<br>**CA-GW-02-02:** sin `Authorization`, la respuesta es `401` y el MS no recibe la solicitud.<br>**CA-GW-02-03:** un token expirado, alterado, firmado con otra llave, con `alg: none`/`HS256`, o con `iss`/`aud` incorrectos devuelve `401`.<br>**CA-GW-02-04:** un token con `sub` que no es UUID, `roles` vacío o vigencia mayor a `JWT_MAX_LIFETIME_SECONDS` devuelve `401`.<br>**CA-GW-02-05:** las cuatro rutas públicas de MS01 funcionan sin JWT.<br>**CA-GW-02-06:** validar un JWT no genera ninguna llamada de red a MS01. |
 | **Requerimientos asociados** | RF-GW-01, RF-GW-03, RNF-GW-03; RF-MS01-03 (emisión). |
-| **Estado** | Pendiente / Equipo API Gateway, en coordinación con MS01 |
+| **Estado** | Implementado / Equipo API Gateway, en coordinación con MS01 |
 
 <a id="rf-gw-03"></a>
 ### RF-GW-03 Propagación de identidad y anti-suplantación
@@ -64,7 +64,7 @@
 | **Postcondiciones** | El MS recibe una identidad confiable sin conocer el token. |
 | **Criterios de aceptación** | **CA-GW-03-01:** un token con `sub = 3f6c2a9e-…` y `roles = [BRIGADISTA, ESTUDIANTE]` produce `X-User-Id: 3f6c2a9e-…` y `X-User-Role: BRIGADISTA,ESTUDIANTE`.<br>**CA-GW-03-02:** si el cliente envía `X-User-Role: ADMIN` con un token de `ESTUDIANTE`, el MS recibe solo `ESTUDIANTE`.<br>**CA-GW-03-03:** el MS nunca recibe `Authorization` ni `X-Service-Key`.<br>**CA-GW-03-04:** una ruta pública no recibe `X-User-Id` ni `X-User-Role`, aunque el cliente los envíe.<br>**CA-GW-03-05:** un `X-Service-Name` enviado por un cliente externo nunca llega al MS. |
 | **Requerimientos asociados** | RF-GW-02, RF-GW-06, RF-GW-08. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-04"></a>
 ### RF-GW-04 CORS centralizado
@@ -79,7 +79,7 @@
 | **Reglas de negocio** | <a id="rn-gw-13"></a>**RN-GW-13:** CORS no sustituye la autenticación. `X-Service-Key`, `X-User-Id` y `X-User-Role` no son cabeceras permitidas para el navegador. |
 | **Criterios de aceptación** | **CA-GW-04-01:** un preflight desde un origen permitido responde `200` con `Access-Control-Allow-Origin`, `-Methods` y `-Headers`, sin llamar al MS.<br>**CA-GW-04-02:** un preflight desde un origen no permitido responde `403` sin `Access-Control-Allow-Origin`.<br>**CA-GW-04-03:** una solicitud real permitida expone `X-Correlation-ID`.<br>**CA-GW-04-04:** la configuración `*` con credenciales impide el arranque. |
 | **Requerimientos asociados** | RF-GW-01, RF-GW-05. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-05"></a>
 ### RF-GW-05 Normalización de errores
@@ -94,7 +94,7 @@
 | **Reglas de negocio** | <a id="rn-gw-14"></a>**RN-GW-14:** un error del GW tiene exactamente los cinco campos de EST y nunca expone stack traces, clases, rutas internas, IPs, contenedores ni secretos.<br><a id="rn-gw-15"></a>**RN-GW-15:** los errores de negocio válidos de un MS (`400`, `401`, `403`, `404`, `405`, `409`, `415`, `422`, `5xx`) llegan al cliente sin cambios. |
 | **Criterios de aceptación** | **CA-GW-05-01:** un error de autenticación del GW contiene los cinco campos y `codigo: NO_AUTENTICADO`.<br>**CA-GW-05-02:** un `409 CONFLICTO` válido de MS01 llega sin cambios en el estado ni en el cuerpo.<br>**CA-GW-05-03:** un `405` del MS con un `ErrorResponse` válido llega sin cambios; un `405` con el cuerpo por defecto de Spring se convierte en `502`.<br>**CA-GW-05-04:** un error del MS sin `correlation_id`, o con otro valor, se convierte en `502`.<br>**CA-GW-05-05:** el `correlation_id` de un error del GW es igual a su cabecera `X-Correlation-ID`. |
 | **Requerimientos asociados** | RF-GW-01, RF-GW-06. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-06"></a>
 ### RF-GW-06 Correlación de solicitudes
@@ -109,7 +109,7 @@
 | **Reglas de negocio** | <a id="rn-gw-16"></a>**RN-GW-16:** la cabecera `X-Correlation-ID` de la respuesta siempre es la del contexto del GW. Un MS que devuelve otro valor en el cuerpo de un error incumple el contrato (RF-GW-05, A1). |
 | **Criterios de aceptación** | **CA-GW-06-01:** sin cabecera, se genera un UUID v4 que llega al MS y vuelve al cliente.<br>**CA-GW-06-02:** un UUID v4 válido se conserva de extremo a extremo.<br>**CA-GW-06-03:** un valor inválido o duplicado se reemplaza sin rechazar la solicitud. |
 | **Requerimientos asociados** | RF-GW-05, RF-GW-07. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-07"></a>
 ### RF-GW-07 Logging técnico y healthcheck
@@ -124,7 +124,7 @@
 | **Reglas de negocio** | <a id="rn-gw-17"></a>**RN-GW-17:** `duration_ms` se mide desde que la solicitud entra al GW hasta que termina la respuesta.<br><a id="rn-gw-18"></a>**RN-GW-18:** el GW no envía eventos a MS08 ni depende de él. |
 | **Criterios de aceptación** | **CA-GW-07-01:** una solicitud genera un log con todos los campos mínimos de EST, incluidos `upstream` y `origen`.<br>**CA-GW-07-02:** los logs de login y registro no contienen contraseña, token, `Authorization` ni `X-Service-Key`.<br>**CA-GW-07-03:** `GET /actuator/health` responde `200 {"status":"UP"}` sin JWT en `≤ 200 ms`.<br>**CA-GW-07-04:** `GET /actuator/metrics` en el puerto `SERVER_PORT` responde `404`. |
 | **Requerimientos asociados** | RF-GW-06, RNF-GW-04. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
 
 <a id="rf-gw-08"></a>
 ### RF-GW-08 Llamadas internas entre servicios
@@ -140,4 +140,4 @@
 | **Postcondiciones** | La llamada interna queda en el log con `origen = msNN` y la misma correlación. |
 | **Criterios de aceptación** | **CA-GW-08-01:** MS04 con una clave válida y `X-User-*` de un ESTUDIANTE llega a MS05 con `X-Service-Name: ms04` y la misma identidad.<br>**CA-GW-08-02:** una clave inválida devuelve `401` sin llamar al destino.<br>**CA-GW-08-03:** un cliente externo sin clave recibe `401` en `POST /api/v1/audit/events`.<br>**CA-GW-08-04:** el MS destino nunca recibe `X-Service-Key`. |
 | **Requerimientos asociados** | RF-GW-01, RF-GW-03, RF-GW-07. |
-| **Estado** | Pendiente / Equipo API Gateway |
+| **Estado** | Implementado / Equipo API Gateway |
