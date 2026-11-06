@@ -1,0 +1,994 @@
+openapi: 3.0.3
+info:
+  title: ms04-evacuation-and-check-in
+  version: 1.0.0
+  description: 'Reporte del estado de las personas y consolidación por punto de encuentro (MS04 - CampusSeguro).
+
+
+    **Estándares:** cabeceras, errores y paginación siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales); `x-permiso`/`x-roles` siguen la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
+
+
+    **Entradas de identidad:** todos los endpoints son protegidos: reciben `X-User-Id` y `X-User-Role` (roles separados por coma) y aceptan `X-Correlation-ID`. Si faltan las de identidad, MS04 responde 401 `NO_AUTENTICADO`. La identidad nunca viaja en el cuerpo (RN-MS04-06).
+
+
+    **Estados del check-in:** `SAFE` (Estoy a salvo), `EVACUATING` (Me estoy evacuando), `NEEDS_ASSISTANCE` (Requiero asistencia) y `OFF_CAMPUS` (No estoy en el campus) (RN-MS04-03).
+
+
+    **Evento:** el `eventId` es el id (UUID) de la alerta en MS03 (RN-MS04-01).
+
+
+    **Código propio:** `DEPENDENCIA_NO_DISPONIBLE` (503), cuando MS02, MS03 o MS05 no responden (RNF-MS04-11).
+
+
+    **Auditoría:** MS04 no expone endpoints de auditoría; emite eventos asíncronos a `ms08-analytics-and-audit` (RNF-MS04-17).'
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Acceso externo (API Gateway)
+tags:
+  - name: Evento activo
+  - name: Check-in propio
+  - name: Consolidación
+  - name: Asistencia
+  - name: Histórico y resultados
+paths:
+  /events/active:
+    get:
+      tags:
+        - Evento activo
+      summary: Consultar eventos activos que le aplican al usuario (RF-MS04-01)
+      x-permiso: ms04:checkin:read_own
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Alertas en estado Activa de MS03 de las que el usuario es destinatario, ordenadas por fecha de inicio. Lista vacía si no hay ninguna.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Eventos activos (puede ser una lista vacía).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventoActivo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /events/{eventId}/checkins:
+    post:
+      tags:
+        - Check-in propio
+      summary: Registrar o actualizar el propio check-in (RF-MS04-02, RF-MS04-03, RF-MS04-04, F-01)
+      x-permiso: [ms04:checkin:write, ms04:assistance:request]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Si el usuario no tiene check-in en el evento lo crea (201); si ya lo tiene, lo actualiza (200). `NEEDS_ASSISTANCE` exige además `ms04:assistance:request` y genera la solicitud en MS05. Un campo que no corresponde al estado o un id de usuario en el cuerpo se rechaza con 400.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckinRequest'
+            examples:
+              estoyASalvo:
+                summary: Estoy a salvo
+                value:
+                  estado: SAFE
+                  punto_encuentro_id: 3
+              meEstoyEvacuando:
+                summary: Me estoy evacuando
+                value:
+                  estado: EVACUATING
+              requieroAsistencia:
+                summary: Requiero asistencia
+                value:
+                  estado: NEEDS_ASSISTANCE
+                  ubicacion:
+                    tipo: EDIFICIO
+                    id: 12
+              noEstoyEnElCampus:
+                summary: No estoy en el campus
+                value:
+                  estado: OFF_CAMPUS
+      responses:
+        '201':
+          description: Check-in registrado.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinResponse'
+        '200':
+          description: Estado vigente actualizado (o sin cambios si es igual al vigente).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento o punto de encuentro inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: Punto de encuentro no encontrado.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '409':
+          description: El evento no está activo o hubo un cambio simultáneo del mismo usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: No existe un evento activo.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '422':
+          description: El evento no le aplica al usuario o el punto de encuentro está inactivo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: El punto de encuentro no está activo.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags:
+        - Consolidación
+      summary: Listar personas por estado y punto de encuentro (RF-MS04-06, F-02)
+      x-permiso: ms04:dashboard:read
+      x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Estados vigentes del evento. El BRIGADISTA solo recibe los de sus zonas asignadas. `punto_encuentro_id` solo se combina con `estado=SAFE` o sin estado.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '#/components/schemas/EstadoCheckin'
+        - name: punto_encuentro_id
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          example: 3
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de estados vigentes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+  /events/{eventId}/checkins/me:
+    get:
+      tags:
+        - Check-in propio
+      summary: Consultar el propio estado vigente (RF-MS04-05)
+      x-permiso: ms04:checkin:read_own
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Identifica al usuario por `X-User-Id`. Devuelve solo el estado vigente, no el histórico.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Estado vigente del usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckinResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Evento inexistente o el usuario no tiene check-in en el evento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: No tiene check-in en este evento.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  /events/{eventId}/consolidation:
+    get:
+      tags:
+        - Consolidación
+      summary: Consolidado del evento por estado y punto de encuentro (RF-MS04-06)
+      x-permiso: ms04:dashboard:read
+      x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Siempre incluye los cuatro estados (0 si no hay personas). El BRIGADISTA solo recibe la información de sus zonas asignadas.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Consolidado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consolidado'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+  /events/{eventId}/pending:
+    get:
+      tags:
+        - Consolidación
+      summary: Personas pendientes (RF-MS04-07, F-03)
+      x-permiso: ms04:dashboard:read
+      x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Destinatarios de la alerta (MS03) que no han reportado ninguno de los cuatro estados. `total_elementos` es el total de pendientes.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de pendientes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendientePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /events/{eventId}/assistance:
+    get:
+      tags:
+        - Asistencia
+      summary: Personas que requieren asistencia (RF-MS04-08, F-03)
+      x-permiso: ms04:dashboard:read
+      x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Personas con estado vigente `NEEDS_ASSISTANCE`, del reporte más antiguo al más reciente, con su solicitud en MS05 y su estado de envío. El BRIGADISTA solo recibe las de sus zonas asignadas. La asignación y la atención ocurren en MS05.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página de personas que requieren asistencia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsistenciaPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+  /events/{eventId}/history:
+    get:
+      tags:
+        - Histórico y resultados
+      summary: Histórico de check-ins del evento (RF-MS04-09, F-04)
+      x-permiso: ms04:history:read
+      x-roles: [COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Todos los estados reportados en el evento, en orden cronológico. Disponible para eventos activos y no vigentes.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+        - name: usuario_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '#/components/schemas/EstadoCheckin'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Página del histórico.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistorialPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+  /events/{eventId}/results:
+    get:
+      tags:
+        - Histórico y resultados
+      summary: Resultados del evento (RF-MS04-10)
+      x-permiso: ms04:history:read
+      x-roles: [COORDINADOR, ORGANIZADOR, AUDITOR]
+      description: Datos de check-in del evento para el organizador, el auditor, MS06 y MS08. `finales` es false mientras el evento siga activo. MS04 no calcula indicadores (RN-MS04-18). La política de acceso para MS06 y MS08 está pendiente (decisión abierta n.º 7).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EventId'
+      responses:
+        '200':
+          description: Resultados del evento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resultados'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EventNotFound'
+components:
+  headers:
+    XCorrelationID:
+      description: UUID v4 de la petición (conservado o generado por el Gateway); enlaza logs y eventos de auditoría.
+      schema:
+        type: string
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Id de la alerta en MS03 (RN-MS04-01).
+      schema:
+        type: string
+        format: uuid
+        example: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: UUID del usuario autenticado (claim `sub`).
+      schema:
+        type: string
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    XUserRole:
+      name: X-User-Role
+      in: header
+      required: true
+      description: Roles del usuario autenticado separados por coma, en orden alfabético.
+      schema:
+        type: string
+        example: BRIGADISTA,ESTUDIANTE
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: UUID v4 de trazabilidad de la petición.
+      schema:
+        type: string
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Validación fallida (indica campo y regla).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Datos inválidos.
+            errores:
+              - campo: punto_encuentro_id
+                mensaje: Seleccione el punto de encuentro donde está.
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Unauthorized:
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: No autenticado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Forbidden:
+      description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No cuenta con los permisos suficientes para realizar esta operación.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    EventNotFound:
+      description: Evento inexistente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: Evento no encontrado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    ServiceUnavailable:
+      description: MS02, MS03 o MS05 no responden (código propio de MS04, RNF-MS04-11).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 503
+            codigo: DEPENDENCIA_NO_DISPONIBLE
+            mensaje: El servicio no está disponible en este momento. Intente de nuevo.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  schemas:
+    EstadoCheckin:
+      type: string
+      enum:
+        - SAFE
+        - EVACUATING
+        - NEEDS_ASSISTANCE
+        - OFF_CAMPUS
+      description: 'SAFE = Estoy a salvo; EVACUATING = Me estoy evacuando; NEEDS_ASSISTANCE = Requiero asistencia; OFF_CAMPUS = No estoy en el campus (RN-MS04-03).'
+      example: SAFE
+    TipoUbicacion:
+      type: string
+      enum:
+        - EDIFICIO
+        - ESPACIO
+        - PUNTO_ENCUENTRO
+      description: Tipo de elemento de MS02 donde se requiere la asistencia (RN-MS04-09).
+      example: EDIFICIO
+    EstadoEnvio:
+      type: string
+      enum:
+        - ENVIADA
+        - PENDIENTE_ENVIO
+        - RECHAZADA
+      description: Estado del envío de la solicitud de asistencia a MS05 (RN-MS04-10).
+      example: ENVIADA
+    Ubicacion:
+      type: object
+      additionalProperties: false
+      required:
+        - tipo
+        - id
+      properties:
+        tipo:
+          $ref: '#/components/schemas/TipoUbicacion'
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Id del elemento en MS02.
+          example: 12
+    CheckinRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - estado
+      description: '`punto_encuentro_id` es obligatorio con SAFE y prohibido con los demás estados. `ubicacion` es obligatoria con NEEDS_ASSISTANCE y prohibida con los demás.'
+      properties:
+        estado:
+          $ref: '#/components/schemas/EstadoCheckin'
+        punto_encuentro_id:
+          type: integer
+          format: int64
+          minimum: 1
+          example: 3
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
+    SolicitudAsistencia:
+      type: object
+      required:
+        - estado_envio
+      properties:
+        id:
+          type: string
+          nullable: true
+          description: Id de la solicitud en MS05; null mientras no haya llegado.
+          example: null
+        estado_envio:
+          $ref: '#/components/schemas/EstadoEnvio'
+    CheckinResponse:
+      type: object
+      required:
+        - id
+        - evento_id
+        - estado
+        - fecha_hora
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d
+        evento_id:
+          type: string
+          format: uuid
+          example: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+        estado:
+          $ref: '#/components/schemas/EstadoCheckin'
+        punto_encuentro_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 3
+        ubicacion:
+          allOf:
+            - $ref: '#/components/schemas/Ubicacion'
+          nullable: true
+        solicitud_asistencia:
+          allOf:
+            - $ref: '#/components/schemas/SolicitudAsistencia'
+          nullable: true
+          description: Solo con NEEDS_ASSISTANCE.
+        fecha_hora:
+          type: string
+          format: date-time
+          description: Fecha/hora del registro o del último cambio.
+          example: '2026-11-05T15:04:12Z'
+    EventoActivo:
+      type: object
+      required:
+        - id
+        - tipo
+        - alcance
+        - fecha_inicio
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+        tipo:
+          type: string
+          description: Tipo de alerta tal como lo define MS03.
+          example: SIMULATION
+        alcance:
+          type: object
+          description: Alcance de la alerta tal como lo define MS03.
+          required:
+            - tipo
+          properties:
+            tipo:
+              type: string
+              example: CAMPUS
+            ids:
+              type: array
+              items:
+                type: string
+              example: []
+        fecha_inicio:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:00:00Z'
+    TotalesPorEstado:
+      type: object
+      description: Siempre incluye los cuatro estados (RN-MS04-13).
+      required:
+        - SAFE
+        - EVACUATING
+        - NEEDS_ASSISTANCE
+        - OFF_CAMPUS
+      properties:
+        SAFE:
+          type: integer
+          example: 120
+        EVACUATING:
+          type: integer
+          example: 35
+        NEEDS_ASSISTANCE:
+          type: integer
+          example: 4
+        OFF_CAMPUS:
+          type: integer
+          example: 18
+    TotalPorPunto:
+      type: object
+      required:
+        - punto_encuentro_id
+        - total
+      properties:
+        punto_encuentro_id:
+          type: integer
+          format: int64
+          example: 3
+        total:
+          type: integer
+          example: 80
+    Consolidado:
+      type: object
+      required:
+        - evento_id
+        - vigente
+        - total_reportados
+        - totales_por_estado
+        - por_punto_encuentro
+        - calculado_en
+      properties:
+        evento_id:
+          type: string
+          format: uuid
+          example: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+        vigente:
+          type: boolean
+          example: true
+        total_reportados:
+          type: integer
+          description: Suma de los cuatro estados.
+          example: 177
+        totales_por_estado:
+          $ref: '#/components/schemas/TotalesPorEstado'
+        por_punto_encuentro:
+          type: array
+          description: Solo personas en SAFE.
+          items:
+            $ref: '#/components/schemas/TotalPorPunto'
+        calculado_en:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:10:00Z'
+    CheckinResumen:
+      type: object
+      required:
+        - usuario_id
+        - estado
+        - fecha_hora
+      properties:
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        estado:
+          $ref: '#/components/schemas/EstadoCheckin'
+        punto_encuentro_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: 3
+        fecha_hora:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:04:12Z'
+    Pendiente:
+      type: object
+      required:
+        - usuario_id
+      properties:
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    PersonaAsistencia:
+      type: object
+      required:
+        - usuario_id
+        - ubicacion
+        - fecha_reporte
+        - solicitud_asistencia
+      properties:
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
+        fecha_reporte:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:06:40Z'
+        solicitud_asistencia:
+          $ref: '#/components/schemas/SolicitudAsistencia'
+    RegistroHistorial:
+      type: object
+      required:
+        - checkin_id
+        - usuario_id
+        - estado
+        - registrado_en
+      properties:
+        checkin_id:
+          type: string
+          format: uuid
+          example: 9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        estado:
+          $ref: '#/components/schemas/EstadoCheckin'
+        punto_encuentro_id:
+          type: integer
+          format: int64
+          nullable: true
+          example: null
+        ubicacion:
+          allOf:
+            - $ref: '#/components/schemas/Ubicacion'
+          nullable: true
+        registrado_en:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:02:05Z'
+    PrimerCheckin:
+      type: object
+      required:
+        - usuario_id
+        - primer_checkin_en
+      properties:
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        primer_checkin_en:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:02:05Z'
+    SolicitudResultado:
+      type: object
+      required:
+        - usuario_id
+        - solicitud_asistencia
+      properties:
+        usuario_id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        solicitud_asistencia:
+          $ref: '#/components/schemas/SolicitudAsistencia'
+    Resultados:
+      type: object
+      required:
+        - evento_id
+        - tipo
+        - fecha_inicio
+        - finales
+        - total_reportados
+        - totales_por_estado
+        - por_punto_encuentro
+        - solicitudes_asistencia
+        - primeros_checkins
+      properties:
+        evento_id:
+          type: string
+          format: uuid
+          example: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+        tipo:
+          type: string
+          description: Tipo de alerta según MS03.
+          example: SIMULATION
+        fecha_inicio:
+          type: string
+          format: date-time
+          example: '2026-11-05T15:00:00Z'
+        fecha_cierre:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-11-05T15:45:00Z'
+        finales:
+          type: boolean
+          description: true si el evento está no vigente; false si los resultados son parciales.
+          example: true
+        poblacion_objetivo:
+          type: integer
+          nullable: true
+          description: null si MS03 no entregó los destinatarios.
+          example: 200
+        total_reportados:
+          type: integer
+          example: 177
+        total_pendientes:
+          type: integer
+          nullable: true
+          description: null si MS03 no entregó los destinatarios.
+          example: 23
+        totales_por_estado:
+          $ref: '#/components/schemas/TotalesPorEstado'
+        por_punto_encuentro:
+          type: array
+          items:
+            $ref: '#/components/schemas/TotalPorPunto'
+        solicitudes_asistencia:
+          type: array
+          description: Personas que reportaron NEEDS_ASSISTANCE al menos una vez.
+          items:
+            $ref: '#/components/schemas/SolicitudResultado'
+        primeros_checkins:
+          type: array
+          description: Fecha/hora del primer check-in de cada usuario, para que MS06 y MS08 calculen sus indicadores.
+          items:
+            $ref: '#/components/schemas/PrimerCheckin'
+    PaginaBase:
+      type: object
+      required:
+        - page
+        - size
+        - total_elementos
+        - total_paginas
+      properties:
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total_elementos:
+          type: integer
+          example: 1
+        total_paginas:
+          type: integer
+          example: 1
+    CheckinPage:
+      allOf:
+        - $ref: '#/components/schemas/PaginaBase'
+        - type: object
+          required:
+            - contenido
+          properties:
+            contenido:
+              type: array
+              items:
+                $ref: '#/components/schemas/CheckinResumen'
+    PendientePage:
+      allOf:
+        - $ref: '#/components/schemas/PaginaBase'
+        - type: object
+          required:
+            - contenido
+          properties:
+            contenido:
+              type: array
+              items:
+                $ref: '#/components/schemas/Pendiente'
+    AsistenciaPage:
+      allOf:
+        - $ref: '#/components/schemas/PaginaBase'
+        - type: object
+          required:
+            - contenido
+          properties:
+            contenido:
+              type: array
+              items:
+                $ref: '#/components/schemas/PersonaAsistencia'
+    HistorialPage:
+      allOf:
+        - $ref: '#/components/schemas/PaginaBase'
+        - type: object
+          required:
+            - contenido
+          properties:
+            contenido:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistroHistorial'
+    ErrorResponse:
+      type: object
+      description: Cuerpo de error normalizado (RNF-MS04-11 y Estándares). Los cinco campos son obligatorios; sin trazas internas.
+      additionalProperties: false
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+        - correlation_id
+      properties:
+        status:
+          type: integer
+          example: 400
+        codigo:
+          type: string
+          example: VALIDACION
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            required:
+              - campo
+              - mensaje
+            properties:
+              campo:
+                type: string
+              mensaje:
+                type: string
+        correlation_id:
+          type: string
+          format: uuid
+          description: Igual a la cabecera X-Correlation-ID.
+          example: c19b472d-7a2a-4d3b-a12b-abcdef123456
