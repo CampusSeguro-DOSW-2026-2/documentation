@@ -27,7 +27,7 @@
 |:--|:--|
 | **Curso** | Desarrollo y Operaciones de Software 2026-2 |
 | **Fecha** | 06/11/2026 |
-| **Versión** | 1.0 |
+| **Versión** | 3.0 |
 
 ## 👥 Equipo
 
