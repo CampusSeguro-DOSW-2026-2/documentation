@@ -123,6 +123,8 @@ paths:
                 $ref: '#/components/schemas/MensajeResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -212,6 +214,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -233,6 +239,10 @@ paths:
                 $ref: '#/components/schemas/User'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -261,6 +271,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -339,6 +353,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -514,7 +530,7 @@ components:
                 mensaje: El primer nombre debe tener entre 2 y 30 letras.
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
-      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role) o no son válidas.
       content:
         application/json:
           schema:
