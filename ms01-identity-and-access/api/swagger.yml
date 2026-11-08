@@ -305,12 +305,12 @@ paths:
           example: maria.perez
         - name: estado
           in: query
-          description: Omitir equivale a Todos.
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
           schema:
             $ref: '#/components/schemas/Estado'
         - name: rol
           in: query
-          description: Omitir equivale a Todos.
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
           schema:
             $ref: '#/components/schemas/Rol'
         - name: page
@@ -619,7 +619,7 @@ components:
       name: X-User-Role
       in: header
       required: true
-      description: Roles del usuario autenticado separados por coma, en orden alfabético.
+      description: Roles del usuario autenticado separados por coma, en orden alfabético. MS01 no exige el orden, recorta los espacios e ignora los repetidos.
       schema:
         type: string
         example: BRIGADISTA,ESTUDIANTE
@@ -1170,7 +1170,7 @@ components:
             - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         agregar:
           type: array
-          minItems: 1
+          description: Una lista vacía equivale a no enviarla.
           maxItems: 8
           uniqueItems: true
           items:
@@ -1179,7 +1179,7 @@ components:
             - BRIGADISTA
         retirar:
           type: array
-          minItems: 1
+          description: Una lista vacía equivale a no enviarla.
           maxItems: 8
           uniqueItems: true
           items:

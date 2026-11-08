@@ -52,7 +52,7 @@ Referencia: [RF-MS01-02](1_requirements.md#rf-ms01-02-autenticar-usuario-login)
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Correo institucional | Correo | Sí | Máx. 100 caracteres | Formato de correo válido. | Formato (400): "Ingrese un correo válido." | maria.perez@escuelaing.edu.co |
-| Contraseña | Texto oculto | Sí | 1 a 64 caracteres | No vacía. No se revalida la política en el login. | Vacía (400): "Ingrese su contraseña." | Campus#2026 |
+| Contraseña | Texto oculto | Sí | 1 a 64 caracteres | No vacía. No se revalida la política en el login. | Vacía (400): "Ingrese su contraseña." Más de 64 caracteres (400): "La contraseña no puede superar los 64 caracteres." | Campus#2026 |
 
 **Mensajes globales de formulario:**
 * Errores de autenticación: credenciales incorrectas o cuenta inexistente (401): "Credenciales incorrectas."
@@ -126,8 +126,8 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Búsqueda por correo | Texto | No | 1 a 100 caracteres | Búsqueda parcial. Sin etiquetas HTML. | "Búsqueda no válida." | maria.perez |
-| Filtro de estado | Lista | No | ACTIVO / INACTIVO / Todos | Solo valores del catálogo. | "Estado no válido." | ACTIVO |
-| Filtro de rol | Lista | No | Uno de los 8 roles / Todos | Solo valores del catálogo. | "Rol no válido." | BRIGADISTA |
+| Filtro de estado | Lista | No | ACTIVO / INACTIVO / TODOS | Solo valores del catálogo, en mayúsculas. Vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. | "Estado no válido." | ACTIVO |
+| Filtro de rol | Lista | No | Uno de los 8 roles / TODOS | Solo valores del catálogo, en mayúsculas. Vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. | "Rol no válido." | BRIGADISTA |
 | Página | Número entero | No | ≥ 0 (por defecto 0) | Entero no negativo. | "Página no válida." | 0 |
 | Tamaño de página | Número entero | No | 1 a 100 (por defecto 20) | Entero en el rango. | "Tamaño de página no válido (1 a 100)." | 20 |
 
@@ -140,7 +140,7 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
-| Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Inexistente (404): "Usuario no encontrado." Propio (403): "No puede cambiar su propio estado." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
+| Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Ninguno: "Seleccione al menos un usuario." Id no válido: "Identificador de usuario no válido." Inexistente (404): "Usuario no encontrado." Propio (403): "No puede cambiar su propio estado." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
 | Nuevo estado | Lista | Sí | ACTIVO / INACTIVO | Solo valores del catálogo. | "Estado no válido." | INACTIVO |
 
 *Mockup F-08: (espacio reservado para insertar imagen de la confirmación de cambio de estado)*
@@ -152,9 +152,9 @@ Referencia: [RF-MS01-05](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permis
 
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
-| Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Inexistente (404): "Usuario no encontrado." Propio (403): "No puede modificar sus propios roles." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
-| Roles a agregar | Selección múltiple | No | Si se envía, 1 a 8 roles | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | BRIGADISTA |
-| Roles a retirar | Selección múltiple | No | Si se envía, 1 a 8 roles | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | PROFESOR |
+| Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Ninguno: "Seleccione al menos un usuario." Id no válido: "Identificador de usuario no válido." Inexistente (404): "Usuario no encontrado." Propio (403): "No puede modificar sus propios roles." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
+| Roles a agregar | Selección múltiple | No | Si se envía, hasta 8 roles (una lista vacía equivale a no enviarla) | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | BRIGADISTA |
+| Roles a retirar | Selección múltiple | No | Si se envía, hasta 8 roles (una lista vacía equivale a no enviarla) | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | PROFESOR |
 
 **Mensajes globales de formulario:**
 * Ninguna lista enviada: "Indique roles a agregar o retirar."

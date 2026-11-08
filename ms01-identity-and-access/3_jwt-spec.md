@@ -49,7 +49,7 @@ MS01 nunca recibe ni valida el token. Lee las cabeceras que inyecta el Gateway, 
 | Cabecera | Contenido | Si falta o es inválida |
 |---|---|---|
 | `X-User-Id` | UUID del usuario (`sub`). | 401 `NO_AUTENTICADO` |
-| `X-User-Role` | Roles separados por coma, en orden alfabético (p. ej. `BRIGADISTA,ESTUDIANTE`). Un rol fuera del catálogo invalida la cabecera. | 401 `NO_AUTENTICADO` |
+| `X-User-Role` | Roles separados por coma, en orden alfabético (p. ej. `BRIGADISTA,ESTUDIANTE`). MS01 no exige el orden, recorta los espacios e ignora los repetidos. Un rol fuera del catálogo invalida la cabecera. | 401 `NO_AUTENTICADO` |
 | `X-Service-Name` | Solo en endpoints internos: servicio que llama (`ms01`…`ms08`), derivado por el Gateway de su clave de servicio. Se compara sin distinguir mayúsculas con `INTERNAL_ALLOWED_SERVICES`. | Falta o vacía: 401 `NO_AUTENTICADO`. Servicio no autorizado: 403 `PROHIBIDO`. |
 | `X-Correlation-ID` | UUID v4. Si falta o no es un UUID v4, MS01 genera uno. | Nunca rechaza. |
 
@@ -73,7 +73,7 @@ MS01 confía en estas cabeceras porque solo el Gateway puede llegar a él (su pu
 
 | Variable | Servicio | Valor por defecto | Descripción |
 |---|---|---|---|
-| `JWT_PRIVATE_KEY` | MS01 | — (obligatoria fuera de desarrollo) | Llave privada RSA (≥ 2048 bits) en PEM PKCS#8 (`BEGIN PRIVATE KEY`; PKCS#1 se rechaza). Admite saltos de línea escritos como `\n`. Sin ella, MS01 genera un par efímero solo para desarrollo, que el Gateway no puede verificar. |
+| `JWT_PRIVATE_KEY` | MS01 | — (obligatoria fuera de desarrollo) | Llave privada RSA (≥ 2048 bits) en PEM PKCS#8 (`BEGIN PRIVATE KEY`; PKCS#1 se rechaza). Admite saltos de línea escritos como `\n` o solo el contenido Base64, sin las líneas BEGIN/END. Sin ella, MS01 genera un par efímero solo para desarrollo, que el Gateway no puede verificar. |
 | `JWT_KEY_ID` | MS01 | `ms01-2026-01` | Valor del `kid` (informativo). |
 | `JWT_PUBLIC_KEY` | Gateway | — | Llave pública en PEM del mismo par. |
 | `INTERNAL_ALLOWED_SERVICES` | MS01 | `ms03,ms05` | Servicios autorizados para los endpoints internos, separados por coma. |
