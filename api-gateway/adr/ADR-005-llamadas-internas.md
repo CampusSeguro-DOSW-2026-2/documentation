@@ -17,4 +17,4 @@ Algunos MS llaman a otros (p. ej. MS04 → MS05, MS01…MS07 → MS08). Si se ll
 ## Consecuencias
 * Agregar o cambiar una clave exige configuración y reinicio del GW y del MS llamante.
 * Una clave filtrada permite actuar como ese MS hasta rotarla; cada MS la guarda solo en su variable de entorno.
-* Las rutas internas (MS08, MS05) se agregan cuando sus OpenAPI se publiquen (decisiones abiertas 1 y 3 de los Estándares).
+* Las rutas internas de MS01 (`POST /api/v1/users/batch`, `GET /api/v1/users/by-role`) están activas. `POST /api/v1/audit/events` ya está declarada como interna, pero su ruta a MS08 se agrega cuando se publique su OpenAPI (decisión abierta 1 de los Estándares); la de MS05, con la decisión abierta 3.

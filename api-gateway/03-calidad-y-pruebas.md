@@ -10,7 +10,7 @@ Requisitos no funcionales verificables y pruebas de integración que deciden si 
 | <a id="rnf-gw-02"></a>**RNF-GW-02** | Confiabilidad | Timeout `GATEWAY_DOWNSTREAM_TIMEOUT_MS`, `502` ante conexión fallida, `504` ante timeout, sin reintentos y con los recursos liberados al cancelar. |
 | <a id="rnf-gw-03"></a>**RNF-GW-03** | Seguridad | Cero secretos en el repositorio; cero vulnerabilidades críticas en el Quality Gate; ninguna respuesta con detalles internos; solo el puerto `SERVER_PORT` publicado. |
 | <a id="rnf-gw-04"></a>**RNF-GW-04** | Observabilidad | Logs con los campos de los Estándares; health en `≤ 200 ms`; métricas de Actuator disponibles solo en `MANAGEMENT_SERVER_PORT`. |
-| <a id="rnf-gw-05"></a>**RNF-GW-05** | CI/CD | Java 21, Spring Boot y Maven; imagen Docker reproducible; GitHub Actions con un pipeline de **≤ 5 min**; cobertura **≥ 70 %** en filtros, configuración y manejo de errores; Quality Gate de SonarCloud aprobado. |
+| <a id="rnf-gw-05"></a>**RNF-GW-05** | CI/CD | Java 21, Spring Boot y Maven; imagen Docker reproducible; GitHub Actions con el job de compilación y pruebas en **≤ 5 min**; cobertura de líneas **≥ 70 %** de todo el código (JaCoCo, excepto la clase principal); Quality Gate de SonarCloud aprobado. |
 | <a id="rnf-gw-06"></a>**RNF-GW-06** | Configurabilidad | Cambiar rutas, destinos, JWT, CORS, claves o timeout solo exige configuración y reinicio. Una configuración inválida impide el arranque con un mensaje claro. |
 | <a id="rnf-gw-07"></a>**RNF-GW-07** | Contratos | Pruebas de contrato para las rutas públicas, cabeceras, JWT y `ErrorResponse`. Las decisiones de enrutamiento, JWT, CORS, errores y llamadas internas se documentan en ADR. |
 
@@ -30,12 +30,12 @@ Se ejecutan a través del GW, con MS01 real o con un doble que cumpla su `swagge
 | INT-GW-08 | Sin `X-Correlation-ID` o con un valor que no es UUID v4 | Se genera uno nuevo, se propaga y se devuelve. | `CorrelationIntegrationTest` |
 | INT-GW-09 | El MS tarda más que `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `504 TIEMPO_AGOTADO`. | `DownstreamFailureIntegrationTest` |
 | INT-GW-10 | Destino inaccesible | `502 SERVICIO_NO_DISPONIBLE` sin detalles internos. | `DownstreamFailureIntegrationTest` |
-| INT-GW-11 | Llamada interna con una clave de servicio válida y `X-User-*` | El destino recibe `X-Service-Name` y la identidad, sin `X-Service-Key`. | `InternalCallsIntegrationTest` |
-| INT-GW-12 | Llamada interna con una clave inválida, o ruta interna sin clave | `401 NO_AUTENTICADO`; el destino no recibe nada. | `InternalCallsIntegrationTest` |
+| INT-GW-11 | Llamada interna con una clave de servicio válida y `X-User-*` | El destino recibe `X-Service-Name` y la identidad, sin `X-Service-Key`. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest` |
+| INT-GW-12 | Llamada interna con una clave inválida, o ruta interna sin clave | `401 NO_AUTENTICADO`; el destino no recibe nada. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest` |
 | INT-GW-13 | Acceso directo desde fuera al puerto de un MS | Bloqueado por la red/despliegue. | `docker-compose.yml` (verificación manual del README) |
 | INT-GW-14 | `GET /actuator/health` | `200 {"status":"UP"}` en `≤ 200 ms`; `/actuator/metrics` en `SERVER_PORT` responde `404`. | `HealthIntegrationTest` |
 | INT-GW-15 | Preflight CORS desde un origen permitido y uno no permitido | `200` con cabeceras CORS / `403`. | `CorsIntegrationTest` |
 
 ## Condición de cierre
 
-El GW se considera integrable con MS01 cuando pasan INT-GW-01 a INT-GW-10 y los criterios de aceptación de RF-GW-01…07. INT-GW-11 y 12 se exigen al activar la primera llamada interna (MS→MS08), e INT-GW-13 a 15 al desplegar en Docker.
+El GW se considera integrable con MS01 cuando pasan INT-GW-01 a INT-GW-10 y los criterios de aceptación de RF-GW-01…07. INT-GW-11 y 12 se exigen desde que hay llamadas internas activas (MS03 y MS05 → MS01), e INT-GW-13 a 15 al desplegar en Docker.

@@ -7,7 +7,7 @@ El frontend corre en el navegador con otro origen. Si cada MS configurara CORS h
 
 ## Decisión
 * **CORS solo en el GW** (Estándares §2.1); los MS no lo configuran.
-* **Orígenes por ambiente** (`CORS_ALLOWED_ORIGINS`, obligatoria; el perfil `local` trae el de Vite). Métodos, cabeceras permitidas (`Authorization`, `Content-Type`, `Accept`, `X-Correlation-ID`) y la expuesta (`X-Correlation-ID`) son fijos. Las cabeceras internas (`X-User-*`, `X-Service-*`) nunca se permiten al navegador.
+* **Orígenes por ambiente** (`CORS_ALLOWED_ORIGINS`, obligatoria; los perfiles `local` y `docker` traen el de Vite, `http://localhost:5173`). Métodos, cabeceras permitidas (`Authorization`, `Content-Type`, `Accept`, `X-Correlation-ID`) y la expuesta (`X-Correlation-ID`) son fijos. Las cabeceras internas (`X-User-*`, `X-Service-*`) nunca se permiten al navegador.
 * **Prohibido `*` con credenciales**, y prohibido un origen con ruta o barra final: el GW no arranca.
 * **El preflight se resuelve en el GW** con el soporte CORS del mapeo de rutas de Spring Cloud Gateway. Se evalúa después de resolver la ruta (ruta inexistente → `404`) y antes de los filtros (no exige JWT ni llama al MS).
   * Preflight no permitido: `403 PROHIBIDO` con `ErrorResponse`.

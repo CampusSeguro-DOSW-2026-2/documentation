@@ -6,7 +6,7 @@
 MS01 emite el JWT y el GW debe aceptarlo en cada solicitud protegida sin agregar latencia ni depender de MS01 en caliente (Estándares §3).
 
 ## Decisión
-* **Política de acceso por método + ruta exacta**, en configuración (`gateway.access`): 5 rutas públicas y 1 interna, sin comodines (se valida al arrancar). Todo lo demás es protegido. La política solo se evalúa en rutas con destino; una ruta inexistente responde `404`.
+* **Política de acceso por método + ruta exacta**, en configuración (`gateway.access`): 5 rutas públicas y 3 internas, sin comodines (se valida al arrancar). Todo lo demás es protegido. La política solo se evalúa en rutas con destino; una ruta inexistente responde `404`.
 * **RS256 con una sola llave pública** (`JWT_PUBLIC_KEY`, RSA ≥ 2048 bits) verificada localmente con Nimbus JOSE + JWT. El algoritmo se exige **antes** de verificar la firma, así que se rechazan `none`, `HS256` y cualquier otro.
 * Se validan `iss`, `aud`, `exp`, `iat`, `nbf` (con tolerancia de reloj), `sub` UUID, `roles` no vacío con formato `^[A-Z][A-Z0-9_]*$` y `exp − iat ≤ JWT_MAX_LIFETIME_SECONDS`. `kid`, `email` y `jti` se ignoran.
 * **Sin JWKS, sin rotación, sin introspección ni revocación.**

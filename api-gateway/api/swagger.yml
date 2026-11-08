@@ -64,6 +64,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: El propio GW no está sano.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: DOWN
   /api/v1/auth/register:
     post:
       tags:
@@ -474,7 +485,6 @@ paths:
       description: 'Hasta 100 ids. MS01 responde con `usuarios` y `no_encontrados`; sus errores (400, 403 si el servicio no está autorizado) están en el contrato MS01. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS01_URI
-      x-estado: PENDIENTE
       security:
         - serviceKey: []
       parameters:
@@ -513,7 +523,6 @@ paths:
       description: 'Los query params (`rol`, `creado_antes`, `page`, `size`) son los del contrato MS01 y se reenvían sin cambios. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS01_URI
-      x-estado: PENDIENTE
       security:
         - serviceKey: []
       parameters:
@@ -543,7 +552,7 @@ paths:
       tags:
         - MS08 · Interno
       summary: Registrar un evento de auditoría (EST §12)
-      description: '**Pendiente** del OpenAPI de MS08 (decisión abierta 1 de EST); el GW no la enruta hasta que se publique. El cuerpo del evento está definido en EST §12. El MS la invoca de forma asíncrona y no espera el resultado. Un cliente externo sin clave recibe 401 (CA-GW-08-03).'
+      description: '**Pendiente** del OpenAPI de MS08 (decisión abierta 1 de EST); el GW no la enruta hasta que se publique. El cuerpo del evento está definido en EST §12. El MS la invoca de forma asíncrona y no espera el resultado. Mientras no tenga ruta responde `404 NO_ENCONTRADO`; con la ruta, un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS08_URI
       x-estado: PENDIENTE
@@ -642,7 +651,7 @@ components:
           schema:
             $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/User'
     BadRequest:
-      description: 'GW: varias cabeceras `Authorization`, `Authorization` junto con `X-Service-Key`, o `X-User-*` inválidos en una llamada interna. También se propagan los 400 válidos del MS.'
+      description: 'GW: varias cabeceras `Authorization` o `X-Service-Key`, `Authorization` junto con `X-Service-Key`, o `X-User-*` inválidos en una llamada interna. También se propagan los 400 válidos del MS.'
       headers:
         X-Correlation-ID:
           $ref: '#/components/headers/XCorrelationID'
@@ -757,6 +766,7 @@ components:
           type: string
           enum:
             - UP
+            - DOWN
           example: UP
     ErrorResponse:
       type: object

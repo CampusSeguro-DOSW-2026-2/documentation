@@ -54,12 +54,12 @@ Formato: `ErrorResponse` de EST. El GW solo genera estos casos:
 
 | HTTP | `codigo` | Cuándo | `mensaje` |
 |---:|---|---|---|
-| 400 | `VALIDACION` | Varias cabeceras `Authorization`; `Authorization` junto con `X-Service-Key`; `X-User-*` inválidos en una llamada interna | `Solicitud inválida.` |
+| 400 | `VALIDACION` | Varias cabeceras `Authorization` o `X-Service-Key`; `Authorization` junto con `X-Service-Key`; `X-User-*` inválidos en una llamada interna | `Solicitud inválida.` |
 | 401 | `NO_AUTENTICADO` | JWT ausente o inválido (RF-GW-02); clave de servicio ausente o inválida (RF-GW-08) | `Token ausente, inválido o expirado.` |
 | 403 | `PROHIBIDO` | Preflight CORS no permitido | `Acceso denegado por la política perimetral.` |
 | 404 | `NO_ENCONTRADO` | Ruta sin destino | `Ruta no encontrada.` |
 | 500 | `ERROR_INTERNO` | Excepción no controlada en el GW | `Error interno del servidor.` |
-| 502 | `SERVICIO_NO_DISPONIBLE` | MS inalcanzable o error downstream no conforme | `Servicio temporalmente no disponible.` |
+| 502 | `SERVICIO_NO_DISPONIBLE` | MS inalcanzable (conexión rechazada o cortada, DNS no resuelto) o error downstream no conforme (RF-GW-05) | `Servicio temporalmente no disponible.` |
 | 504 | `TIEMPO_AGOTADO` | El MS supera `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `El servicio de destino no respondió a tiempo.` |
 
 ## 5. Configuración
@@ -68,6 +68,7 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 
 | Variable | Defecto | Uso |
 |---|---|---|
+| `SPRING_PROFILES_ACTIVE` | — (el `Dockerfile` fija `docker`) | `local` (MS01 en `localhost:8081`) o `docker` (MS01 por su nombre DNS en la red Docker). |
 | `SERVER_PORT` | `8080` | Puerto externo (el único publicado). |
 | `MANAGEMENT_SERVER_PORT` | `9090` | Actuator (métricas); solo red interna. |
 | `MS01_URI` … `MS08_URI` | — (obligatoria por MS activo) | Ej.: `http://ms01-identity-and-access:8081`. |
@@ -80,11 +81,10 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `CORS_ALLOWED_ORIGINS` | — (obligatoria) | Orígenes separados por coma. |
 | `CORS_ALLOW_CREDENTIALS` | `false` | Si es `true`, se prohíbe `*`. |
 | `CORS_MAX_AGE_SECONDS` | `3600` | Vigencia del preflight. |
-| `GATEWAY_DOCS_ENABLED` | `false` (`true` solo en local) | OpenAPI del propio GW. |
 | `LOG_LEVEL` | `INFO` | Nivel base. |
 
-* La configuración se valida al arrancar: si falta una variable obligatoria o una ruta es inválida, el GW no arranca.
-* Hay perfiles `local` y `docker` (URIs y orígenes distintos). Los secretos nunca van en el repositorio.
+* La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; CORS; claves de servicio, RN-GW-20), el GW no arranca y el log indica la causa.
+* Los perfiles `local` y `docker` solo cambian `MS01_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). Los secretos nunca van en el repositorio.
 
 ## 6. Dependencias
 
