@@ -44,15 +44,18 @@ JWT (RFC 7519) firmado con RS256 y una llave RSA de al menos 2048 bits.
 
 ## Identidad en MS01
 
-MS01 nunca recibe ni valida el token. En los endpoints protegidos lee las cabeceras que inyecta el Gateway, con el formato de los Estándares:
+MS01 nunca recibe ni valida el token. Lee las cabeceras que inyecta el Gateway, con el formato de los Estándares: `X-User-Id` y `X-User-Role` en los endpoints protegidos, y `X-Service-Name` en los internos ([RF-MS01-09](1_requirements.md#rf-ms01-09-resolución-interna-de-usuarios)), que no exigen identidad de usuario:
 
 | Cabecera | Contenido | Si falta o es inválida |
 |---|---|---|
 | `X-User-Id` | UUID del usuario (`sub`). | 401 `NO_AUTENTICADO` |
 | `X-User-Role` | Roles separados por coma, en orden alfabético (p. ej. `BRIGADISTA,ESTUDIANTE`). Un rol fuera del catálogo invalida la cabecera. | 401 `NO_AUTENTICADO` |
+| `X-Service-Name` | Solo en endpoints internos: servicio que llama (`ms01`…`ms08`), derivado por el Gateway de su clave de servicio. Se compara sin distinguir mayúsculas con `INTERNAL_ALLOWED_SERVICES`. | Falta o vacía: 401 `NO_AUTENTICADO`. Servicio no autorizado: 403 `PROHIBIDO`. |
 | `X-Correlation-ID` | UUID v4. Si falta o no es un UUID v4, MS01 genera uno. | Nunca rechaza. |
 
-Con los roles, MS01 calcula los permisos (unión de la Matriz) y autoriza cada operación. Si falta el permiso, responde 403 `PROHIBIDO`.
+Con los roles, MS01 calcula los permisos (unión de la Matriz) y autoriza cada operación. Si falta el permiso, responde 403 `PROHIBIDO`. Los endpoints internos no usan la Matriz: los autoriza la lista de servicios.
+
+MS01 confía en estas cabeceras porque solo el Gateway puede llegar a él (su puerto no se publica, [Estándares §2](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales)). Quien acceda a la red interna sin pasar por el Gateway podría falsificarlas.
 
 ---
 
@@ -73,6 +76,7 @@ Con los roles, MS01 calcula los permisos (unión de la Matriz) y autoriza cada o
 | `JWT_PRIVATE_KEY` | MS01 | — (obligatoria fuera de desarrollo) | Llave privada RSA (≥ 2048 bits) en PEM PKCS#8 (`BEGIN PRIVATE KEY`; PKCS#1 se rechaza). Admite saltos de línea escritos como `\n`. Sin ella, MS01 genera un par efímero solo para desarrollo, que el Gateway no puede verificar. |
 | `JWT_KEY_ID` | MS01 | `ms01-2026-01` | Valor del `kid` (informativo). |
 | `JWT_PUBLIC_KEY` | Gateway | — | Llave pública en PEM del mismo par. |
+| `INTERNAL_ALLOWED_SERVICES` | MS01 | `ms03,ms05` | Servicios autorizados para los endpoints internos, separados por coma. |
 
 `iss`, `aud` y la vigencia no son configurables en MS01.
 

@@ -6,7 +6,7 @@ Cada tema se documenta en un solo archivo; los demás enlazan a él.
 
 | Documento | Única fuente de |
 |---|---|
-| [`1_requirements.md`](1_requirements.md) | Comportamiento: RF-MS01-01…08, reglas de negocio, RNF y tabla de endpoints con permisos. |
+| [`1_requirements.md`](1_requirements.md) | Comportamiento: RF-MS01-01…09, reglas de negocio, RNF y tabla de endpoints con permisos. |
 | [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios F-01…F-09: campos, validaciones y mensajes. |
 | [`3_jwt-spec.md`](3_jwt-spec.md) | Detalle técnico de la sesión: token, cabeceras de identidad, ciclo de vida y llaves. |
 | [`4_modelo-datos.md`](4_modelo-datos.md) | Tablas, almacenamiento seguro, operaciones en BD, configuración y datos iniciales. |

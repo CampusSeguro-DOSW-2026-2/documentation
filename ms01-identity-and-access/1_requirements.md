@@ -13,6 +13,7 @@ Este documento define solo el comportamiento de MS01. Los valores transversales 
    - [RF-MS01-06 Gestión del perfil](#rf-ms01-06-gestión-del-perfil)
    - [RF-MS01-07 Administración de usuarios: consulta y activación/inactivación](#rf-ms01-07-administración-de-usuarios)
    - [RF-MS01-08 Recuperación y cambio de contraseña](#rf-ms01-08-recuperación-y-cambio-de-contraseña)
+   - [RF-MS01-09 Resolución interna de usuarios](#rf-ms01-09-resolución-interna-de-usuarios)
 3. [Requerimientos No Funcionales (RNF)](#requerimientos-no-funcionales-rnf)
 4. [API: ms01-identity-and-access](#api-ms01-identity-and-access)
 
@@ -87,7 +88,7 @@ Este documento define solo el comportamiento de MS01. Los valores transversales 
 | **Precondiciones** | Autenticación exitosa ([RF-MS01-02](#rf-ms01-02-autenticar-usuario-login)). |
 | **Flujo base** | <ol><li>Al iniciar sesión, MS01 emite una credencial de acceso firmada con la identidad del usuario, sus roles vigentes y su vencimiento ([`3_jwt-spec.md`](3_jwt-spec.md)).</li><li>El cliente presenta la credencial en cada petición.</li><li>El API Gateway la verifica. Si es inválida o venció, responde 401 sin llegar a MS01 y el cliente debe iniciar sesión de nuevo. Si es válida, entrega a MS01 la identidad del solicitante ([RN-MS01-23](#rf-ms01-03-gestión-de-sesión)).</li><li>MS01 identifica al usuario y autoriza la operación con sus roles y la Matriz Rol‐Permiso. Si en un endpoint protegido la identidad falta o no es válida, responde 401 `NO_AUTENTICADO`. Si los roles no tienen el permiso requerido, responde 403 `PROHIBIDO`.</li></ol> |
 | **Flujos alternos** | — |
-| **Reglas De Negocio** | <ul><li>**RN-MS01-07:** La credencial de acceso la firma MS01 y el Gateway la verifica sin consultar a MS01 ([formato y firma](3_jwt-spec.md)).</li><li>**RN-MS01-08:** La credencial no contiene contraseñas ni datos sensibles.</li><li>**RN-MS01-09:** Un cambio de rol o de estado se refleja en la siguiente credencial emitida. Las ya emitidas conservan sus datos hasta vencer, por eso su vigencia es corta.</li><li>**RN-MS01-23:** El registro, el login y la recuperación de contraseña son públicos. Los demás endpoints reciben la identidad del solicitante (id y roles) solo en las cabeceras que inyecta el Gateway, nunca en el cuerpo ([cabeceras](3_jwt-spec.md#identidad-en-ms01)).</li></ul> |
+| **Reglas De Negocio** | <ul><li>**RN-MS01-07:** La credencial de acceso la firma MS01 y el Gateway la verifica sin consultar a MS01 ([formato y firma](3_jwt-spec.md)).</li><li>**RN-MS01-08:** La credencial no contiene contraseñas ni datos sensibles.</li><li>**RN-MS01-09:** Un cambio de rol o de estado se refleja en la siguiente credencial emitida. Las ya emitidas conservan sus datos hasta vencer, por eso su vigencia es corta.</li><li>**RN-MS01-23:** El registro, el login y la recuperación de contraseña son públicos. Las consultas internas ([RF-MS01-09](#rf-ms01-09-resolución-interna-de-usuarios)) reciben la identidad del servicio que llama. Los demás endpoints reciben la identidad del solicitante (id y roles) solo en las cabeceras que inyecta el Gateway, nunca en el cuerpo ([cabeceras](3_jwt-spec.md#identidad-en-ms01)).</li></ul> |
 | **Postcondiciones** | Solo las peticiones con una credencial válida y vigente llegan a los recursos protegidos. |
 | **Requerimientos asociados** | [RF-MS01-02](#rf-ms01-02-autenticar-usuario-login), [RF-MS01-04](#rf-ms01-04-cerrar-sesión-logout), [RF-MS01-05](#rf-ms01-05-gestión-de-roles-y-permisos), RF-GW-02 (verificación en el Gateway) |
 | **Criterios de aceptación** | <ul><li>El Gateway puede verificar la credencial emitida, que cumple [`3_jwt-spec.md`](3_jwt-spec.md).</li><li>Un endpoint protegido sin identidad responde 401.</li><li>La credencial muestra los roles vigentes al momento del login.</li><li>Tras cambiar el rol de un usuario, su siguiente login emite una credencial con el nuevo rol.</li></ul> |
@@ -199,6 +200,27 @@ Este documento define solo el comportamiento de MS01. Los valores transversales 
 | **Prioridad** | Alta |
 | **Estado / Squad responsable** | Implementado / kAiRoS |
 
+<br>
+
+### RF-MS01-09 Resolución interna de usuarios
+
+| Atributo | Detalle |
+|---|---|
+| **ID** | RF-MS01-09 |
+| **Nombre** | Resolución interna de usuarios |
+| **Épica / Grupo funcional** | MS01 - Integración |
+| **Descripción** | Permitir que otros microservicios autorizados consulten los datos de varios usuarios por su id o de todos los usuarios con un rol, sin usar una cuenta de usuario. |
+| **Actor(es)** | Microservicios autorizados, a través del API Gateway: MS03 (destinatarios de alertas) y MS05 (brigadistas). |
+| **Precondiciones** | El Gateway identificó al servicio que llama ([identidad del servicio](3_jwt-spec.md#identidad-en-ms01)). |
+| **Flujo base** | <ul><li><b>Flujo base A, consulta por ids:</b><ol><li>El servicio envía de 1 a 100 ids de usuario.</li><li>El sistema verifica que el servicio esté identificado y autorizado ([RN-MS01-24](#rf-ms01-09-resolución-interna-de-usuarios)). Si no está identificado, responde 401; si no está autorizado, responde 403.</li><li>Valida la lista: entre 1 y 100 ids, cada uno con formato válido y sin campos adicionales. Si algo falla, responde 400 indicando el campo.</li><li>Responde 200 con los usuarios encontrados, sin repetidos y en el orden pedido, y con la lista de ids que no existen.</li></ol></li><li><b>Flujo base B, consulta por rol:</b><ol><li>El servicio envía el rol, la página y, opcionalmente, una fecha de corte.</li><li>El sistema verifica el servicio como en el paso A2.</li><li>Valida que el rol sea del catálogo y que la fecha de corte, la página y el tamaño sean válidos ([F-07](2_forms-inputs.md#f-07-búsqueda-y-filtros-de-usuarios) para la paginación). Si algo falla, responde 400 indicando el campo.</li><li>Responde 200 con la página de usuarios que tienen el rol y, si llegó la fecha de corte, que se registraron hasta ese momento, en un orden fijo.</li></ol></li></ul> |
+| **Flujos alternos** | — |
+| **Reglas De Negocio** | <ul><li>**RN-MS01-24:** Solo los servicios configurados como autorizados usan estas consultas. No se autorizan con la Matriz Rol‐Permiso ni con los roles de un usuario.</li><li>**RN-MS01-25:** Las respuestas incluyen usuarios activos e inactivos, con su estado. El servicio que consulta decide a cuáles usar.</li><li>**RN-MS01-26:** Estas consultas no modifican datos ni generan eventos de auditoría.</li></ul> |
+| **Postcondiciones** | Ninguna: solo lectura. |
+| **Requerimientos asociados** | [RF-MS01-03](#rf-ms01-03-gestión-de-sesión), [RF-MS01-07](#rf-ms01-07-administración-de-usuarios) |
+| **Criterios de aceptación** | <ul><li>Una consulta con ids existentes e inexistentes devuelve 200 con los usuarios encontrados y los ids que no existen.</li><li>Más de 100 ids, o un id con formato inválido, devuelve 400.</li><li>Un servicio no autorizado recibe 403, y una llamada sin servicio identificado, 401.</li><li>Recorriendo todas las páginas con la misma fecha de corte se obtienen todos los usuarios con el rol, sin repetidos ni faltantes.</li></ul> |
+| **Prioridad** | Alta |
+| **Estado / Squad responsable** | Pendiente de implementación / kAiRoS |
+
 ---
 
 ## Requerimientos No Funcionales (RNF)
@@ -214,13 +236,13 @@ Este documento define solo el comportamiento de MS01. Los valores transversales 
 | **RNF-MS01-07** | Pruebas unitarias y de integración de los flujos de registro, login, sesión, roles, estado, contraseña, lectura de la identidad y emisión de eventos de auditoría. Análisis de calidad con SonarCloud. |
 | **RNF-MS01-08** | Ejecución en contenedor Docker, con pipeline en GitHub Actions. El código se integra por Pull Request con revisión. |
 | **RNF-MS01-09** | Las entradas se validan en el servidor ([`2_forms-inputs.md`](2_forms-inputs.md)). Las contraseñas se guardan según [RN-MS01-04](#rf-ms01-01-registrar-usuario-institucional). |
-| **RNF-MS01-10** | La auditoría se delega en [ms08-analytics-and-audit](https://github.com/CampusSeguro-DOSW-2026-2/ms08-analytics-and-audit) (MS08), que almacena y consulta los eventos. MS01 los emite de forma asíncrona con el formato de los Estándares (`modulo` = MS01). Acciones de MS01: REGISTRO, LOGIN, LOGOUT, CAMBIO_ROL, CAMBIO_ESTADO, CAMBIO_CONTRASENA, RECUPERACION; resultado EXITO o FALLO. Si MS08 falla, la respuesta al cliente no cambia y el error queda en el log. MS01 no tiene tablas ni endpoints de auditoría. |
+| **RNF-MS01-10** | La auditoría se delega en [ms08-analytics-and-audit](https://github.com/CampusSeguro-DOSW-2026-2/ms08-analytics-and-audit) (MS08), que almacena y consulta los eventos. MS01 los emite de forma asíncrona con el formato de los Estándares (`modulo` = MS01). Acciones de MS01: REGISTRO, LOGIN, LOGOUT, CAMBIO_ROL, CAMBIO_ESTADO, CAMBIO_CONTRASENA, RECUPERACION; resultado EXITO o FALLO. Si MS08 falla, la respuesta al cliente no cambia y el error queda en el log. Las consultas internas ([RF-MS01-09](#rf-ms01-09-resolución-interna-de-usuarios)) no se auditan. MS01 no tiene tablas ni endpoints de auditoría. |
 
 ---
 
 ## API: ms01-identity-and-access
 
-Contrato completo: [`api/swagger.yml`](api/swagger.yml). Los endpoints **protegidos** reciben la identidad según [RN-MS01-23](#rf-ms01-03-gestión-de-sesión). El *Permiso* coincide con el `x-permiso` del contrato. Los roles que lo tienen están en la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
+Contrato completo: [`api/swagger.yml`](api/swagger.yml). Los endpoints **protegidos** reciben la identidad según [RN-MS01-23](#rf-ms01-03-gestión-de-sesión); los **internos**, la del servicio que llama ([RN-MS01-24](#rf-ms01-09-resolución-interna-de-usuarios)). El *Permiso* coincide con el `x-permiso` del contrato. Los roles que lo tienen están en la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
 
 | Categoría | Método | Ruta (/api/v1) | Acceso | Permiso | RF |
 |---|---|---|---|---|---|
@@ -237,3 +259,5 @@ Contrato completo: [`api/swagger.yml`](api/swagger.yml). Los endpoints **protegi
 | | PATCH | `/users/status` | Protegido | `ms01:user:status` | [07](#rf-ms01-07-administración-de-usuarios) |
 | **Roles y permisos** | GET | `/roles` | Protegido | `ms01:role:read_own`, `ms01:role:read_all` (catálogo completo) | [05](#rf-ms01-05-gestión-de-roles-y-permisos) |
 | | PATCH | `/users/roles` | Protegido | `ms01:user:roles` | [05](#rf-ms01-05-gestión-de-roles-y-permisos) |
+| **Interno (servicios)** | POST | `/users/batch` | Interno (MS03, MS05) | — | [09](#rf-ms01-09-resolución-interna-de-usuarios) |
+| | GET | `/users/by-role` | Interno (MS03, MS05) | — | [09](#rf-ms01-09-resolución-interna-de-usuarios) |

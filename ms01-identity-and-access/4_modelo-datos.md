@@ -150,6 +150,8 @@ Cada operación de escritura es una sola transacción: se aplica completa o no s
 | Solicitar código ([RF-08](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña)) | `usuarios` por `correo`; último código del usuario (espera) | Si está ACTIVO y fuera de la espera: marca `usado_en` en los códigos sin usar + INSERT del nuevo |
 | Restablecer contraseña | Último código sin usar, con bloqueo de escritura | Código incorrecto: `intentos + 1` (y `usado_en` al llegar al máximo). Correcto: UPDATE `password_hash` + `usado_en` del código y de los demás sin usar |
 | Cambiar contraseña autenticado | `usuarios` por id | UPDATE `password_hash` |
+| Consulta interna por ids ([RF-09](1_requirements.md#rf-ms01-09-resolución-interna-de-usuarios)) | `usuarios` y sus roles con `id` en la lista (hasta 100) | Ninguna |
+| Consulta interna por rol ([RF-09](1_requirements.md#rf-ms01-09-resolución-interna-de-usuarios)) | `usuarios` con una fila del rol en `usuario_rol` y, si hay fecha de corte, `creado_en <= corte`; orden `id` ascendente | Ninguna |
 
 **Listado `GET /users`** (parámetros en [F-07](2_forms-inputs.md#f-07-búsqueda-y-filtros-de-usuarios)):
 * `correo`: coincidencia parcial sin distinguir mayúsculas (`LIKE '%texto%'` sobre el correo en minúsculas).
