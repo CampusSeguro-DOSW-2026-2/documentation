@@ -30,6 +30,18 @@ servers:
     description: Acceso externo (desarrollo local)
   - url: http://api-gateway:8080
     description: Acceso interno desde los MS (red Docker, `GATEWAY_URL`)
+  - url: https://{dominio}
+    description: Nube, producción (ADR-006). También es el `GATEWAY_URL` de los MS de producción.
+    variables:
+      dominio:
+        default: gw.example.com
+        description: Dominio del GW (p. ej. <IP>.sslip.io)
+  - url: https://{dominio}:8443
+    description: Nube, prueba (ADR-006). También es el `GATEWAY_URL` de los MS de prueba.
+    variables:
+      dominio:
+        default: gw.example.com
+        description: Dominio del GW (p. ej. <IP>.sslip.io)
 tags:
   - name: Gateway
     description: Endpoints propios del GW (no se enrutan).
@@ -726,7 +738,7 @@ components:
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     BadGateway:
-      description: 'GW: MS inalcanzable o error downstream que no cumple `ErrorResponse` (RF-GW-05). El detalle queda solo en el log del GW.'
+      description: 'GW: MS inalcanzable (incluido un TLS rechazado en la nube) o error downstream que no cumple `ErrorResponse` (RF-GW-05). El detalle queda solo en el log del GW.'
       headers:
         X-Correlation-ID:
           $ref: '#/components/headers/XCorrelationID'

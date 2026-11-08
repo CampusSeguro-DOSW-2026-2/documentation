@@ -59,7 +59,7 @@ Formato: `ErrorResponse` de EST. El GW solo genera estos casos:
 | 403 | `PROHIBIDO` | Preflight CORS no permitido | `Acceso denegado por la política perimetral.` |
 | 404 | `NO_ENCONTRADO` | Ruta sin destino | `Ruta no encontrada.` |
 | 500 | `ERROR_INTERNO` | Excepción no controlada en el GW | `Error interno del servidor.` |
-| 502 | `SERVICIO_NO_DISPONIBLE` | MS inalcanzable (conexión rechazada o cortada, DNS no resuelto) o error downstream no conforme (RF-GW-05) | `Servicio temporalmente no disponible.` |
+| 502 | `SERVICIO_NO_DISPONIBLE` | MS inalcanzable (conexión rechazada o cortada, DNS no resuelto, TLS rechazado) o error downstream no conforme (RF-GW-05) | `Servicio temporalmente no disponible.` |
 | 504 | `TIEMPO_AGOTADO` | El MS supera `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `El servicio de destino no respondió a tiempo.` |
 
 ## 5. Configuración
@@ -68,10 +68,10 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 
 | Variable | Defecto | Uso |
 |---|---|---|
-| `SPRING_PROFILES_ACTIVE` | — (el `Dockerfile` fija `docker`) | `local` (MS01 en `localhost:8081`) o `docker` (MS01 por su nombre DNS en la red Docker). |
-| `SERVER_PORT` | `8080` | Puerto externo (el único publicado). |
+| `SPRING_PROFILES_ACTIVE` | — (el `Dockerfile` fija `docker`) | `local` (MS01 en `localhost:8081`) o `docker` (MS01 por su nombre DNS en la red Docker). En la nube, `docker,cloud` ([ADR-006](adr/ADR-006-aislamiento-en-la-nube.md)). |
+| `SERVER_PORT` | `8080` | Puerto externo (el único publicado). En la nube lo publica Caddy en `443` (prod) y `8443` (test). |
 | `MANAGEMENT_SERVER_PORT` | `9090` | Actuator (métricas); solo red interna. |
-| `MS01_URI` … `MS08_URI` | — (obligatoria por MS activo) | Ej.: `http://ms01-identity-and-access:8081`. |
+| `MS01_URI` … `MS08_URI` | — (obligatoria por MS activo) | Ej.: `http://ms01-identity-and-access:8081`. En la nube, `https://<IP de la VM del MS>:443` (prod) o `:8443` (test). |
 | `JWT_PUBLIC_KEY` | — (obligatoria) | Llave pública RSA en PEM. |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `ms01-identity-and-access` / `campusseguro` | Iguales a los de MS01. |
 | `JWT_CLOCK_SKEW_SECONDS` | `30` | Tolerancia de reloj. |
@@ -82,9 +82,12 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `CORS_ALLOW_CREDENTIALS` | `false` | Si es `true`, se prohíbe `*`. |
 | `CORS_MAX_AGE_SECONDS` | `3600` | Vigencia del preflight. |
 | `LOG_LEVEL` | `INFO` | Nivel base. |
+| `GW_CLIENT_KEYSTORE` | — (obligatoria con `cloud`) | PKCS12 con el certificado de cliente del GW (`file:/ruta`). |
+| `GW_CLIENT_KEYSTORE_PASSWORD` | — (obligatoria con `cloud`) | Contraseña del PKCS12. |
+| `GW_TRUSTED_CA` | — (obligatoria con `cloud`) | CA del entorno en PEM (`file:/ruta`); el GW solo confía en ella hacia los MS. |
 
-* La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; CORS; claves de servicio, RN-GW-20), el GW no arranca y el log indica la causa.
-* Los perfiles `local` y `docker` solo cambian `MS01_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). Los secretos nunca van en el repositorio.
+* La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; CORS; claves de servicio, RN-GW-20; con `cloud`, el certificado de cliente y la CA), el GW no arranca y el log indica la causa.
+* Los perfiles `local` y `docker` solo cambian `MS01_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). El perfil `cloud` se suma a `docker` y activa el mTLS hacia los MS. Los secretos nunca van en el repositorio.
 
 ## 6. Dependencias
 
@@ -92,3 +95,4 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 * **Bases de datos y MS08:** el GW no depende de ellos.
 * **Descubrimiento de servicios:** no se usa (sin Eureka); los destinos son URI estáticas por ambiente.
 * **Reintentos:** no hay.
+* **En la nube:** Caddy de borde (HTTPS) y la CA de cada entorno para el mTLS ([ADR-006](adr/ADR-006-aislamiento-en-la-nube.md)).

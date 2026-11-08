@@ -12,7 +12,7 @@ Algunos MS llaman a otros (p. ej. MS04 → MS05, MS01…MS07 → MS08). Si se ll
 * **Identidad propagada:** si el MS actúa por un usuario, envía los `X-User-Id`/`X-User-Role` que recibió; el GW exige que vengan juntos y con formato válido (si no, `400`) y los reenvía.
 * **El GW elimina `X-Service-Key` e inyecta `X-Service-Name`** (`ms01`…`ms08`). El log de acceso registra `origen = msNN`; la clave nunca se registra ni se reenvía.
 * **La autorización es del destino:** por `X-Service-Name` (ruta interna) o por `X-User-Role` (ruta protegida). El GW no decide qué servicio llama a cuál.
-* **Aislamiento de red:** en Docker solo se publica el 8080 del GW; los MS y el 9090 viven en una red interna (`docker-compose.yml`).
+* **Aislamiento de red:** en Docker solo se publica el 8080 del GW; los MS y el 9090 viven en una red interna (`docker-compose.yml`). En la nube, con una VM por servicio, el aislamiento lo dan el firewall y el mTLS de [ADR-006](ADR-006-aislamiento-en-la-nube.md).
 
 ## Consecuencias
 * Agregar o cambiar una clave exige configuración y reinicio del GW y del MS llamante.

@@ -21,8 +21,8 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 | [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales) (wiki) | **Valores y contratos compartidos con todos los squads.** Es la fuente de verdad. |
 | [01-requerimientos-funcionales.md](01-requerimientos-funcionales.md) | RF-GW-01…08 con reglas y criterios de aceptación. |
 | [02-contratos-integracion.md](02-contratos-integracion.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios y configuración. |
-| [03-calidad-y-pruebas.md](03-calidad-y-pruebas.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…15. |
-| [adr/](adr/) | Decisiones de arquitectura ADR-001…005 (enrutamiento, errores, JWT, CORS, llamadas internas). |
+| [03-calidad-y-pruebas.md](03-calidad-y-pruebas.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…16. |
+| [adr/](adr/) | Decisiones de arquitectura ADR-001…006 (enrutamiento, errores, JWT, CORS, llamadas internas, aislamiento en la nube). |
 | [diagramas/gw_c4_3_componentes.drawio.svg](diagramas/gw_c4_3_componentes.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, sus componentes de apoyo y los puertos `:8080`, `:9090` y `MSnn_URI`. Se edita abriendo el `.drawio.svg` en draw.io. |
 | [api/swagger.yml](api/swagger.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. **Estándar para que el frontend y los MS llamen al GW.** |
 | [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso) (wiki) | Permisos por rol (el GW no la aplica; la usa cada MS). |
@@ -30,7 +30,7 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 
 ## Alcance de esta versión
 
-**Incluye:** enrutamiento por configuración, validación local del JWT RS256, sanitización y propagación de identidad, llamadas internas con clave de servicio, CORS, `ErrorResponse` (con `502` ante errores downstream no conformes), correlación, logs y healthcheck.
+**Incluye:** enrutamiento por configuración, validación local del JWT RS256, sanitización y propagación de identidad, llamadas internas con clave de servicio, CORS, `ErrorResponse` (con `502` ante errores downstream no conformes), correlación, logs, healthcheck y, en la nube, mTLS hacia los MS con despliegue a prueba y producción ([ADR-006](adr/ADR-006-aislamiento-en-la-nube.md)).
 
 **No incluye:**
 * Usuarios, contraseñas, roles y sesiones: son de MS01.
@@ -41,7 +41,7 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 
 ## Microservicios enlazados
 
-Los puertos son internos; solo se publica el `8080` del GW.
+Los puertos son internos; solo se publica el `8080` del GW. En la nube cada MS está en su propia VM y el GW lo alcanza por `https://<IP>:443` (prod) o `:8443` (test), con mTLS ([guía para los squads](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Conexi%C3%B3n-al-API-Gateway)).
 
 | Servicio | Responsabilidad | Destino interno |
 |---|---|---|
