@@ -42,6 +42,8 @@ La política es independiente del prefijo. Se evalúa por **método + ruta exact
 | Pública | `POST` | `/api/v1/auth/password/forgot` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/password/reset` | Ninguna |
 | Interna | `POST` | `/api/v1/audit/events` | Clave de servicio |
+| Interna | `POST` | `/api/v1/users/batch` | Clave de servicio |
+| Interna | `GET` | `/api/v1/users/by-role` | Clave de servicio |
 | Protegida | Todo lo demás (incluido `POST /api/v1/auth/logout`) | | JWT o clave de servicio |
 
 Las rutas públicas deben coincidir con EST. Las rutas internas deben coincidir con las llamadas registradas en EST.

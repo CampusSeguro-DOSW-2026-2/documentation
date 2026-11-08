@@ -37,6 +37,8 @@ tags:
     description: Rutas públicas de `ms01-identity-and-access` (lista cerrada de EST §2).
   - name: MS01 · Protegido
     description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con la Matriz Rol‐Permiso; el GW no autoriza por rol.
+  - name: MS01 · Interno
+    description: Rutas internas de `ms01-identity-and-access` (solo MS con clave de servicio). MS01 autoriza por `X-Service-Name`, no por la Matriz.
   - name: MS08 · Interno
     description: Rutas internas de `ms08-analytics-and-audit` (solo MS con clave de servicio).
 security:
@@ -454,6 +456,78 @@ paths:
                 type: array
                 items:
                   $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RolePermissions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/batch:
+    post:
+      tags:
+        - MS01 · Interno
+      summary: Consultar varios usuarios por id (RF-MS01-09)
+      description: 'Hasta 100 ids. MS01 responde con `usuarios` y `no_encontrados`; sus errores (400, 403 si el servicio no está autorizado) están en el contrato MS01. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
+      x-politica: INTERNA
+      x-destino: MS01_URI
+      x-estado: PENDIENTE
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/BatchUsersRequest'
+      responses:
+        '200':
+          description: Usuarios encontrados y ids no encontrados (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/BatchUsersResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/users/by-role:
+    get:
+      tags:
+        - MS01 · Interno
+      summary: Listar los usuarios que tienen un rol (RF-MS01-09)
+      description: 'Los query params (`rol`, `creado_antes`, `page`, `size`) son los del contrato MS01 y se reenvían sin cambios. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
+      x-politica: INTERNA
+      x-destino: MS01_URI
+      x-estado: PENDIENTE
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Página de usuarios con el rol (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/UserPage'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
