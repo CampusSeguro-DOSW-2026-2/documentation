@@ -20,7 +20,7 @@ Cómo verlos y editarlos: [`diagramas/README.md`](diagramas/README.md).
 |---|---|
 | C4 · Componentes | [Controllers, Services y Repositories](diagramas/ms01_c4_3_componentes.drawio.svg) |
 | Clases | [Dominio](diagramas/ms01_clases.svg) ([`.puml`](diagramas/ms01_clases.puml)) |
-| Despliegue | [Azure (propuesta, base para mejoras)](diagramas/ms01_despliegue_azure.drawio.svg) |
+| Despliegue | [VM en Azure con firewall y mTLS, entornos de prueba y producción](diagramas/ms01_despliegue_azure.drawio.svg) |
 | Modelo de datos físico | [Tablas de PostgreSQL](diagramas/ms01_er_fisico.drawio.svg) |
 
 **Para otros squads:** la guía de integración está en la [wiki de MS01](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/MS01%E2%80%90identity%E2%80%90and%E2%80%90access). Las reglas transversales están en los [Estándares](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales) y los permisos en la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).

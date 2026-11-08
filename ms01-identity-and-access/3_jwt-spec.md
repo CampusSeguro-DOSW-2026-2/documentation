@@ -55,7 +55,11 @@ MS01 nunca recibe ni valida el token. Lee las cabeceras que inyecta el Gateway, 
 
 Con los roles, MS01 calcula los permisos (unión de la Matriz) y autoriza cada operación. Si falta el permiso, responde 403 `PROHIBIDO`. Los endpoints internos no usan la Matriz: los autoriza la lista de servicios.
 
-MS01 confía en estas cabeceras porque solo el Gateway puede llegar a él (su puerto no se publica, [Estándares §2](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales)). Quien acceda a la red interna sin pasar por el Gateway podría falsificarlas.
+MS01 confía en estas cabeceras porque solo el Gateway puede llegar a él ([Estándares §2](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales)):
+* **En local:** su puerto no se publica fuera de la red Docker.
+* **En la nube:** el firewall de su VM solo acepta la IP del Gateway, y su Caddy de borde exige el certificado de cliente del Gateway (mTLS). Detalle en [ADR-006](../api-gateway/adr/ADR-006-aislamiento-en-la-nube.md) y en la guía [Conexión al API Gateway](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Conexi%C3%B3n-al-API-Gateway).
+
+Podría falsificarlas quien entre a la VM o robe el certificado del Gateway.
 
 ---
 
