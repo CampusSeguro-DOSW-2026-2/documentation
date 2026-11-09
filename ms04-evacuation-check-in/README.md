@@ -8,6 +8,6 @@ Reporte del estado de las personas (Estoy a salvo, Me estoy evacuando, Requiero 
 | [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios y entradas F-01…F-07 (incluidas las rutas internas de MS06): campos, validaciones y mensajes. |
 | [`3_modelo-datos.md`](3_modelo-datos.md) | Tablas (eventos, check-ins y solicitudes de asistencia), vista del estado vigente, reglas de integridad y operaciones. |
 | [`api/swagger.yml`](api/swagger.yml) | Contrato OpenAPI 3 (rutas `/api/v1/chi/eventos`). |
-| [`diagramas/`](diagramas/) | Modelo lógico (pendiente). |
+| [`diagramas/`](diagramas/) | Componentes (C4 nivel 3), modelo de datos físico, clases y despliegue en AWS (propuesta). |
 
 **Para otros squads:** la guía de integración de MS04 en la wiki está pendiente. Las reglas transversales están en los [Estándares](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales) y los permisos en la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). Los contratos que MS04 necesita de MS01, MS02, MS05, MS06 y MS08 están en [Dependencias y decisiones abiertas](1_requirements.md#dependencias-y-decisiones-abiertas).

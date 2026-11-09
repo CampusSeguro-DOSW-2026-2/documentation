@@ -1,0 +1,167 @@
+@startuml ms04_clases
+' UML · Clases: estructura estática del dominio de MS04 (eventos, check-ins, solicitudes de asistencia, identidad y auditoría).
+' Fuente: entity/*, security/RequesterIdentity, Rol, Permiso, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+title MS04 · Diagrama de clases
+
+class Evento <<@Entity eventos>> {
+    - id : UUID
+    - nombre : String
+    - simulacro : boolean
+    - estado : EstadoEvento
+    - fechaInicio : Instant
+    - fechaCierre : Instant
+    - rolesConvocados : List<String>
+    - escenarioEdificios : List<String>
+    - escenarioZonas : List<String>
+    - creadoEn : Instant
+    - actualizadoEn : Instant
+    + isCheckinHabilitado() : boolean
+    + corteDePoblacion(ahora : Instant) : Instant
+}
+
+class Checkin <<@Entity checkins>> {
+    - id : UUID
+    - numero : Long
+    - eventoId : UUID
+    - usuarioId : UUID
+    - estado : EstadoCheckin
+    - puntoEncuentroId : UUID
+    - ubicacionTipo : TipoUbicacion
+    - ubicacionId : UUID
+    - registradoEn : Instant
+}
+
+class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
+    - id : UUID
+    - checkinId : UUID
+    - eventoId : UUID
+    - usuarioId : UUID
+    - ubicacionTipo : TipoUbicacion
+    - ubicacionId : UUID
+    - solicitudMs05Id : String
+    - estadoEnvio : EstadoEnvio
+    - intentos : int
+    - ultimoIntentoEn : Instant
+    - reportadaEn : Instant
+    - actualizadoEn : Instant
+}
+
+enum EstadoEvento {
+    BORRADOR
+    PROGRAMADO
+    EN_EJECUCION
+    FINALIZADO
+}
+
+enum EstadoCheckin {
+    SAFE
+    EVACUATING
+    NEEDS_ASSISTANCE
+    OFF_CAMPUS
+}
+
+enum TipoUbicacion {
+    EDIFICIO
+    ESPACIO
+    PUNTO_ENCUENTRO
+}
+
+enum EstadoEnvio {
+    ENVIADA
+    PENDIENTE_ENVIO
+    RECHAZADA
+}
+
+class RequesterIdentity <<record>> {
+    - userId : UUID
+    - roles : Set<Rol>
+    + permisos() : Set<Permiso>
+    + tienePermiso(p : Permiso) : boolean
+    + tieneRol(r : Rol) : boolean
+    + nombresDeRoles() : List<String>
+    + rolesComoCabecera() : String
+}
+
+enum Rol {
+    ESTUDIANTE
+    PROFESOR
+    ADMINISTRATIVO
+    BRIGADISTA
+    COORDINADOR
+    ORGANIZADOR
+    ADMIN
+    AUDITOR
+    --
+    - permisos : Set<Permiso>
+    + getPermisos() : Set<Permiso>
+    + {static} permisosDe(roles : Collection<Rol>) : Set<Permiso>
+}
+
+enum Permiso {
+    CHECKIN_WRITE
+    CHECKIN_READ_OWN
+    ASSISTANCE_REQUEST
+    DASHBOARD_READ
+    HISTORY_READ
+    --
+    - code : String
+    + getCode() : String
+}
+
+class AuditEvent <<record>> {
+    - accion : AuditAction
+    - resultado : AuditResult
+    - usuarioId : UUID
+    - usuarioRoles : String
+    - detalle : String
+    - correlationId : String
+    - fecha : Instant
+    - recursoAfectado : String
+}
+
+enum AuditAction {
+    REGISTRO_CHECKIN
+    CAMBIO_ESTADO_CHECKIN
+    SOLICITUD_ASISTENCIA
+    CAMBIO_ESTADO_EVENTO
+}
+
+enum AuditResult {
+    EXITO
+    FALLO
+}
+
+Evento "1" -- "0..*" Checkin : registra (eventoId) >
+Evento "1" -- "0..*" SolicitudAsistencia : agrupa (eventoId) >
+Checkin "1" -- "0..1" SolicitudAsistencia : origina (checkinId) >
+Evento "0..*" --> "1" EstadoEvento : estado
+Checkin "0..*" -left-> "1" EstadoCheckin : estado
+Checkin "0..*" --> "0..1" TipoUbicacion : ubicacionTipo
+SolicitudAsistencia "0..*" --> "1" TipoUbicacion : ubicacionTipo
+SolicitudAsistencia "0..*" --> "1" EstadoEnvio : estadoEnvio
+RequesterIdentity "0..*" -- "1..*" Rol : actúa con >
+Rol "0..*" -- "0..*" Permiso : otorga >
+RequesterIdentity "1" -- "0..*" Checkin : reporta (usuarioId) >
+AuditEvent "0..*" --> "1" AuditAction : accion
+AuditEvent "0..*" --> "1" AuditResult : resultado
+
+note right of Checkin
+  Solo se agregan (trigger en BD):
+  el estado vigente es el check-in
+  más reciente del usuario en el
+  evento (v_checkins_vigentes).
+end note
+note right of SolicitudAsistencia
+  Una por usuario y evento; solo
+  la origina un check-in
+  NEEDS_ASSISTANCE.
+end note
+note bottom of RequesterIdentity
+  Identidad del solicitante, construida con
+  X-User-Id y X-User-Role; sus permisos son la
+  unión de los permisos de sus roles.
+end note
+@enduml
