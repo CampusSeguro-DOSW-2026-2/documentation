@@ -31,7 +31,8 @@ Cada carpeta usa el nombre del repositorio del MS y la misma estructura:
 | MS | Carpeta | Estado |
 |---|---|---|
 | MS01 — Identidad y acceso | [`ms01-identity-and-access/`](ms01-identity-and-access/) | Publicado |
-| MS02–MS08 | — | Pendiente de cada squad |
+| MS04 — Evacuación y check-in | [`ms04-evacuation-check-in/`](ms04-evacuation-check-in/) | Publicado |
+| MS02, MS03, MS05–MS08 | — | Pendiente de cada squad |
 | GW — API Gateway | [`api-gateway/`](api-gateway/) | Publicado |
 
 ## Reglas

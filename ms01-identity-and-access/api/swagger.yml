@@ -11,6 +11,9 @@ info:
     **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 `NO_AUTENTICADO` (RN-MS01-23).
 
 
+    **Rutas internas (tag `Interno (servicios)`):** solo para otros MS a través del Gateway con su clave de servicio. Reciben `X-Service-Name` (lo inyecta el Gateway) en lugar de `X-User-Id`/`X-User-Role`, no usan la Matriz Rol‐Permiso y no se auditan.
+
+
     **Auditoría:** MS01 no expone endpoints de auditoría; emite eventos asíncronos a `ms08-analytics-and-audit` (RNF-MS01-10).'
 servers:
   - url: http://localhost:8080/api/v1
@@ -21,6 +24,8 @@ tags:
   - name: Perfil propio
   - name: Administración de usuarios
   - name: Roles y permisos
+  - name: Interno (servicios)
+    description: Resolución de usuarios para otros microservicios (MS03, MS05). Política INTERNA en el Gateway.
 paths:
   /auth/register:
     post:
@@ -123,6 +128,8 @@ paths:
                 $ref: '#/components/schemas/MensajeResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -212,6 +219,10 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -233,6 +244,10 @@ paths:
                 $ref: '#/components/schemas/User'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -261,6 +276,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -286,12 +305,12 @@ paths:
           example: maria.perez
         - name: estado
           in: query
-          description: Omitir equivale a Todos.
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
           schema:
             $ref: '#/components/schemas/Estado'
         - name: rol
           in: query
-          description: Omitir equivale a Todos.
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
           schema:
             $ref: '#/components/schemas/Rol'
         - name: page
@@ -339,6 +358,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -455,6 +476,119 @@ paths:
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
+  /users/batch:
+    post:
+      tags:
+        - Interno (servicios)
+      summary: Consultar varios usuarios por id
+      description: Elimina los ids repetidos conservando la primera aparición. `usuarios` y `no_encontrados` siguen el orden de la solicitud. Incluye los usuarios INACTIVOS con su `estado` (el llamante filtra). Nunca responde 404 por ids inexistentes. No se audita.
+      parameters:
+        - $ref: '#/components/parameters/XServiceName'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUsersRequest'
+      responses:
+        '200':
+          description: Usuarios encontrados y ids no encontrados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUsersResponse'
+        '400':
+          description: '`ids` falta, está vacío, tiene más de 100 elementos o algún id no es UUID; o el cuerpo trae campos no definidos.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: ids
+                    mensaje: La lista de ids es obligatoria y debe tener entre 1 y 100 elementos.
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '401':
+          $ref: '#/components/responses/InternalUnauthorized'
+        '403':
+          $ref: '#/components/responses/InternalForbidden'
+  /users/by-role:
+    get:
+      tags:
+        - Interno (servicios)
+      summary: Listar los usuarios que tienen un rol
+      description: Devuelve todos los estados (el llamante filtra) ordenados por `id` ascendente. Con `creado_antes` solo incluye usuarios creados hasta ese instante, para recorrer todas las páginas sobre el mismo conjunto. La ruta literal tiene prioridad sobre `/users/{id}`. No se audita.
+      parameters:
+        - $ref: '#/components/parameters/XServiceName'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: rol
+          in: query
+          required: true
+          description: 'Si falta o no es del catálogo: 400, campo `rol`, "Rol no válido."'
+          schema:
+            $ref: '#/components/schemas/Rol'
+          example: BRIGADISTA
+        - name: creado_antes
+          in: query
+          required: false
+          description: 'Instante ISO 8601 UTC (incluido). Si no es válido: 400, campo `creado_antes`, "Fecha de corte no válida."'
+          schema:
+            type: string
+            format: date-time
+          example: '2026-11-07T15:04:05Z'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de usuarios con el rol. Sin resultados, `contenido` vacío y `total_elementos` 0.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+              example:
+                contenido:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_nombre: María
+                    segundo_nombre: José
+                    primer_apellido: Pérez
+                    segundo_apellido: Gómez
+                    correo: maria.perez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                      - ESTUDIANTE
+                    estado: ACTIVO
+                  - id: 7a1d4e2b-5c3f-4a8e-b9d0-2e6f1c4a7b35
+                    primer_nombre: Juan
+                    primer_apellido: Rodríguez
+                    correo: juan.rodriguez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                    estado: INACTIVO
+                page: 0
+                size: 100
+                total_elementos: 2
+                total_paginas: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InternalUnauthorized'
+        '403':
+          $ref: '#/components/responses/InternalForbidden'
 components:
   headers:
     XCorrelationID:
@@ -485,10 +619,18 @@ components:
       name: X-User-Role
       in: header
       required: true
-      description: Roles del usuario autenticado separados por coma, en orden alfabético.
+      description: Roles del usuario autenticado separados por coma, en orden alfabético. MS01 no exige el orden, recorta los espacios e ignora los repetidos.
       schema:
         type: string
         example: BRIGADISTA,ESTUDIANTE
+    XServiceName:
+      name: X-Service-Name
+      in: header
+      required: true
+      description: Servicio que llama, derivado por el Gateway de su clave de servicio (el cliente no puede enviarlo). Servicios autorizados por defecto `ms03` y `ms05`.
+      schema:
+        type: string
+        example: ms05
     XCorrelationId:
       name: X-Correlation-ID
       in: header
@@ -514,7 +656,7 @@ components:
                 mensaje: El primer nombre debe tener entre 2 y 30 letras.
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
-      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role) o no son válidas.
       content:
         application/json:
           schema:
@@ -527,6 +669,30 @@ components:
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Forbidden:
       description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No cuenta con los permisos suficientes para realizar esta operación.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalUnauthorized:
+      description: Falta la cabecera X-Service-Name.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Falta la cabecera X-Service-Name.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalForbidden:
+      description: El servicio de X-Service-Name no está autorizado para las rutas internas.
       content:
         application/json:
           schema:
@@ -938,6 +1104,51 @@ components:
           format: uuid
           description: Igual a la cabecera X-Correlation-ID.
           example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    BatchUsersRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: 'Ids de usuario. Vacío o más de 100: "La lista de ids es obligatoria y debe tener entre 1 y 100 elementos." Algún id no UUID: "Cada id debe ser un UUID válido." (campo `ids` en ambos casos).'
+          items:
+            type: string
+            format: uuid
+          example:
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            - 9b2e7c41-0d3a-4f6b-8e15-6a4c2d9f0b73
+    BatchUsersResponse:
+      type: object
+      required:
+        - usuarios
+        - no_encontrados
+      properties:
+        usuarios:
+          type: array
+          description: Los segundos nombres y apellidos nulos se omiten.
+          items:
+            $ref: '#/components/schemas/User'
+        no_encontrados:
+          type: array
+          items:
+            type: string
+            format: uuid
+      example:
+        usuarios:
+          - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            primer_nombre: María
+            primer_apellido: Pérez
+            correo: maria.perez@escuelaing.edu.co
+            roles:
+              - BRIGADISTA
+              - ESTUDIANTE
+            estado: ACTIVO
+        no_encontrados:
+          - 9b2e7c41-0d3a-4f6b-8e15-6a4c2d9f0b73
     ChangeRolesRequest:
       type: object
       additionalProperties: false
@@ -959,7 +1170,7 @@ components:
             - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         agregar:
           type: array
-          minItems: 1
+          description: Una lista vacía equivale a no enviarla.
           maxItems: 8
           uniqueItems: true
           items:
@@ -968,7 +1179,7 @@ components:
             - BRIGADISTA
         retirar:
           type: array
-          minItems: 1
+          description: Una lista vacía equivale a no enviarla.
           maxItems: 8
           uniqueItems: true
           items:

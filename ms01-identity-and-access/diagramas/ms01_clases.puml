@@ -1,0 +1,130 @@
+@startuml ms01_clases
+' UML · Clases: estructura estática del dominio de MS01 (identidad, roles, permisos, recuperación y auditoría).
+' Fuente: entity/*, security/RequesterIdentity, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+hide empty members
+title MS01 · Diagrama de clases
+
+class UserEntity <<@Entity usuarios>> {
+    - id : UUID
+    - firstName : String
+    - secondName : String
+    - firstLastName : String
+    - secondLastName : String
+    - email : String
+    - password : String
+    - roles : Set<UserRole>
+    - state : UserState
+    - createdAt : Instant
+    - updatedAt : Instant
+    + getRoles() : Set<UserRole>
+    + setRoles(roles : Set<UserRole>) : void
+}
+
+class PasswordResetCodeEntity <<@Entity codigos_recuperacion>> {
+    - id : UUID
+    - userId : UUID
+    - codeHash : String
+    - attempts : int
+    - expiresAt : Instant
+    - usedAt : Instant
+    - createdAt : Instant
+    + isActiveAt(now : Instant) : boolean
+}
+
+enum UserState {
+    ACTIVO
+    INACTIVO
+}
+
+enum UserRole {
+    ESTUDIANTE
+    PROFESOR
+    ADMINISTRATIVO
+    BRIGADISTA
+    COORDINADOR
+    ORGANIZADOR
+    ADMIN
+    AUDITOR
+    --
+    - permissions : Set<Permission>
+    + hasPermission(p : Permission) : boolean
+    + getPermissionCodes() : List<String>
+    + {static} permissionsOf(roles : Collection<UserRole>) : Set<Permission>
+    + {static} sortedByName(roles : Collection<UserRole>) : List<UserRole>
+}
+
+enum Permission {
+    MS01_PROFILE_READ
+    MS01_PROFILE_WRITE
+    MS01_PASSWORD_CHANGE
+    MS01_SESSION_LOGOUT
+    MS01_ROLE_READ_OWN
+    MS01_ROLE_READ_ALL
+    MS01_USER_READ
+    MS01_USER_STATUS
+    MS01_USER_ROLES
+    … 38 más de MS02 a MS08 (47 en total)
+    --
+    - code : String
+    - description : String
+    + getCode() : String
+    + {static} grantedToEveryRole() : Set<Permission>
+    + {static} grantedToCommunity() : Set<Permission>
+}
+
+class RequesterIdentity <<record>> {
+    - userId : UUID
+    - roles : Set<UserRole>
+    + permissions() : Set<Permission>
+    + hasPermission(p : Permission) : boolean
+    + rolesHeader() : String
+}
+
+class AuditEvent <<record>> {
+    - accion : AuditAction
+    - resultado : AuditResult
+    - usuarioId : UUID
+    - usuarioRoles : String
+    - detalle : String
+    - correlationId : String
+    - fecha : Instant
+    - recursoAfectado : String
+}
+
+enum AuditAction {
+    REGISTRO
+    LOGIN
+    LOGOUT
+    CAMBIO_ROL
+    CAMBIO_ESTADO
+    CAMBIO_CONTRASENA
+    RECUPERACION
+}
+
+enum AuditResult {
+    EXITO
+    FALLO
+}
+
+UserEntity "0..*" -- "1..*" UserRole : tiene >
+UserEntity "0..*" --> "1" UserState : estado
+UserRole "0..*" -- "1..*" Permission : otorga >
+PasswordResetCodeEntity "0..*" -- "1" UserEntity : pertenece a (userId) >
+RequesterIdentity "0..*" -- "1..*" UserRole : actúa con >
+AuditEvent "0..*" -- "0..1" UserEntity : ejecutada por (usuarioId) >
+AuditEvent "0..*" --> "1" AuditAction : accion
+AuditEvent "0..*" --> "1" AuditResult : resultado
+
+note bottom of RequesterIdentity
+  Identidad del solicitante, construida con
+  X-User-Id y X-User-Role; sus permisos son la
+  unión de los permisos de sus roles.
+end note
+note right of UserEntity
+  roles se guarda en usuario_rol
+  (@ElementCollection); el mínimo
+  de un rol lo exige RoleServiceImpl.
+end note
+@enduml
