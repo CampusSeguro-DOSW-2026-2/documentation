@@ -150,6 +150,8 @@ Cada operación de escritura es una sola transacción: se aplica completa o no s
 | Solicitar código ([RF-08](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña)) | `usuarios` por `correo`; último código del usuario (espera) | Si está ACTIVO y fuera de la espera: marca `usado_en` en los códigos sin usar + INSERT del nuevo |
 | Restablecer contraseña | Último código sin usar, con bloqueo de escritura | Código incorrecto: `intentos + 1` (y `usado_en` al llegar al máximo). Correcto: UPDATE `password_hash` + `usado_en` del código y de los demás sin usar |
 | Cambiar contraseña autenticado | `usuarios` por id | UPDATE `password_hash` |
+| Consulta interna por ids ([RF-09](1_requirements.md#rf-ms01-09-resolución-interna-de-usuarios)) | `usuarios` y sus roles con `id` en la lista (hasta 100) | Ninguna |
+| Consulta interna por rol ([RF-09](1_requirements.md#rf-ms01-09-resolución-interna-de-usuarios)) | `usuarios` con una fila del rol en `usuario_rol` y, si hay fecha de corte, `creado_en <= corte`; orden `id` ascendente | Ninguna |
 
 **Listado `GET /users`** (parámetros en [F-07](2_forms-inputs.md#f-07-búsqueda-y-filtros-de-usuarios)):
 * `correo`: coincidencia parcial sin distinguir mayúsculas (`LIKE '%texto%'` sobre el correo en minúsculas).
@@ -174,5 +176,5 @@ Variables de entorno que afectan los datos (valores por defecto de `application.
 
 ## Datos iniciales
 
-1. **Primer administrador** ([RN-MS01-12](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)): se crea al arrancar solo si no hay ningún usuario con el rol ADMIN y están definidas `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` (nunca en el repositorio). Queda ACTIVO, con el rol ADMIN. `BOOTSTRAP_ADMIN_FIRST_NAME` y `BOOTSTRAP_ADMIN_LAST_NAME` son opcionales (por defecto "Administrador" e "Inicial"). Si el correo ya pertenece a otro usuario, no se crea ni se le asciende.
+1. **Primer administrador** ([RN-MS01-12](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)): se crea al arrancar solo si no hay ningún usuario con el rol ADMIN y están definidas `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` (nunca en el repositorio). Queda ACTIVO, con el rol ADMIN. `BOOTSTRAP_ADMIN_FIRST_NAME` y `BOOTSTRAP_ADMIN_LAST_NAME` son opcionales (por defecto "Administrador" e "Inicial"). Si el correo ya pertenece a otro usuario, no se crea ni se le asciende. Como no pasa por el registro, no se le aplican la política de contraseña ([RN-MS01-03](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)) ni el dominio institucional: quien configura las variables debe usar un correo institucional y una contraseña que los cumpla.
 2. **Limpieza opcional:** una tarea periódica puede eliminar los códigos usados o vencidos con más de 24 horas de antigüedad (no implementada).
