@@ -56,4 +56,7 @@ Los puertos son internos; solo se publica el `8080` del GW. En la nube cada MS e
 
 ## Pendientes con otros squads
 
-Se siguen en [Estándares — Decisiones abiertas](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales): el OpenAPI de MS08 para la auditoría y los prefijos de MS02–MS07.
+Se siguen en [Estándares — Decisiones abiertas](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales). Los prefijos de MS02–MS06 y MS08 ya están en la tabla de rutas ([02-contratos-integracion.md](02-contratos-integracion.md) §2); falta:
+* Publicar el OpenAPI de MS05, MS06 y MS08, y completar el de MS02.
+* MS05: sus incidentes están bajo `/api/v1/eventos/{eventoId}/incidentes`, que pertenece al prefijo de MS06.
+* La IP de la VM de cada MS para su `MSnn_URI` en la nube (MS04 ya la entregó).

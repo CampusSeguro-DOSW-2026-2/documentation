@@ -19,7 +19,7 @@ Contiene solo lo propio del Gateway: el pipeline, la tabla de rutas, las políti
 
 ## 2. Tabla de enrutamiento
 
-Una ruta solo se agrega cuando está publicada en el `swagger.yml` del MS en el [repositorio documentation](https://github.com/CampusSeguro-DOSW-2026-2/documentation). El GW conserva la ruta completa al reenviar. Cada ruta activa se publica también, por operación y con su política, en [api/swagger.yml](api/swagger.yml).
+Los prefijos los pide cada squad (guía de la wiki, *Conexión al API Gateway*) y deben estar publicados en el `swagger.yml` del MS en el [repositorio documentation](https://github.com/CampusSeguro-DOSW-2026-2/documentation). El GW conserva la ruta completa al reenviar. Cada ruta activa se publica también, por operación y con su política, en [api/swagger.yml](api/swagger.yml).
 
 | Prefijo | Destino | Contrato | Estado |
 |---|---|---|---|
@@ -27,8 +27,12 @@ Una ruta solo se agrega cuando está publicada en el `swagger.yml` del MS en el 
 | `/api/v1/auth/**` | `MS01_URI` | [swagger MS01](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms01-identity-and-access/api/swagger.yml) | Activo |
 | `/api/v1/users`, `/api/v1/users/**` | `MS01_URI` | swagger MS01 | Activo |
 | `/api/v1/roles` | `MS01_URI` | swagger MS01 | Activo |
-| `/api/v1/audit/events` | `MS08_URI` | OpenAPI MS08 | Pendiente (decisión abierta 1 de EST) |
-| Prefijos de MS02–MS07 | `MS02_URI` … `MS07_URI` | OpenAPI de cada squad | Pendiente (decisión abierta 4 de EST) |
+| `/api/v1/buildings`, `/api/v1/buildings/**`, `/api/v1/floors/**`, `/api/v1/spaces/**`, `/api/v1/safe-zones`, `/api/v1/safe-zones/**`, `/api/v1/evacuation-routes`, `/api/v1/evacuation-routes/**`, `/api/v1/preventive-recommendations`, `/api/v1/preventive-recommendations/**`, `/api/v1/campuses`, `/api/v1/campuses/**`, `/api/v1/open-zones/**`, `/api/v1/exits/**`, `/api/v1/stairs/**`, `/api/v1/public/**` | `MS02_URI` | swagger MS02 (parcial: falta publicar pisos, campus, zonas abiertas, salidas, escaleras, recomendaciones y `public`) | Enrutado; MS sin desplegar |
+| `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | OpenAPI MS03 | Enrutado; MS sin desplegar |
+| `/api/v1/chi/**` | `MS04_URI` | [swagger MS04](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms04-evacuation-check-in/api/swagger.yml) | Enrutado; destino en la nube configurado, MS sin desplegar |
+| `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**` | `MS05_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
+| `/api/v1/eventos`, `/api/v1/eventos/**` | `MS06_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
+| `/api/v1/analitica/**`, `/api/v1/auditoria/**`, `/api/v1/audit/events` | `MS08_URI` | Pendiente (sin OpenAPI publicado); `audit/events` sale de EST §12 | Enrutado; MS sin desplegar |
 
 ## 3. Políticas de acceso
 
@@ -71,7 +75,7 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `SPRING_PROFILES_ACTIVE` | — (el `Dockerfile` fija `docker`) | `local` (MS01 en `localhost:8081`) o `docker` (MS01 por su nombre DNS en la red Docker). En la nube, `docker,cloud` ([ADR-006](adr/ADR-006-aislamiento-en-la-nube.md)). |
 | `SERVER_PORT` | `8080` | Puerto externo (el único publicado). En la nube lo publica Caddy en `443` (prod) y `8443` (test). |
 | `MANAGEMENT_SERVER_PORT` | `9090` | Actuator (métricas); solo red interna. |
-| `MS01_URI` … `MS08_URI` | — (obligatoria por MS activo) | Ej.: `http://ms01-identity-and-access:8081`. En la nube, `https://<IP de la VM del MS>:443` (prod) o `:8443` (test). |
+| `MS01_URI` … `MS08_URI` (sin `MS07_URI`, que no tiene ruta) | Los perfiles `local` y `docker` las traen (`http://localhost:808N` y `http://<repositorio>:808N`) | En la nube, `https://<IP de la VM del MS>:443` (prod) o `:8443` (test): `MS01_URI` es variable propia y las demás van en `GW_EXTRA_ENV`. Mientras un MS no tenga VM, su ruta responde `502 SERVICIO_NO_DISPONIBLE`. |
 | `JWT_PUBLIC_KEY` | — (obligatoria) | Llave pública RSA en PEM. |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `ms01-identity-and-access` / `campusseguro` | Iguales a los de MS01. |
 | `JWT_CLOCK_SKEW_SECONDS` | `30` | Tolerancia de reloj. |
@@ -87,7 +91,7 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `GW_TRUSTED_CA` | — (obligatoria con `cloud`) | CA del entorno en PEM (`file:/ruta`); el GW solo confía en ella hacia los MS. |
 
 * La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; CORS; claves de servicio, RN-GW-20; con `cloud`, el certificado de cliente y la CA), el GW no arranca y el log indica la causa.
-* Los perfiles `local` y `docker` solo cambian `MS01_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). El perfil `cloud` se suma a `docker` y activa el mTLS hacia los MS. Los secretos nunca van en el repositorio.
+* Los perfiles `local` y `docker` solo cambian las `MSnn_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). El perfil `cloud` se suma a `docker` y activa el mTLS hacia los MS. Los secretos nunca van en el repositorio.
 
 ## 6. Dependencias
 
