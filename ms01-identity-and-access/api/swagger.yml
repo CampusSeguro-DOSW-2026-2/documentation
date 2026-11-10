@@ -1,0 +1,1212 @@
+openapi: 3.0.3
+info:
+  title: ms01-identity-and-access
+  version: 1.0.0
+  description: 'Usuarios, autenticación, roles, permisos y sesiones (MS01 - CampusSeguro).
+
+
+    **Estándares:** cabeceras, errores, paginación y JWT siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales); `x-permiso`/`x-roles` siguen la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
+
+
+    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 `NO_AUTENTICADO` (RN-MS01-23).
+
+
+    **Rutas internas (tag `Interno (servicios)`):** solo para otros MS a través del Gateway con su clave de servicio. Reciben `X-Service-Name` (lo inyecta el Gateway) en lugar de `X-User-Id`/`X-User-Role`, no usan la Matriz Rol‐Permiso y no se auditan.
+
+
+    **Auditoría:** MS01 no expone endpoints de auditoría; emite eventos asíncronos a `ms08-analytics-and-audit` (RNF-MS01-10).'
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Acceso externo (API Gateway)
+tags:
+  - name: Autenticación y sesión
+  - name: Recuperación y cambio de clave
+  - name: Perfil propio
+  - name: Administración de usuarios
+  - name: Roles y permisos
+  - name: Interno (servicios)
+    description: Resolución de usuarios para otros microservicios (MS03, MS05). Política INTERNA en el Gateway.
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Autenticación y sesión
+      summary: Registrar usuario institucional (RF-MS01-01, F-01)
+      description: Crea el usuario ACTIVO con rol ESTUDIANTE. No inicia sesión.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Usuario creado.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Correo ya registrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El correo ya está registrado.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/login:
+    post:
+      tags:
+        - Autenticación y sesión
+      summary: Autenticar usuario (RF-MS01-02, F-02)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticación exitosa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Credenciales incorrectas o cuenta inexistente (respuesta idéntica).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 401
+                codigo: CREDENCIALES_INCORRECTAS
+                mensaje: Credenciales incorrectas.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '403':
+          description: Cuenta inactiva.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 403
+                codigo: CUENTA_INACTIVA
+                mensaje: Cuenta inactiva. Contacte al administrador.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/logout:
+    post:
+      tags:
+        - Autenticación y sesión
+      summary: Cerrar sesión (RF-MS01-04)
+      x-permiso: ms01:session:logout
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      description: Registra el logout (evento a MS08). El cliente descarta el token.
+      responses:
+        '200':
+          description: Sesión cerrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/password/forgot:
+    post:
+      tags:
+        - Recuperación y cambio de clave
+      summary: Solicitar código de recuperación (RF-MS01-08, F-04)
+      description: Respuesta idéntica exista o no el correo (RN-MS01-20).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        '200':
+          description: Respuesta única.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+              example:
+                mensaje: Si el correo está registrado, enviamos un código de recuperación.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/password/reset:
+    post:
+      tags:
+        - Recuperación y cambio de clave
+      summary: Restablecer contraseña con código (RF-MS01-08, F-05)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Contraseña actualizada. El usuario debe iniciar sesión de nuevo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+        '400':
+          description: Código incorrecto, vencido o usado (mensaje genérico) o datos inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: CODIGO_INVALIDO
+                mensaje: Código incorrecto o vencido.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /users/me/password:
+    put:
+      tags:
+        - Recuperación y cambio de clave
+      summary: Cambiar contraseña autenticado (RF-MS01-08, F-06)
+      x-permiso: ms01:password:change
+      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Contraseña actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+        '400':
+          description: Contraseña actual incorrecta, nueva inválida/igual a la actual o confirmación distinta.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+  /users/me:
+    get:
+      tags:
+        - Perfil propio
+      summary: Consultar usuario autenticado (RF-MS01-03, RF-MS01-06)
+      x-permiso: ms01:profile:read
+      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      description: Identifica al usuario por `X-User-Id`.
+      responses:
+        '200':
+          description: Perfil propio.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+    put:
+      tags:
+        - Perfil propio
+      summary: Actualizar perfil propio (RF-MS01-06, F-03)
+      x-permiso: ms01:profile:write
+      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      description: Solo nombres y apellidos. Enviar correo, roles, estado o id se rechaza con 400 (RN-MS01-15).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Perfil actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+  /users:
+    get:
+      tags:
+        - Administración de usuarios
+      summary: Listar y buscar usuarios (RF-MS01-07, F-07)
+      x-permiso: ms01:user:read
+      x-roles: [ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: correo
+          in: query
+          description: Búsqueda parcial por correo.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: maria.perez
+        - name: estado
+          in: query
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
+          schema:
+            $ref: '#/components/schemas/Estado'
+        - name: rol
+          in: query
+          description: Omitir, enviar vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. Los demás valores se comparan exactos, en mayúsculas.
+          schema:
+            $ref: '#/components/schemas/Rol'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de usuarios.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users/{id}:
+    get:
+      tags:
+        - Administración de usuarios
+      summary: Consultar usuario por id (RF-MS01-05, RF-MS01-07)
+      x-permiso: ms01:user:read
+      x-roles: [ADMIN, AUDITOR]
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/status:
+    patch:
+      tags:
+        - Administración de usuarios
+      summary: Activar/inactivar uno o varios usuarios (RF-MS01-07, F-08)
+      x-permiso: ms01:user:status
+      x-roles: [ADMIN]
+      description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404. En ambos casos no se aplica ningún cambio.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200':
+          description: Resultado por usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeStatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: No es administrador o intenta cambiar su propio estado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 403
+                codigo: PROHIBIDO
+                mensaje: No puede cambiar su propio estado.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '404':
+          $ref: '#/components/responses/NotFound'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+  /roles:
+    get:
+      tags:
+        - Roles y permisos
+      summary: Consultar roles y permisos (RF-MS01-05)
+      x-permiso: [ms01:role:read_own, ms01:role:read_all]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
+      description: ADMIN recibe el catálogo completo; los demás usuarios solo sus propios roles (según `X-User-Role`).
+      responses:
+        '200':
+          description: Roles con sus permisos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RolePermissions'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+  /users/roles:
+    patch:
+      tags:
+        - Roles y permisos
+      summary: Agregar/retirar roles a uno o varios usuarios (RF-MS01-05, F-09)
+      x-permiso: ms01:user:roles
+      x-roles: [ADMIN]
+      description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404; si algún usuario quedaría sin roles, listas vacías o un rol en ambas listas, 400. En todos
+        los casos de error no se aplica ningún cambio.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeRolesRequest'
+      responses:
+        '200':
+          description: Roles resultantes por usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeRolesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: No es administrador o intenta modificar sus propios roles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 403
+                codigo: PROHIBIDO
+                mensaje: No puede modificar sus propios roles.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/batch:
+    post:
+      tags:
+        - Interno (servicios)
+      summary: Consultar varios usuarios por id
+      description: Elimina los ids repetidos conservando la primera aparición. `usuarios` y `no_encontrados` siguen el orden de la solicitud. Incluye los usuarios INACTIVOS con su `estado` (el llamante filtra). Nunca responde 404 por ids inexistentes. No se audita.
+      parameters:
+        - $ref: '#/components/parameters/XServiceName'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUsersRequest'
+      responses:
+        '200':
+          description: Usuarios encontrados y ids no encontrados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUsersResponse'
+        '400':
+          description: '`ids` falta, está vacío, tiene más de 100 elementos o algún id no es UUID; o el cuerpo trae campos no definidos.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: ids
+                    mensaje: La lista de ids es obligatoria y debe tener entre 1 y 100 elementos.
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '401':
+          $ref: '#/components/responses/InternalUnauthorized'
+        '403':
+          $ref: '#/components/responses/InternalForbidden'
+  /users/by-role:
+    get:
+      tags:
+        - Interno (servicios)
+      summary: Listar los usuarios que tienen un rol
+      description: Devuelve todos los estados (el llamante filtra) ordenados por `id` ascendente. Con `creado_antes` solo incluye usuarios creados hasta ese instante, para recorrer todas las páginas sobre el mismo conjunto. La ruta literal tiene prioridad sobre `/users/{id}`. No se audita.
+      parameters:
+        - $ref: '#/components/parameters/XServiceName'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: rol
+          in: query
+          required: true
+          description: 'Si falta o no es del catálogo: 400, campo `rol`, "Rol no válido."'
+          schema:
+            $ref: '#/components/schemas/Rol'
+          example: BRIGADISTA
+        - name: creado_antes
+          in: query
+          required: false
+          description: 'Instante ISO 8601 UTC (incluido). Si no es válido: 400, campo `creado_antes`, "Fecha de corte no válida."'
+          schema:
+            type: string
+            format: date-time
+          example: '2026-11-07T15:04:05Z'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de usuarios con el rol. Sin resultados, `contenido` vacío y `total_elementos` 0.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+              example:
+                contenido:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_nombre: María
+                    segundo_nombre: José
+                    primer_apellido: Pérez
+                    segundo_apellido: Gómez
+                    correo: maria.perez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                      - ESTUDIANTE
+                    estado: ACTIVO
+                  - id: 7a1d4e2b-5c3f-4a8e-b9d0-2e6f1c4a7b35
+                    primer_nombre: Juan
+                    primer_apellido: Rodríguez
+                    correo: juan.rodriguez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                    estado: INACTIVO
+                page: 0
+                size: 100
+                total_elementos: 2
+                total_paginas: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InternalUnauthorized'
+        '403':
+          $ref: '#/components/responses/InternalForbidden'
+components:
+  headers:
+    XCorrelationID:
+      description: UUID v4 de la petición (conservado o generado por el Gateway); enlaza logs y eventos de auditoría.
+      schema:
+        type: string
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: UUID del usuario autenticado (claim `sub`).
+      schema:
+        type: string
+        format: uuid
+        example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    XUserRole:
+      name: X-User-Role
+      in: header
+      required: true
+      description: Roles del usuario autenticado separados por coma, en orden alfabético. MS01 no exige el orden, recorta los espacios e ignora los repetidos.
+      schema:
+        type: string
+        example: BRIGADISTA,ESTUDIANTE
+    XServiceName:
+      name: X-Service-Name
+      in: header
+      required: true
+      description: Servicio que llama, derivado por el Gateway de su clave de servicio (el cliente no puede enviarlo). Servicios autorizados por defecto `ms03` y `ms05`.
+      schema:
+        type: string
+        example: ms05
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: UUID v4 de trazabilidad de la petición.
+      schema:
+        type: string
+        format: uuid
+        example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  responses:
+    BadRequest:
+      description: Validación fallida (indica campo y regla; RG-05).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Datos inválidos.
+            errores:
+              - campo: primer_nombre
+                mensaje: El primer nombre debe tener entre 2 y 30 letras.
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Unauthorized:
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role) o no son válidas.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: No autenticado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Forbidden:
+      description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No cuenta con los permisos suficientes para realizar esta operación.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalUnauthorized:
+      description: Falta la cabecera X-Service-Name.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Falta la cabecera X-Service-Name.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalForbidden:
+      description: El servicio de X-Service-Name no está autorizado para las rutas internas.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No cuenta con los permisos suficientes para realizar esta operación.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    NotFound:
+      description: Usuario no encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: Usuario no encontrado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  schemas:
+    Estado:
+      type: string
+      enum:
+        - ACTIVO
+        - INACTIVO
+    Rol:
+      type: string
+      enum:
+        - ESTUDIANTE
+        - PROFESOR
+        - ADMINISTRATIVO
+        - BRIGADISTA
+        - COORDINADOR
+        - ORGANIZADOR
+        - ADMIN
+        - AUDITOR
+      description: Catálogo de roles (RN-MS01-14).
+      example: ESTUDIANTE
+    Correo:
+      type: string
+      format: email
+      maxLength: 100
+      description: Debe pertenecer al dominio institucional configurado.
+      example: maria.perez@escuelaing.edu.co
+    Contrasena:
+      type: string
+      format: password
+      minLength: 8
+      maxLength: 64
+      pattern: ^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s])\S{8,64}$
+      description: Mayúscula, minúscula, número y carácter especial; sin espacios.
+      example: Campus#2026
+    PrimerNombre:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
+      example: María
+    SegundoNombre:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
+      example: José
+    PrimerApellido:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
+      example: Pérez
+    SegundoApellido:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
+      example: Gómez
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - primer_nombre
+        - primer_apellido
+        - correo
+        - contrasena
+        - confirmar_contrasena
+      properties:
+        primer_nombre:
+          $ref: '#/components/schemas/PrimerNombre'
+        segundo_nombre:
+          $ref: '#/components/schemas/SegundoNombre'
+        primer_apellido:
+          $ref: '#/components/schemas/PrimerApellido'
+        segundo_apellido:
+          $ref: '#/components/schemas/SegundoApellido'
+        correo:
+          $ref: '#/components/schemas/Correo'
+        contrasena:
+          $ref: '#/components/schemas/Contrasena'
+        confirmar_contrasena:
+          type: string
+          format: password
+          example: Campus#2026
+          description: Idéntica a contrasena.
+    RegisterResponse:
+      type: object
+      required:
+        - id
+        - correo
+        - roles
+        - estado
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        correo:
+          $ref: '#/components/schemas/Correo'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rol'
+          example:
+            - ESTUDIANTE
+        estado:
+          $ref: '#/components/schemas/Estado'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - correo
+        - contrasena
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 100
+          example: maria.perez@escuelaing.edu.co
+        contrasena:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 64
+          example: Campus#2026
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - tipo
+        - expira_en
+        - usuario
+      properties:
+        token:
+          type: string
+          description: JWT firmado con RS256 (ver 3_jwt-spec.md).
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZjZjMmE5ZSJ9.firma
+        tipo:
+          type: string
+          example: Bearer
+        expira_en:
+          type: string
+          format: date-time
+          example: '2026-10-20T15:30:00Z'
+        usuario:
+          type: object
+          required:
+            - id
+            - correo
+            - roles
+          properties:
+            id:
+              type: string
+              format: uuid
+              example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            correo:
+              $ref: '#/components/schemas/Correo'
+            roles:
+              type: array
+              items:
+                $ref: '#/components/schemas/Rol'
+              example:
+                - ESTUDIANTE
+    ForgotPasswordRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - correo
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 100
+          example: maria.perez@escuelaing.edu.co
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - correo
+        - codigo
+        - nueva_contrasena
+        - confirmar_nueva_contrasena
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 100
+          example: maria.perez@escuelaing.edu.co
+        codigo:
+          type: string
+          pattern: ^[0-9]{6}$
+          example: '482913'
+        nueva_contrasena:
+          $ref: '#/components/schemas/Contrasena'
+        confirmar_nueva_contrasena:
+          type: string
+          format: password
+          example: Campus#2026
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - contrasena_actual
+        - nueva_contrasena
+        - confirmar_nueva_contrasena
+      properties:
+        contrasena_actual:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 64
+          example: Campus#2026
+        nueva_contrasena:
+          $ref: '#/components/schemas/Contrasena'
+        confirmar_nueva_contrasena:
+          type: string
+          format: password
+          example: Campus#2026
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - primer_nombre
+        - primer_apellido
+      properties:
+        primer_nombre:
+          $ref: '#/components/schemas/PrimerNombre'
+        segundo_nombre:
+          $ref: '#/components/schemas/SegundoNombre'
+        primer_apellido:
+          $ref: '#/components/schemas/PrimerApellido'
+        segundo_apellido:
+          $ref: '#/components/schemas/SegundoApellido'
+    User:
+      type: object
+      required:
+        - id
+        - primer_nombre
+        - primer_apellido
+        - correo
+        - roles
+        - estado
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        primer_nombre:
+          $ref: '#/components/schemas/PrimerNombre'
+        segundo_nombre:
+          $ref: '#/components/schemas/SegundoNombre'
+        primer_apellido:
+          $ref: '#/components/schemas/PrimerApellido'
+        segundo_apellido:
+          $ref: '#/components/schemas/SegundoApellido'
+        correo:
+          $ref: '#/components/schemas/Correo'
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rol'
+          example:
+            - BRIGADISTA
+            - ESTUDIANTE
+        estado:
+          $ref: '#/components/schemas/Estado'
+    UserPage:
+      type: object
+      required:
+        - contenido
+        - page
+        - size
+        - total_elementos
+        - total_paginas
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total_elementos:
+          type: integer
+          example: 1
+        total_paginas:
+          type: integer
+          example: 1
+    ChangeStatusRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ids
+        - estado
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          example:
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        estado:
+          $ref: '#/components/schemas/Estado'
+    ChangeStatusResponse:
+      type: object
+      required:
+        - resultados
+      properties:
+        resultados:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - estado_anterior
+              - estado_nuevo
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+              estado_anterior:
+                $ref: '#/components/schemas/Estado'
+              estado_nuevo:
+                $ref: '#/components/schemas/Estado'
+    RolePermissions:
+      type: object
+      required:
+        - rol
+        - permisos
+      properties:
+        rol:
+          $ref: '#/components/schemas/Rol'
+        permisos:
+          type: array
+          items:
+            type: string
+          description: Códigos de permiso del rol según la Matriz Rol‐Permiso de la wiki (RN-MS01-14).
+          example:
+            - ms02:campus:read
+            - ms04:checkin:write
+    MensajeResponse:
+      type: object
+      required:
+        - mensaje
+      properties:
+        mensaje:
+          type: string
+          example: Operación exitosa.
+    ErrorResponse:
+      type: object
+      description: Cuerpo de error normalizado (RNF-MS01-04 y Estándares). Los cinco campos son obligatorios; sin trazas internas.
+      additionalProperties: false
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+        - correlation_id
+      properties:
+        status:
+          type: integer
+          example: 400
+        codigo:
+          type: string
+          example: VALIDACION
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            required:
+              - campo
+              - mensaje
+            properties:
+              campo:
+                type: string
+              mensaje:
+                type: string
+        correlation_id:
+          type: string
+          format: uuid
+          description: Igual a la cabecera X-Correlation-ID.
+          example: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    BatchUsersRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: 'Ids de usuario. Vacío o más de 100: "La lista de ids es obligatoria y debe tener entre 1 y 100 elementos." Algún id no UUID: "Cada id debe ser un UUID válido." (campo `ids` en ambos casos).'
+          items:
+            type: string
+            format: uuid
+          example:
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            - 9b2e7c41-0d3a-4f6b-8e15-6a4c2d9f0b73
+    BatchUsersResponse:
+      type: object
+      required:
+        - usuarios
+        - no_encontrados
+      properties:
+        usuarios:
+          type: array
+          description: Los segundos nombres y apellidos nulos se omiten.
+          items:
+            $ref: '#/components/schemas/User'
+        no_encontrados:
+          type: array
+          items:
+            type: string
+            format: uuid
+      example:
+        usuarios:
+          - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            primer_nombre: María
+            primer_apellido: Pérez
+            correo: maria.perez@escuelaing.edu.co
+            roles:
+              - BRIGADISTA
+              - ESTUDIANTE
+            estado: ACTIVO
+        no_encontrados:
+          - 9b2e7c41-0d3a-4f6b-8e15-6a4c2d9f0b73
+    ChangeRolesRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - ids
+      anyOf:
+        - required:
+            - agregar
+        - required:
+            - retirar
+      properties:
+        ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+          example:
+            - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        agregar:
+          type: array
+          description: Una lista vacía equivale a no enviarla.
+          maxItems: 8
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Rol'
+          example:
+            - BRIGADISTA
+        retirar:
+          type: array
+          description: Una lista vacía equivale a no enviarla.
+          maxItems: 8
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Rol'
+          example:
+            - PROFESOR
+    ChangeRolesResponse:
+      type: object
+      required:
+        - resultados
+      properties:
+        resultados:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - roles
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+              roles:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rol'
+                example:
+                  - BRIGADISTA
+                  - ESTUDIANTE
