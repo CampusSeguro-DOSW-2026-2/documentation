@@ -1,0 +1,4658 @@
+openapi: 3.1.0
+info:
+  title: MS02 Campus y seguridad
+  description: |-
+    Edificios, pisos, espacios, zonas seguras y rutas de evacuaci├│n de CampusSeguro.
+
+    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma), que pone el API Gateway; todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS02 responde 401. Cada operaci├│n declara su permiso en `x-permiso` y los roles que lo tienen en `x-roles`.
+  version: v1
+servers:
+- url: http://localhost:8080
+  description: Acceso externo (API Gateway)
+- url: http://localhost:8082
+  description: "MS02 directo, solo desarrollo"
+tags:
+- name: Recomendaciones preventivas
+  description: RF-13. Informaci├│n preventiva para edificios y tipos de espacio.
+- name: Consulta p├║blica
+  description: "ADR-003 (D7). Lo que se ve al escanear un QR en una emergencia: solo\
+    \ lectura, sin sesi├│n y con datos m├¡nimos."
+- name: C├│digos QR
+  description: ADR-003. QR generados a partir del UUID del elemento. Solo contienen
+    el enlace a la pantalla p├║blica del frontend.
+- name: Im├ígenes
+  description: Almacenamiento y consulta de fotograf├¡as de elementos del campus.
+- name: Rutas de evacuaci├│n
+  description: "RF-05. Gesti├│n de rutas: cada espacio tiene como m├íximo una ruta hacia\
+    \ una zona segura."
+- name: Consulta de rutas
+  description: RF-06. Ruta recomendada para el usuario seg├║n el edificio o el espacio
+    donde est├í.
+- name: Edificios
+  description: RF-01. Gesti├│n de edificios del campus.
+- name: Salidas
+  description: "ADR-003. Salidas del edificio al exterior, con el piso desde el que\
+    \ se sale y sus coordenadas."
+- name: Zonas abiertas
+  description: "ADR-003. Espacios exteriores del campus (zonas verdes, plazoletas...)."
+- name: Zonas seguras
+  description: RF-04. Zonas seguras o puntos de encuentro a los que se evac├║a.
+- name: Espacios
+  description: "RF-03. Salones, laboratorios, auditorios, oficinas y espacios comunes\
+    \ de un piso."
+- name: Pisos
+  description: "RF-02. Pisos de un edificio, identificados por n├║mero (negativo para\
+    \ s├│tanos)."
+- name: Campus
+  description: ADR-003. Gesti├│n de campus; agrupa edificios y zonas abiertas.
+- name: Rutas exteriores
+  description: ADR-003. Recorrido peatonal desde una salida del edificio hasta una
+    zona segura.
+- name: Escaleras
+  description: RF-04. Escaleras y pisos que conectan dentro de un edificio.
+paths:
+  /api/v1/spaces/{id}:
+    get:
+      tags:
+      - Espacios
+      summary: Consultar espacio
+      description: Cualquier rol.
+      operationId: obtener
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Espacios
+      summary: Modificar espacio
+      description: Solo ADMIN. Cambia nombre y tipo.
+      operationId: modificar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModificarEspacioRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/safe-zones/{id}:
+    get:
+      tags:
+      - Zonas seguras
+      summary: Consultar zona segura
+      description: Cualquier rol.
+      operationId: obtener_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Zonas seguras
+      summary: Modificar zona segura
+      description: "Solo ADMIN. Cambia nombre, ubicaci├│n, descripci├│n y capacidad.\
+        \ El c├│digo no se puede modificar. Las coordenadas, la zona abierta y puntoEncuentro\
+        \ solo cambian si se env├¡an."
+      operationId: modificar_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModificarZonaSeguraRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:safe_zone:write
+      x-roles:
+      - ADMIN
+  /api/v1/preventive-recommendations/{id}:
+    put:
+      tags:
+      - Recomendaciones preventivas
+      summary: Modificar recomendaci├│n preventiva
+      description: Solo ADMIN.
+      operationId: modificar_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecomendacionPreventivaRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:preventive_recommendation:write
+      x-roles:
+      - ADMIN
+  /api/v1/open-zones/{id}:
+    get:
+      tags:
+      - Zonas abiertas
+      summary: Consultar zona abierta
+      description: Cualquier rol.
+      operationId: obtener_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Zonas abiertas
+      summary: Modificar zona abierta
+      description: "Solo ADMIN. Cambia nombre, tipo y coordenadas. Latitud y longitud\
+        \ se env├¡an juntas."
+      operationId: modificar_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZonaAbiertaRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/floors/{id}:
+    get:
+      tags:
+      - Pisos
+      summary: Consultar piso
+      description: Cualquier rol.
+      operationId: obtener_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Pisos
+      summary: Modificar piso
+      description: Solo ADMIN. Cambia n├║mero y nombre; el n├║mero no se puede repetir
+        en el edificio.
+      operationId: modificar_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PisoRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/exits/{id}:
+    get:
+      tags:
+      - Salidas
+      summary: Consultar salida
+      description: Cualquier rol.
+      operationId: obtener_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Salidas
+      summary: Modificar salida
+      description: "Solo ADMIN. Cambia piso, nombre y coordenadas."
+      operationId: modificar_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModificarSalidaRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/evacuation-routes/{id}:
+    get:
+      tags:
+      - Rutas de evacuaci├│n
+      summary: Consultar ruta
+      description: Cualquier rol.
+      operationId: obtener_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        description: Identificador de la ruta
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Rutas de evacuaci├│n
+      summary: Actualizar ruta
+      description: Actualiza la descripci├│n y la zona segura de destino. La nueva
+        zona debe existir y estar activa.
+      operationId: actualizar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        description: Identificador de la ruta
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActualizarRutaRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: La zona segura de destino no cumple las reglas de negocio.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:write
+      x-roles:
+      - ADMIN
+  /api/v1/campuses/{id}:
+    get:
+      tags:
+      - Campus
+      summary: Consultar campus
+      description: Cualquier rol.
+      operationId: obtener_6
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Campus
+      summary: Modificar campus
+      description: Solo ADMIN. Cambia nombre y descripci├│n.
+      operationId: modificar_6
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampusRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{id}:
+    get:
+      tags:
+      - Edificios
+      summary: Consultar edificio
+      description: Cualquier rol.
+      operationId: obtener_7
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    put:
+      tags:
+      - Edificios
+      summary: Modificar edificio
+      description: "Solo ADMIN. Cambia nombre, descripci├│n y campus."
+      operationId: modificar_7
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModificarEdificioRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/safe-zones:
+    get:
+      tags:
+      - Zonas seguras
+      summary: Listar zonas seguras
+      description: Cualquier rol. Por defecto solo las activas; incluirInactivos=true
+        devuelve todas. puntoEncuentro=true|false filtra por esa marca; sinCoordenadas=true
+        lista las que a├║n no tienen coordenadas.
+      operationId: listar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      - name: puntoEncuentro
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: sinCoordenadas
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Zonas seguras
+      summary: Registrar zona segura
+      description: Solo ADMIN. El c├│digo (por ejemplo MP-H-01) es ├║nico. La capacidad
+        debe ser mayor que cero. La zona queda activa. Latitud y longitud son opcionales
+        pero van juntas; zonaAbiertaId es opcional; puntoEncuentro es true por defecto.
+      operationId: crear
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZonaSeguraRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:safe_zone:write
+      x-roles:
+      - ADMIN
+  /api/v1/preventive-recommendations:
+    get:
+      tags:
+      - Recomendaciones preventivas
+      summary: Listar recomendaciones activas
+      description: Consulta disponible para cualquier rol.
+      operationId: listar_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Recomendaciones preventivas
+      summary: Crear recomendaci├│n preventiva
+      description: Solo ADMIN.
+      operationId: crear_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecomendacionPreventivaRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:preventive_recommendation:write
+      x-roles:
+      - ADMIN
+  /api/v1/images:
+    get:
+      tags:
+      - Im├ígenes
+      summary: Listar im├ígenes asociadas a un elemento del campus
+      operationId: listar_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: tipoElemento
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - EDIFICIO
+          - ESPACIO
+          - SALIDA
+          - ZONA_SEGURA
+      - name: elementoId
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Imagen"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Im├ígenes
+      summary: Registrar imagen de un elemento del campus
+      operationId: registrar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: tipoElemento
+        in: query
+        required: true
+        schema:
+          type: string
+          enum:
+          - EDIFICIO
+          - ESPACIO
+          - SALIDA
+          - ZONA_SEGURA
+      - name: elementoId
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archivo:
+                  type: string
+                  format: binary
+              required:
+              - archivo
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Imagen"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/floors/{pisoId}/spaces:
+    get:
+      tags:
+      - Espacios
+      summary: Listar espacios de un piso
+      description: Cualquier rol. Por defecto solo los disponibles; incluirInactivos=true
+        devuelve todos.
+      operationId: listarPorPiso
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: pisoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Espacios
+      summary: Registrar espacio
+      description: Solo ADMIN. El piso y su edificio deben estar activos.
+      operationId: crear_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: pisoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EspacioRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/evacuation-routes:
+    get:
+      tags:
+      - Rutas de evacuaci├│n
+      summary: Listar rutas
+      description: Cualquier rol.
+      operationId: listar_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RutaResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Rutas de evacuaci├│n
+      summary: Crear ruta
+      description: "Solo ADMIN. El espacio debe estar disponible y la zona activa;\
+        \ responde 409 si el espacio ya tiene ruta. Si el estado no es DISPONIBLE,\
+        \ el motivo es obligatorio."
+      operationId: crear_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrearRutaRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: El espacio de origen o la zona segura de destino no cumple
+            las reglas de negocio.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:write
+      x-roles:
+      - ADMIN
+  /api/v1/evacuation-routes/exterior:
+    post:
+      tags:
+      - Rutas exteriores
+      summary: Calcular ruta exterior
+      description: "Solo ADMIN. Calcula el recorrido peatonal salida -> zona segura\
+        \ con el proveedor de navegaci├│n y guarda el ├║ltimo resultado. Si el par ya\
+        \ ten├¡a ruta, la recalcula. La salida y la zona deben estar activas y con\
+        \ coordenadas."
+      operationId: calcular
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalcularRutaExteriorRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaExteriorResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          description: "La salida o la zona no cumplen las reglas de negocio, o no\
+            \ hay recorrido peatonal."
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: No existe la salida o la zona segura.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: El proveedor de navegaci├│n no est├í disponible.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:write
+      x-roles:
+      - ADMIN
+  /api/v1/evacuation-routes/exterior/generate:
+    post:
+      tags:
+      - Rutas exteriores
+      summary: Generar rutas exteriores del campus
+      description: "Solo ADMIN. Conecta cada salida disponible con sus zonas seguras\
+        \ m├ís cercanas. Por defecto solo crea las rutas que faltan; con recalcular=true\
+        \ rehace tambi├®n las existentes. Normalmente no hace falta: las rutas se generan\
+        \ solas al crear o mover salidas y zonas."
+      operationId: generar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: recalcular
+        in: query
+        description: "Si es true, recalcula tambi├®n las rutas que ya existen"
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResumenGeneracionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:write
+      x-roles:
+      - ADMIN
+  /api/v1/campuses:
+    get:
+      tags:
+      - Campus
+      summary: Listar campus
+      description: Cualquier rol. Por defecto solo los activos; incluirInactivos=true
+        devuelve todos.
+      operationId: listar_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Campus
+      summary: Crear campus
+      description: Solo ADMIN. El campus queda activo.
+      operationId: crear_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampusRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/campuses/{campusId}/open-zones:
+    get:
+      tags:
+      - Zonas abiertas
+      summary: Listar zonas abiertas de un campus
+      description: Cualquier rol. Por defecto solo las activas; incluirInactivos=true
+        devuelve todas.
+      operationId: listarPorCampus
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: campusId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Zonas abiertas
+      summary: Registrar zona abierta
+      description: "Solo ADMIN. El campus debe estar activo. Latitud y longitud son\
+        \ opcionales, pero se env├¡an juntas."
+      operationId: crear_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: campusId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZonaAbiertaRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings:
+    get:
+      tags:
+      - Edificios
+      summary: Listar edificios
+      description: Cualquier rol. Por defecto solo los activos; incluirInactivos=true
+        devuelve todos.
+      operationId: listar_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Edificios
+      summary: Crear edificio
+      description: Solo ADMIN. El campus es obligatorio y debe estar activo. El edificio
+        queda activo.
+      operationId: crear_6
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EdificioRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{edificioId}/stairs:
+    get:
+      tags:
+      - Escaleras
+      summary: Listar escaleras de un edificio
+      operationId: listarPorEdificio
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivas
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Escaleras
+      summary: Registrar escalera
+      description: Registra una escalera conectando al menos dos pisos activos del
+        edificio. El c├│digo se genera autom├íticamente.
+      operationId: crear_7
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EscaleraRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{edificioId}/floors:
+    get:
+      tags:
+      - Pisos
+      summary: Listar pisos de un edificio
+      description: Cualquier rol. Ordenados por n├║mero. Por defecto solo los activos;
+        incluirInactivos=true devuelve todos.
+      operationId: listarPorEdificio_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Pisos
+      summary: Registrar piso
+      description: Solo ADMIN. El edificio debe estar activo y el n├║mero no se puede
+        repetir en el edificio.
+      operationId: crear_8
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PisoRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{edificioId}/exits:
+    get:
+      tags:
+      - Salidas
+      summary: Listar salidas de un edificio
+      description: Cualquier rol. Por defecto solo las disponibles; incluirInactivos=true
+        devuelve todas.
+      operationId: listarPorEdificio_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    post:
+      tags:
+      - Salidas
+      summary: Registrar salida
+      description: "Solo ADMIN. El edificio y el piso deben estar activos, el piso\
+        \ debe ser del edificio y las coordenadas son obligatorias."
+      operationId: crear_9
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalidaRequest"
+        required: true
+      responses:
+        "201":
+          description: Creado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/stairs/{id}/status:
+    patch:
+      tags:
+      - Escaleras
+      summary: Cambiar disponibilidad de una escalera
+      description: "Coordinaci├│n puede bloquear o habilitar una escalera. Para estados\
+        \ no disponibles, el motivo es obligatorio."
+      operationId: cambiarDisponibilidad
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarDisponibilidadEscaleraRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:stair_status:write
+      x-roles:
+      - COORDINADOR
+      - ADMIN
+  /api/v1/stairs/{id}/reactivate:
+    patch:
+      tags:
+      - Escaleras
+      summary: Reactivar escalera
+      operationId: reactivar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/stairs/{id}/priority:
+    patch:
+      tags:
+      - Escaleras
+      summary: Cambiar la prioridad de una escalera
+      description: 1 es la escalera principal del edificio. La guia de evacuacion
+        recomienda primero las de menor numero.
+      operationId: cambiarPrioridad
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarPrioridadEscaleraRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/stairs/{id}/deactivate:
+    patch:
+      tags:
+      - Escaleras
+      summary: Inactivar escalera
+      operationId: inactivar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/spaces/{id}/reactivate:
+    patch:
+      tags:
+      - Espacios
+      summary: Reactivar espacio
+      description: Solo ADMIN. Su piso y su edificio deben estar activos.
+      operationId: reactivar_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/spaces/{id}/deactivate:
+    patch:
+      tags:
+      - Espacios
+      summary: Inactivar espacio
+      description: Solo ADMIN. Se rechaza con 422 si el espacio es origen de una ruta
+        Disponible o Restringida.
+      operationId: inactivar_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/safe-zones/{id}/reactivate:
+    patch:
+      tags:
+      - Zonas seguras
+      summary: Reactivar zona segura
+      description: Solo ADMIN. Se rechaza con 422 si la zona ya est├í activa o si su
+        zona abierta est├í inactiva.
+      operationId: reactivar_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:safe_zone:write
+      x-roles:
+      - ADMIN
+  /api/v1/safe-zones/{id}/deactivate:
+    patch:
+      tags:
+      - Zonas seguras
+      summary: Inactivar zona segura
+      description: Solo ADMIN. Se rechaza con 422 si la zona es destino de rutas activas;
+        deben bloquearse antes.
+      operationId: inactivar_2
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:safe_zone:write
+      x-roles:
+      - ADMIN
+  /api/v1/preventive-recommendations/{id}/deactivate:
+    patch:
+      tags:
+      - Recomendaciones preventivas
+      summary: Inactivar recomendaci├│n preventiva
+      description: Solo ADMIN.
+      operationId: inactivar_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:preventive_recommendation:write
+      x-roles:
+      - ADMIN
+  /api/v1/open-zones/{id}/reactivate:
+    patch:
+      tags:
+      - Zonas abiertas
+      summary: Reactivar zona abierta
+      description: Solo ADMIN. Se rechaza con 422 si el campus est├í inactivo.
+      operationId: reactivar_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/open-zones/{id}/deactivate:
+    patch:
+      tags:
+      - Zonas abiertas
+      summary: Inactivar zona abierta
+      description: Solo ADMIN. Se rechaza con 422 si tiene zonas seguras activas.
+      operationId: inactivar_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaAbiertaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/floors/{id}/reactivate:
+    patch:
+      tags:
+      - Pisos
+      summary: Reactivar piso
+      description: Solo ADMIN. El edificio debe estar activo; sus espacios conservan
+        su estado.
+      operationId: reactivar_4
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/floors/{id}/deactivate:
+    patch:
+      tags:
+      - Pisos
+      summary: Inactivar piso
+      description: Solo ADMIN. Se rechaza con 422 si el piso tiene espacios activos.
+      operationId: inactivar_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PisoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/exits/{id}/reactivate:
+    patch:
+      tags:
+      - Salidas
+      summary: Reactivar salida
+      description: Solo ADMIN. Su piso y su edificio deben estar activos.
+      operationId: reactivar_5
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/exits/{id}/deactivate:
+    patch:
+      tags:
+      - Salidas
+      summary: Inactivar salida
+      description: Solo ADMIN. Una salida inactiva no se usa como origen de rutas
+        exteriores.
+      operationId: inactivar_6
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/evacuation-routes/{id}/status:
+    patch:
+      tags:
+      - Rutas de evacuaci├│n
+      summary: Cambiar estado de una ruta
+      description: ADMIN o COORDINADOR. BLOQUEADA y RESTRINGIDA exigen motivo; al
+        pasar a DISPONIBLE el motivo se borra. DISPONIBLE y RESTRINGIDA exigen espacio
+        de origen disponible y zona de destino activa.
+      operationId: cambiarEstado
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        description: Identificador de la ruta
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambiarEstadoRequest"
+        required: true
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: El espacio de origen o la zona segura de destino no est├í habilitado
+            para el estado solicitado.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route_status:write
+      x-roles:
+      - COORDINADOR
+      - ADMIN
+  /api/v1/campuses/{id}/reactivate:
+    patch:
+      tags:
+      - Campus
+      summary: Reactivar campus
+      description: Solo ADMIN. Sus edificios y zonas abiertas conservan su estado;
+        se reactivan por separado.
+      operationId: reactivar_6
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/campuses/{id}/deactivate:
+    patch:
+      tags:
+      - Campus
+      summary: Inactivar campus
+      description: Solo ADMIN. Se rechaza con 422 si el campus tiene edificios o zonas
+        abiertas activas.
+      operationId: inactivar_7
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{id}/reactivate:
+    patch:
+      tags:
+      - Edificios
+      summary: Reactivar edificio
+      description: Solo ADMIN. Sus pisos y espacios conservan su estado; se reactivan
+        por separado.
+      operationId: reactivar_7
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/buildings/{id}/deactivate:
+    patch:
+      tags:
+      - Edificios
+      summary: Inactivar edificio
+      description: Solo ADMIN. Se rechaza con 422 si el edificio tiene rutas activas;
+        deben bloquearse antes.
+      operationId: inactivar_8
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EdificioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/stairs/{id}:
+    get:
+      tags:
+      - Escaleras
+      summary: Consultar escalera
+      operationId: obtener_8
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EscaleraResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/spaces/{spaceId}/evacuation-route:
+    get:
+      tags:
+      - Consulta de rutas
+      summary: Ruta de un espacio
+      description: "Cualquier rol. Devuelve la ruta con su estado y motivo, o el aviso\
+        \ de que el espacio no tiene ruta. 422 si el espacio est├í inactivo o no est├í\
+        \ disponible, o si su edificio est├í inactivo."
+      operationId: porEspacio
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: spaceId
+        in: path
+        description: Identificador del espacio
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RutaConsultadaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: "El espacio est├í inactivo o no disponible, o el edificio est├í\
+            \ inactivo."
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/spaces/{id}/qr:
+    get:
+      tags:
+      - C├│digos QR
+      summary: QR de un espacio
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/espacios/{id}."
+      operationId: espacio
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/safe-zones/{id}/qr:
+    get:
+      tags:
+      - C├│digos QR
+      summary: QR de una zona segura
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/zonas/{id}."
+      operationId: zonaSegura
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:safe_zone:write
+      x-roles:
+      - ADMIN
+  /api/v1/public/spaces:
+    get:
+      tags:
+      - Consulta p├║blica
+      summary: Consultar un espacio por su QR
+      description: "Sin sesi├│n. Edificio, piso y la evacuaci├│n recomendada; si el\
+        \ espacio no est├í disponible devuelve un aviso."
+      operationId: espacio_1
+      parameters:
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EspacioPublicoResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/public/safe-zones:
+    get:
+      tags:
+      - Consulta p├║blica
+      summary: Consultar una zona segura por su QR
+      description: "Sin sesi├│n. Ubicaci├│n, coordenadas y si es punto de encuentro."
+      operationId: zonaSegura_1
+      parameters:
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonaSeguraPublicaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/public/exits:
+    get:
+      tags:
+      - Consulta p├║blica
+      summary: Consultar una salida por su QR
+      description: "Sin sesi├│n. Edificio, piso y coordenadas de la salida."
+      operationId: salida
+      parameters:
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalidaPublicaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/preventive-recommendations/space-type/{type}:
+    get:
+      tags:
+      - Recomendaciones preventivas
+      summary: Consultar recomendaciones por tipo de espacio
+      description: Consulta disponible para cualquier rol.
+      operationId: porTipo
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: type
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/preventive-recommendations/building/{buildingId}:
+    get:
+      tags:
+      - Recomendaciones preventivas
+      summary: Consultar recomendaciones de un edificio
+      description: Consulta disponible para cualquier rol.
+      operationId: porEdificio
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: buildingId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/images/{id}:
+    get:
+      tags:
+      - Im├ígenes
+      summary: Consultar archivo de imagen
+      operationId: obtener_9
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+    delete:
+      tags:
+      - Im├ígenes
+      summary: Eliminar imagen
+      operationId: eliminar
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Void"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/exits/{id}/qr:
+    get:
+      tags:
+      - C├│digos QR
+      summary: QR de una salida
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/salidas/{id}."
+      operationId: salida_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:building:write
+      x-roles:
+      - ADMIN
+  /api/v1/exits/{exitId}/evacuation-route:
+    get:
+      tags:
+      - Rutas exteriores
+      summary: Rutas exteriores de una salida
+      description: "Cualquier rol. Devuelve los ├║ltimos recorridos guardados desde\
+        \ la salida, sin llamar al proveedor."
+      operationId: porSalida
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: exitId
+        in: path
+        description: Identificador de la salida
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RutaExteriorResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/buildings/{edificioId}/spaces:
+    get:
+      tags:
+      - Espacios
+      summary: Listar espacios de un edificio
+      description: Cualquier rol. Por defecto solo los disponibles; incluirInactivos=true
+        devuelve todos.
+      operationId: listarPorEdificio_3
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: edificioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: incluirInactivos
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EspacioResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:campus:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+  /api/v1/buildings/{buildingId}/evacuation-routes:
+    get:
+      tags:
+      - Consulta de rutas
+      summary: Rutas de un edificio
+      description: "Cualquier rol. Lista los espacios activos y disponibles del edificio,\
+        \ cada uno con su ruta o el aviso de que no tiene. 422 si el edificio est├í\
+        \ inactivo."
+      operationId: porEdificio_1
+      parameters:
+      - $ref: "#/components/parameters/XUserId"
+      - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XCorrelationId"
+      - name: buildingId
+        in: path
+        description: Identificador del edificio
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RutaConsultadaResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: El edificio consultado est├í inactivo.
+          headers:
+            X-Correlation-ID:
+              $ref: "#/components/headers/XCorrelationID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      x-permiso: ms02:route:read
+      x-roles:
+      - ESTUDIANTE
+      - PROFESOR
+      - ADMINISTRATIVO
+      - BRIGADISTA
+      - COORDINADOR
+      - ORGANIZADOR
+      - ADMIN
+      - AUDITOR
+components:
+  schemas:
+    CampoError:
+      properties:
+        campo:
+          type: string
+        mensaje:
+          type: string
+    ErrorResponse:
+      properties:
+        status:
+          type: integer
+          format: int32
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampoError"
+        correlation_id:
+          type: string
+      required:
+      - codigo
+      - correlation_id
+      - errores
+      - mensaje
+      - status
+    ModificarEspacioRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        tipo:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+      required:
+      - nombre
+      - tipo
+    EspacioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        edificioId:
+          type: string
+          format: uuid
+        edificioNombre:
+          type: string
+        pisoId:
+          type: string
+          format: uuid
+        pisoNumero:
+          type: integer
+          format: int32
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        disponible:
+          type: boolean
+        tieneFotografia:
+          type: boolean
+    ModificarZonaSeguraRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        ubicacion:
+          type: string
+          maxLength: 255
+          minLength: 0
+        descripcion:
+          type: string
+          minLength: 1
+        capacidad:
+          type: integer
+          format: int32
+          minimum: 1
+        latitud:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitud:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+        zonaAbiertaId:
+          type: string
+          format: uuid
+        puntoEncuentro:
+          type: boolean
+      required:
+      - capacidad
+      - descripcion
+      - nombre
+      - ubicacion
+    ZonaSeguraResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+        nombre:
+          type: string
+        ubicacion:
+          type: string
+        descripcion:
+          type: string
+        capacidad:
+          type: integer
+          format: int32
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        latitud:
+          type: number
+        longitud:
+          type: number
+        zonaAbiertaId:
+          type: string
+          format: uuid
+        puntoEncuentro:
+          type: boolean
+        tieneFotografia:
+          type: boolean
+    RecomendacionPreventivaRequest:
+      type: object
+      properties:
+        ambito:
+          type: string
+          enum:
+          - EDIFICIO
+          - TIPO_ESPACIO
+        edificioId:
+          type: string
+          format: uuid
+        tipoEspacio:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+        titulo:
+          type: string
+          maxLength: 150
+          minLength: 0
+        recomendacion:
+          type: string
+          minLength: 1
+      required:
+      - ambito
+      - recomendacion
+      - titulo
+    RecomendacionPreventivaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ambito:
+          type: string
+          enum:
+          - EDIFICIO
+          - TIPO_ESPACIO
+        edificioId:
+          type: string
+          format: uuid
+        tipoEspacio:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+        titulo:
+          type: string
+        recomendacion:
+          type: string
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ZonaAbiertaRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        tipo:
+          type: string
+          enum:
+          - ZONA_VERDE
+          - PLAZOLETA
+          - CANCHA
+          - PARQUEADERO
+          - OTRA
+        latitud:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitud:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+      required:
+      - nombre
+      - tipo
+    ZonaAbiertaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        campusId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum:
+          - ZONA_VERDE
+          - PLAZOLETA
+          - CANCHA
+          - PARQUEADERO
+          - OTRA
+        latitud:
+          type: number
+        longitud:
+          type: number
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+    PisoRequest:
+      type: object
+      properties:
+        numero:
+          type: integer
+          format: int32
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+      required:
+      - numero
+    PisoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        edificioId:
+          type: string
+          format: uuid
+        numero:
+          type: integer
+          format: int32
+        nombre:
+          type: string
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        tieneSalida:
+          type: boolean
+    ModificarSalidaRequest:
+      type: object
+      properties:
+        pisoId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        latitud:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitud:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+      required:
+      - latitud
+      - longitud
+      - nombre
+      - pisoId
+    SalidaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        edificioId:
+          type: string
+          format: uuid
+        edificioNombre:
+          type: string
+        pisoId:
+          type: string
+          format: uuid
+        pisoNumero:
+          type: integer
+          format: int32
+        nombre:
+          type: string
+        latitud:
+          type: number
+        longitud:
+          type: number
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        disponible:
+          type: boolean
+        tieneFotografia:
+          type: boolean
+    ActualizarRutaRequest:
+      type: object
+      properties:
+        zonaSeguraDestinoId:
+          type: string
+          format: uuid
+        descripcion:
+          type: string
+          maxLength: 1000
+          minLength: 0
+      required:
+      - descripcion
+      - zonaSeguraDestinoId
+    RutaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        espacioOrigenId:
+          type: string
+          format: uuid
+        zonaSeguraDestinoId:
+          type: string
+          format: uuid
+        descripcion:
+          type: string
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+        actualizadaEn:
+          type: string
+          format: date-time
+        salidaOrigenId:
+          type: string
+          format: uuid
+    CampusRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        descripcion:
+          type: string
+      required:
+      - nombre
+    CampusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+    ModificarEdificioRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        descripcion:
+          type: string
+        campusId:
+          type: string
+          format: uuid
+      required:
+      - nombre
+    EdificioResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        campusId:
+          type: string
+          format: uuid
+        tieneFotografia:
+          type: boolean
+    ZonaSeguraRequest:
+      type: object
+      properties:
+        codigo:
+          type: string
+          maxLength: 50
+          minLength: 0
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        ubicacion:
+          type: string
+          maxLength: 255
+          minLength: 0
+        descripcion:
+          type: string
+          minLength: 1
+        capacidad:
+          type: integer
+          format: int32
+          minimum: 1
+        latitud:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitud:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+        zonaAbiertaId:
+          type: string
+          format: uuid
+        puntoEncuentro:
+          type: boolean
+      required:
+      - capacidad
+      - codigo
+      - descripcion
+      - nombre
+      - ubicacion
+    Imagen:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipoElemento:
+          type: string
+          enum:
+          - EDIFICIO
+          - ESPACIO
+          - SALIDA
+          - ZONA_SEGURA
+        elementoId:
+          type: string
+          format: uuid
+        nombreOriginal:
+          type: string
+        tipoContenido:
+          type: string
+        tamanioBytes:
+          type: integer
+          format: int64
+        rutaArchivo:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    EspacioRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        tipo:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+      required:
+      - nombre
+      - tipo
+    CrearRutaRequest:
+      type: object
+      properties:
+        espacioOrigenId:
+          type: string
+          format: uuid
+        zonaSeguraDestinoId:
+          type: string
+          format: uuid
+        descripcion:
+          type: string
+          maxLength: 1000
+          minLength: 0
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+      - descripcion
+      - espacioOrigenId
+      - estado
+      - zonaSeguraDestinoId
+    CalcularRutaExteriorRequest:
+      type: object
+      properties:
+        salidaId:
+          type: string
+          format: uuid
+        zonaSeguraId:
+          type: string
+          format: uuid
+      required:
+      - salidaId
+      - zonaSeguraId
+    Coordenada:
+      type: object
+      properties:
+        latitud:
+          type: number
+        longitud:
+          type: number
+    PasoRuta:
+      type: object
+      properties:
+        instruccion:
+          type: string
+        distanciaMetros:
+          type: number
+          format: double
+        duracionSegundos:
+          type: number
+          format: double
+    RutaExteriorResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        salidaOrigenId:
+          type: string
+          format: uuid
+        zonaSeguraDestinoId:
+          type: string
+          format: uuid
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+        distanciaMetros:
+          type: number
+        duracionSegundos:
+          type: number
+        geometria:
+          type: array
+          items:
+            $ref: "#/components/schemas/Coordenada"
+        pasos:
+          type: array
+          items:
+            $ref: "#/components/schemas/PasoRuta"
+        calculadaEn:
+          type: string
+          format: date-time
+    ResumenGeneracionResponse:
+      type: object
+      properties:
+        generadas:
+          type: integer
+          format: int32
+        omitidas:
+          type: integer
+          format: int32
+        interrumpida:
+          type: boolean
+    EdificioRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        descripcion:
+          type: string
+        campusId:
+          type: string
+          format: uuid
+      required:
+      - campusId
+      - nombre
+    EscaleraRequest:
+      type: object
+      properties:
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        pisoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 2147483647
+          minItems: 2
+        prioridad:
+          type: integer
+          format: int32
+          minimum: 1
+      required:
+      - nombre
+      - pisoIds
+    EscaleraResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        edificioId:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+        nombre:
+          type: string
+        disponibilidad:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - FUERA_DE_SERVICIO
+        motivo:
+          type: string
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+        prioridad:
+          type: integer
+          format: int32
+        pisoIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    SalidaRequest:
+      type: object
+      properties:
+        pisoId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+          maxLength: 100
+          minLength: 0
+        latitud:
+          type: number
+          maximum: 90.0
+          minimum: -90.0
+        longitud:
+          type: number
+          maximum: 180.0
+          minimum: -180.0
+      required:
+      - latitud
+      - longitud
+      - nombre
+      - pisoId
+    CambiarDisponibilidadEscaleraRequest:
+      type: object
+      properties:
+        disponibilidad:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - FUERA_DE_SERVICIO
+        motivo:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+      - disponibilidad
+    CambiarPrioridadEscaleraRequest:
+      type: object
+      properties:
+        prioridad:
+          type: integer
+          format: int32
+          minimum: 1
+      required:
+      - prioridad
+    CambiarEstadoRequest:
+      type: object
+      properties:
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+          maxLength: 255
+          minLength: 0
+      required:
+      - estado
+    EscaleraGuia:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        codigo:
+          type: string
+        nombre:
+          type: string
+        tramo:
+          type: integer
+          format: int32
+        principal:
+          type: boolean
+    GuiaEvacuacionResponse:
+      type: object
+      properties:
+        edificioId:
+          type: string
+          format: uuid
+        edificioNombre:
+          type: string
+        pisoId:
+          type: string
+          format: uuid
+        pisoNumero:
+          type: integer
+          format: int32
+        requiereEscalera:
+          type: boolean
+        escaleras:
+          type: array
+          items:
+            $ref: "#/components/schemas/EscaleraGuia"
+        salida:
+          $ref: "#/components/schemas/SalidaGuia"
+        rutaExterior:
+          $ref: "#/components/schemas/RutaExteriorResponse"
+        zonaSeguraNombre:
+          type: string
+        indicacion:
+          type: string
+        mensaje:
+          type: string
+    RutaConsultadaResponse:
+      type: object
+      properties:
+        espacioId:
+          type: string
+          format: uuid
+        espacioNombre:
+          type: string
+        tieneRuta:
+          type: boolean
+        zonaSeguraId:
+          type: string
+          format: uuid
+        zonaSeguraNombre:
+          type: string
+        zonaSeguraUbicacion:
+          type: string
+        recorrido:
+          type: string
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+        destinoActivo:
+          type: boolean
+        mensaje:
+          type: string
+        recomendacionesPreventivas:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecomendacionPreventivaResponse"
+        guia:
+          $ref: "#/components/schemas/GuiaEvacuacionResponse"
+    SalidaGuia:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        latitud:
+          type: number
+        longitud:
+          type: number
+    EspacioPublicoResponse:
+      type: object
+      properties:
+        nombre:
+          type: string
+        tipo:
+          type: string
+          enum:
+          - SALON
+          - LABORATORIO
+          - AUDITORIO
+          - OFICINA
+          - ESPACIO_COMUN
+        edificio:
+          type: string
+        piso:
+          type: integer
+          format: int32
+        disponible:
+          type: boolean
+        evacuacion:
+          $ref: "#/components/schemas/Evacuacion"
+        aviso:
+          type: string
+        tieneFotografia:
+          type: boolean
+        guia:
+          $ref: "#/components/schemas/Guia"
+    Evacuacion:
+      type: object
+      properties:
+        tieneRuta:
+          type: boolean
+        zonaSegura:
+          type: string
+        ubicacionZonaSegura:
+          type: string
+        recorrido:
+          type: string
+        estado:
+          type: string
+          enum:
+          - DISPONIBLE
+          - BLOQUEADA
+          - RESTRINGIDA
+        motivo:
+          type: string
+        mensaje:
+          type: string
+        recomendaciones:
+          type: array
+          items:
+            $ref: "#/components/schemas/Recomendacion"
+    Guia:
+      type: object
+      properties:
+        indicacion:
+          type: string
+        mensaje:
+          type: string
+        escaleras:
+          type: array
+          items:
+            type: string
+        salida:
+          type: string
+        salidaLatitud:
+          type: number
+        salidaLongitud:
+          type: number
+        zonaSegura:
+          type: string
+        distanciaMetros:
+          type: number
+        duracionSegundos:
+          type: number
+        pasos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Paso"
+    Paso:
+      type: object
+      properties:
+        instruccion:
+          type: string
+        distanciaMetros:
+          type: number
+          format: double
+    Recomendacion:
+      type: object
+      properties:
+        titulo:
+          type: string
+        recomendacion:
+          type: string
+    ZonaSeguraPublicaResponse:
+      type: object
+      properties:
+        codigo:
+          type: string
+        nombre:
+          type: string
+        ubicacion:
+          type: string
+        puntoEncuentro:
+          type: boolean
+        latitud:
+          type: number
+        longitud:
+          type: number
+        disponible:
+          type: boolean
+        aviso:
+          type: string
+        tieneFotografia:
+          type: boolean
+    SalidaPublicaResponse:
+      type: object
+      properties:
+        nombre:
+          type: string
+        edificio:
+          type: string
+        piso:
+          type: integer
+          format: int32
+        latitud:
+          type: number
+        longitud:
+          type: number
+        disponible:
+          type: boolean
+        aviso:
+          type: string
+        tieneFotografia:
+          type: boolean
+  responses:
+    BadRequest:
+      description: "Validaci├│n fallida: indica el campo y la regla."
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/XCorrelationID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Datos inv├ílidos.
+            errores:
+            - campo: nombre
+              mensaje: El nombre es obligatorio.
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    Unauthorized:
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/XCorrelationID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Faltan las cabeceras de identidad.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    Forbidden:
+      description: X-User-Role no incluye ning├║n rol de x-roles.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/XCorrelationID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No tiene permiso para realizar esta acci├│n.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    NotFound:
+      description: El recurso no existe.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/XCorrelationID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: Edificio no encontrado.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    InternalError:
+      description: Error inesperado; el detalle queda en el log de MS02.
+      headers:
+        X-Correlation-ID:
+          $ref: "#/components/headers/XCorrelationID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 500
+            codigo: ERROR_INTERNO
+            mensaje: Ocurri├│ un error inesperado. Intente de nuevo m├ís tarde.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+  parameters:
+    XUserId:
+      name: X-User-Id
+      in: header
+      description: Id del usuario autenticado. Lo pone el API Gateway.
+      required: true
+      schema:
+        type: string
+        example: USR-1034
+    XUserRole:
+      name: X-User-Role
+      in: header
+      description: Roles del usuario autenticado separados por coma. Lo pone el API
+        Gateway.
+      required: true
+      schema:
+        type: string
+        example: "ESTUDIANTE,BRIGADISTA"
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      description: Identificador de trazabilidad de la petici├│n (UUID v4).
+      required: false
+      schema:
+        type: string
+        example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+  headers:
+    XCorrelationID:
+      description: "UUID v4 que enlaza logs y eventos de auditor├¡a. Si no llega, MS02\
+        \ lo genera."
+      schema:
+        type: string
+        format: uuid
+        example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
