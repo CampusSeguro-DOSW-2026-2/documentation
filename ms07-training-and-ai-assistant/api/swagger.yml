@@ -11,8 +11,6 @@ info:
 
     **Pagination:** lists take `page` (from 0) and `size` (default 20, max 100) and answer with the common page envelope (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
 
-    **Audit:** MS07 exposes no audit endpoints; it sends its events to `ms08-analytics-and-audit` through the Gateway.
-
     **Pending:** evaluations (RF-14), progress (RF-13) and tutor (RF-15) will be added to this contract by their owners.
 servers:
   - url: http://localhost:8080/api/v1
@@ -397,7 +395,7 @@ paths:
 components:
   headers:
     XCorrelationID:
-      description: UUID v4 that links logs and audit events. If it does not arrive, MS07 generates one.
+      description: UUID v4 that links the logs of a request across services. If it does not arrive, MS07 generates one.
       schema:
         type: string
         format: uuid
