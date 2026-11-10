@@ -1,0 +1,820 @@
+openapi: 3.0.3
+info:
+  title: ms07-training-and-ai-assistant
+  version: 0.1.0
+  description: |
+    Learning center, contents, evaluations, progress and AI tutor of CampusSeguro (MS07).
+
+    **Identity inputs:** every endpoint receives `X-User-Id` (UUID) and `X-User-Role` (comma-separated roles), set by the API Gateway, and accepts `X-Correlation-ID`. If the identity headers are missing, MS07 answers 401. Each endpoint declares the permission it requires (`x-permiso`) and the authorized roles (`x-roles`) according to the role-permission matrix of the `documentation` repository (`roles_y_permisos/matriz-roles-permisos.md`). A user with several roles has the union of their permissions. If none of the roles has the permission, MS07 answers 403. ADMIN only manages; AUDITOR has no MS07 permission.
+
+    **Deletion:** MS07 never deletes. Categories and contents are deactivated and can be reactivated.
+
+    **Pagination:** lists take `page` (from 0) and `size` (default 20, max 100) and answer with the common page envelope (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
+
+    **Audit:** MS07 exposes no audit endpoints; it sends its events to `ms08-analytics-and-audit` through the Gateway.
+
+    **Pending:** evaluations (RF-14), progress (RF-13) and tutor (RF-15) will be added to this contract by their owners.
+servers:
+  - url: http://localhost:8080/api/v1
+    description: External access (API Gateway)
+tags:
+  - name: Categories
+  - name: Contents
+paths:
+  /training/categories:
+    get:
+      tags:
+        - Categories
+      summary: List categories (RF-11, RF-12) - Community and ADMIN
+      x-permiso: [ms07:content:read, ms07:content:manage]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN]
+      description: Active categories ordered by name. With `includeInactive=true` inactive categories are also returned; this only applies to ADMIN and is ignored for other roles.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/IncludeInactive'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of categories.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Categories
+      summary: Create category (RF-11) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Creates the category with status ACTIVO. The name is unique regardless of case, including inactive categories.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '201':
+          description: Category created.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/CategoryNameConflict'
+  /training/categories/{id}:
+    put:
+      tags:
+        - Categories
+      summary: Update category (RF-11) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Updates name and description. The status does not change here.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '200':
+          description: Category updated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CategoryNameConflict'
+  /training/categories/{id}/deactivate:
+    patch:
+      tags:
+        - Categories
+      summary: Deactivate category (RF-11) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Sets the status to INACTIVO. Its contents are kept, but they are hidden from the community and no new content can be created in it.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Category deactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AlreadyInactive'
+  /training/categories/{id}/reactivate:
+    patch:
+      tags:
+        - Categories
+      summary: Reactivate category (RF-11) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Sets the status back to ACTIVO.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Category reactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AlreadyActive'
+  /training/contents:
+    get:
+      tags:
+        - Contents
+      summary: List contents (RF-10, RF-12) - Community and ADMIN
+      x-permiso: [ms07:content:read, ms07:content:manage]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN]
+      description: Contents ordered from the most recently updated, optionally filtered by category. The community only gets active contents of active categories. With `includeInactive=true` ADMIN gets every content; the flag is ignored for other roles. The list does not include the body; use the detail endpoint.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/CategoryIdFilter'
+        - $ref: '#/components/parameters/IncludeInactive'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of contents.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentSummaryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Contents
+      summary: Create content (RF-10) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Creates the content with status ACTIVO. The category must exist and be active.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRequest'
+      responses:
+        '201':
+          description: Content created.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /training/contents/{id}:
+    get:
+      tags:
+        - Contents
+      summary: Get content (RF-10, RF-12) - Community and ADMIN
+      x-permiso: [ms07:content:read, ms07:content:manage]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN]
+      description: Full content with its body. For the community, an inactive content or a content of an inactive category answers 404. ADMIN can read any content.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Content.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Contents
+      summary: Update content (RF-10) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Updates title, body and category. The current category can be kept even if it is now inactive; changing to another category requires it to exist and be active. The status does not change here.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRequest'
+      responses:
+        '200':
+          description: Content updated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+  /training/contents/{id}/deactivate:
+    patch:
+      tags:
+        - Contents
+      summary: Deactivate content (RF-10) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Sets the status to INACTIVO. The content is hidden from the community and from the tutor.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Content deactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AlreadyInactive'
+  /training/contents/{id}/reactivate:
+    patch:
+      tags:
+        - Contents
+      summary: Reactivate content (RF-10) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Sets the status back to ACTIVO. If its category is inactive, the content stays hidden from the community until the category is reactivated.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Content reactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/AlreadyActive'
+components:
+  headers:
+    XCorrelationID:
+      description: UUID v4 that links logs and audit events. If it does not arrive, MS07 generates one.
+      schema:
+        type: string
+        format: uuid
+        example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: Resource id (UUID). A value with an invalid format answers 400.
+      schema:
+        type: string
+        format: uuid
+        example: 00000000-0000-0000-0000-000000000004
+    XUserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: Id (UUID) of the authenticated user. Set by the API Gateway.
+      schema:
+        type: string
+        format: uuid
+        example: 9b2d4e61-5c3a-4f8e-a7d1-2e6f8c0b4a19
+    XUserRole:
+      name: X-User-Role
+      in: header
+      required: true
+      description: Comma-separated roles of the authenticated user. Set by the API Gateway.
+      schema:
+        type: string
+        example: BRIGADISTA,ESTUDIANTE
+    XCorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Request trace id (UUID v4).
+      schema:
+        type: string
+        format: uuid
+        example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    IncludeInactive:
+      name: includeInactive
+      in: query
+      required: false
+      description: Also return inactive items. Only applies to ADMIN; ignored for other roles.
+      schema:
+        type: boolean
+        default: false
+    CategoryIdFilter:
+      name: categoryId
+      in: query
+      required: false
+      description: Only contents of this category. Without it, contents of every category are returned.
+      schema:
+        type: string
+        format: uuid
+        example: 00000000-0000-0000-0000-000000000004
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Page number, starting at 0.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Page size. A value above 100 answers 400.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+  responses:
+    BadRequest:
+      description: Validation failed (states the field and the rule). Also applies to path ids, query parameters with an invalid format and page sizes above 100.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidField:
+              summary: Invalid body field
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: name
+                    mensaje: El nombre es obligatorio.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            invalidId:
+              summary: Path id with an invalid format
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: id
+                    mensaje: Valor con formato inválido.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    Unauthorized:
+      description: Identity headers are missing (X-User-Id / X-User-Role).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Faltan las cabeceras de identidad.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    Forbidden:
+      description: None of the roles in X-User-Role has the permission required by the endpoint (`x-permiso`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No tiene permiso para realizar esta operación.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: La categoría no existe.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    CategoryNameConflict:
+      description: A category with that name already exists (case-insensitive, including inactive ones).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: Ya existe una categoría con ese nombre.
+            errores:
+              - campo: name
+                mensaje: Ya existe una categoría con ese nombre.
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    AlreadyInactive:
+      description: The resource is already inactive.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: La categoría ya está inactiva.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    AlreadyActive:
+      description: The resource is already active.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: La categoría ya está activa.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    UnprocessableEntity:
+      description: Business rule not met (for example, the category does not exist or is inactive).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: La categoría 'Laboratorios' está inactiva.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    ServiceUnavailable:
+      description: A dependency did not answer in time (for example, the AI provider used by the tutor).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 503
+            codigo: DEPENDENCIA_NO_DISPONIBLE
+            mensaje: El tutor no está disponible en este momento. Puedes consultar el centro de aprendizaje.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+  schemas:
+    Status:
+      type: string
+      description: Values fixed by the integration standards.
+      enum:
+        - ACTIVO
+        - INACTIVO
+    CategoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Unique regardless of case, including inactive categories.
+          example: Simulacros
+        description:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Optional.
+          example: Preparación y desarrollo de simulacros de evacuación.
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000004
+        name:
+          type: string
+          example: Evacuación
+        description:
+          type: string
+          nullable: true
+          example: Cómo evacuar de forma segura.
+        status:
+          $ref: '#/components/schemas/Status'
+    ContentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - body
+        - categoryId
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Qué hacer si tiembla en el salón
+        body:
+          type: string
+          minLength: 1
+          maxLength: 20000
+          description: Plain text shown in the learning center and used by the tutor.
+          example: Agáchate, cúbrete y sujétate. Aléjate de ventanas y estanterías.
+        categoryId:
+          type: string
+          format: uuid
+          description: Must exist and be active (on update, it may stay the same even if it is now inactive).
+          example: 00000000-0000-0000-0000-000000000006
+    ContentSummary:
+      type: object
+      required:
+        - id
+        - title
+        - categoryId
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 5d1f3a9c-2b7e-4c8d-9a6f-0e1b2c3d4e5f
+        title:
+          type: string
+          example: Qué hacer si tiembla en el salón
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000006
+        status:
+          $ref: '#/components/schemas/Status'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-09T15:30:00Z'
+    Content:
+      type: object
+      required:
+        - id
+        - title
+        - body
+        - categoryId
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 5d1f3a9c-2b7e-4c8d-9a6f-0e1b2c3d4e5f
+        title:
+          type: string
+          example: Qué hacer si tiembla en el salón
+        body:
+          type: string
+          example: Agáchate, cúbrete y sujétate. Aléjate de ventanas y estanterías.
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000006
+        status:
+          $ref: '#/components/schemas/Status'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-09T15:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-09T15:30:00Z'
+    CategoryPage:
+      type: object
+      description: Common page envelope; field names are fixed by the integration standards.
+      required:
+        - contenido
+        - page
+        - size
+        - total_elementos
+        - total_paginas
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total_elementos:
+          type: integer
+          format: int64
+          example: 8
+        total_paginas:
+          type: integer
+          example: 1
+    ContentSummaryPage:
+      type: object
+      description: Common page envelope; field names are fixed by the integration standards.
+      required:
+        - contenido
+        - page
+        - size
+        - total_elementos
+        - total_paginas
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentSummary'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total_elementos:
+          type: integer
+          format: int64
+          example: 1
+        total_paginas:
+          type: integer
+          example: 1
+    ErrorResponse:
+      type: object
+      description: Normalized error body without internal traces. Field names and codes are fixed by the integration standards.
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+        - correlation_id
+      properties:
+        status:
+          type: integer
+          example: 400
+        codigo:
+          type: string
+          example: VALIDACION
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            type: object
+            required:
+              - campo
+              - mensaje
+            properties:
+              campo:
+                type: string
+              mensaje:
+                type: string
+        correlation_id:
+          type: string
+          format: uuid
+          example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
