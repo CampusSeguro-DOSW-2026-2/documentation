@@ -62,7 +62,7 @@ Una fila por evento que MS06 ha comunicado a MS04. Se crea con la primera llamad
 |---|---|---|---|---|---|
 | `id` | UUID | No | — | PK | `eventoId` asignado por MS06. No lo genera MS04. |
 | `nombre` | VARCHAR(150) | No | — | — | Nombre informativo del evento ([RN-MS04-24](1_requirements.md#rn-ms04-24)). |
-| `simulacro` | BOOLEAN | No | — | CHECK: `simulacro` o `estado IN ('EN_EJECUCION','FINALIZADO')` | `true` es un simulacro. `false` es un evento inmediato y en ejecución: nunca pasa por `BORRADOR` ni `PROGRAMADO` ([RN-MS04-20](1_requirements.md#rn-ms04-20)). No cambia una vez guardado. |
+| `simulacro` | BOOLEAN | No | — | — | `true` es un simulacro y `false` un evento real; los dos siguen los mismos estados ([RN-MS04-20](1_requirements.md#rn-ms04-20)). No cambia una vez guardado. |
 | `estado` | VARCHAR(12) | No | — | CHECK IN (`BORRADOR`, `PROGRAMADO`, `EN_EJECUCION`, `FINALIZADO`) | Estado del evento ([Estados del evento](1_requirements.md#estados-del-evento)). El check-in está habilitado si y solo si es `EN_EJECUCION` ([RN-MS04-19](1_requirements.md#rn-ms04-19)). Solo cambia por las transiciones de [RN-MS04-21](1_requirements.md#rn-ms04-21). |
 | `fecha_inicio` | TIMESTAMPTZ | Sí | NULL | CHECK: nula si y solo si `estado = 'BORRADOR'` | Fecha de inicio que informa MS06 ([RN-MS04-24](1_requirements.md#rn-ms04-24)). MS04 no la compara con el reloj: no inicia el evento por sí misma. |
 | `fecha_cierre` | TIMESTAMPTZ | Sí | NULL | CHECK: no nula si y solo si `estado = 'FINALIZADO'` | Fecha/hora en que MS04 recibió `FINALIZADO` (MS06 no envía fecha de cierre). |
@@ -189,7 +189,6 @@ Donde aparecen dos nombres, el primero es el de las rutas internas acordadas con
 | Punto de encuentro solo y siempre con `SAFE` ([RN-MS04-04](1_requirements.md#rn-ms04-04)) | BD: CHECK; el servicio además valida con MS02 que exista y esté ACTIVO. |
 | Ubicación solo y siempre con `NEEDS_ASSISTANCE` ([RN-MS04-09](1_requirements.md#rn-ms04-09)) | BD: CHECK. |
 | Solo los 4 estados de evento y fechas coherentes con el estado ([RN-MS04-19](1_requirements.md#rn-ms04-19)) | BD: CHECK sobre `estado`, `fecha_inicio` (nula solo en `BORRADOR`) y `fecha_cierre` (no nula solo en `FINALIZADO`); en el código, enum `EstadoEvento`. |
-| Un evento que no es simulacro nunca está en `BORRADOR` ni `PROGRAMADO` ([RN-MS04-20](1_requirements.md#rn-ms04-20)) | BD: CHECK (`simulacro` o `estado IN ('EN_EJECUCION','FINALIZADO')`). |
 | Roles convocados válidos y al menos uno ([RN-MS04-24](1_requirements.md#rn-ms04-24)) | BD: CHECK sobre `roles_convocados`; el servicio además rechaza repetidos. |
 | Transiciones de estado del evento y `simulacro` inmutable ([RN-MS04-21](1_requirements.md#rn-ms04-21), [RN-MS04-20](1_requirements.md#rn-ms04-20)) | Servicio: lee el evento con `SELECT … FOR UPDATE` y rechaza con 409 las transiciones no permitidas; repetir `EN_EJECUCION` o `FINALIZADO` es idempotente. |
 | Solo los eventos que envía MS06 existen ([RN-MS04-01](1_requirements.md#rn-ms04-01)) | Servicio: solo [RF-MS04-11](1_requirements.md#rf-ms04-11) inserta en `eventos`. Un check-in sobre un evento inexistente responde 404 (y la FK `checkins.evento_id` lo impide en la BD). |

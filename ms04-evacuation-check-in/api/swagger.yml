@@ -17,7 +17,7 @@ info:
     **Evento:** el `eventoId` es el UUID que asigna MS06 (RN-MS04-01). MS04 solo conoce los eventos que MS06 le envía por `PUT /chi/eventos/{eventoId}/estado` y habilita el check-in solo con el evento `EN_EJECUCION` (RN-MS04-19). Las consultas funcionan en cualquier estado del evento (RN-MS04-22).
 
 
-    **Estados del evento:** `BORRADOR`, `PROGRAMADO`, `EN_EJECUCION` y `FINALIZADO`. Un evento con `simulacro = false` queda `EN_EJECUCION` apenas llega (RN-MS04-20).
+    **Estados del evento:** `BORRADOR`, `PROGRAMADO`, `EN_EJECUCION` y `FINALIZADO`. Simulacros y eventos reales siguen los mismos estados: MS04 guarda el que envía MS06 (RN-MS04-20).
 
 
     **Estados del check-in:** `SAFE` (Estoy a salvo), `EVACUATING` (Me estoy evacuando), `NEEDS_ASSISTANCE` (Requiero asistencia) y `OFF_CAMPUS` (No estoy en el campus) (RN-MS04-03). El estado vigente de una persona es su check-in más reciente en el evento (RN-MS04-07).
@@ -46,7 +46,7 @@ paths:
       summary: Recibir el estado del evento y habilitar o deshabilitar el check-in (RF-MS04-11, F-05)
       x-acceso: interna
       x-servicio-autorizado: ms06-drills
-      description: 'Ruta interna de MS06. Crea el evento si no existe (201) o lo actualiza (200). `PROGRAMADO` guarda cuándo, dónde y a quiénes aplica el check-in y se envía al programar y al reprogramar. `EN_EJECUCION` habilita el check-in y `FINALIZADO` lo deshabilita. `BORRADOR` cancela la programación y elimina la fecha de inicio. Con `simulacro = false` el evento queda `EN_EJECUCION` salvo que llegue `FINALIZADO`. Repetir `EN_EJECUCION` o `FINALIZADO` es idempotente (200). Las transiciones permitidas están en RN-MS04-21: cualquier otra, o cambiar `simulacro`, responde 409.'
+      description: 'Ruta interna de MS06. Crea el evento si no existe (201) o lo actualiza (200). `PROGRAMADO` guarda cuándo, dónde y a quiénes aplica el check-in y se envía al programar y al reprogramar. `EN_EJECUCION` habilita el check-in y `FINALIZADO` lo deshabilita. `BORRADOR` cancela la programación y elimina la fecha de inicio. Un evento real (`simulacro = false`) sigue los mismos estados que un simulacro. Repetir `EN_EJECUCION` o `FINALIZADO` es idempotente (200). Las transiciones permitidas están en RN-MS04-21: cualquier otra, o cambiar `simulacro`, responde 409.'
       parameters:
         - $ref: '#/components/parameters/XServiceName'
         - $ref: '#/components/parameters/XCorrelationId'
@@ -101,8 +101,8 @@ paths:
                   simulacro: true
                   estado: BORRADOR
                   rolesConvocados: [ESTUDIANTE, PROFESOR]
-              eventoInmediato:
-                summary: Evento que no es simulacro (queda en ejecución de inmediato)
+              emergenciaIniciada:
+                summary: Evento real que MS06 inicia (habilita el check-in)
                 value:
                   eventoId: 2b9e4f61-8c3d-4a57-b1e0-6f7a9d3c1e84
                   nombre: Evacuación por emergencia
@@ -820,7 +820,7 @@ components:
           example: Simulacro de evacuación bloque A
         simulacro:
           type: boolean
-          description: false es un evento inmediato y en ejecución (RN-MS04-20). No puede cambiar en un evento ya guardado.
+          description: false es un evento real; sigue los mismos estados que un simulacro (RN-MS04-20). No puede cambiar en un evento ya guardado.
           example: true
         estado:
           $ref: '#/components/schemas/EstadoEvento'
@@ -906,7 +906,7 @@ components:
           example: Simulacro de evacuación bloque A
         simulacro:
           type: boolean
-          description: false es una emergencia o evento inmediato.
+          description: false es una emergencia o evento real.
           example: true
         estado:
           $ref: '#/components/schemas/EstadoEvento'
@@ -1299,7 +1299,7 @@ components:
           example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
         simulacro:
           type: boolean
-          description: false es una emergencia o evento inmediato.
+          description: false es una emergencia o evento real.
           example: true
         estado_evento:
           $ref: '#/components/schemas/EstadoEvento'
