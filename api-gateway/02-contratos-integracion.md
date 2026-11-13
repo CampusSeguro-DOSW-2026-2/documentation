@@ -11,7 +11,7 @@ Contiene solo lo propio del Gateway: el pipeline, la tabla de rutas, las políti
 | 1 | Correlación: conservar o generar `X-Correlation-ID` | RF-GW-06 |
 | 2 | Resolución de ruta (prefijo más específico); si no existe, `404` | RF-GW-01 |
 | 3 | CORS y preflight | RF-GW-04 |
-| 4 | Política de acceso: pública, JWT o clave de servicio | RF-GW-02 / RF-GW-08 |
+| 4 | Política de acceso: pública, JWT (con los cortes de sesión) o clave de servicio | RF-GW-02 / RF-GW-08 |
 | 5 | Cabeceras: sanitizar, eliminar credenciales, inyectar identidad | RF-GW-03 |
 | 6 | Reenvío con `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | RF-GW-01 |
 | 7 | Validación de errores downstream (`502` si no conforme) | RF-GW-05 |
@@ -26,13 +26,15 @@ Los prefijos los pide cada squad (guía de la wiki, *Conexión al API Gateway*) 
 | `/actuator/health` | GW (propio) | EST | Activo |
 | `/api/v1/auth/**` | `MS01_URI` | [swagger MS01](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms01-identity-and-access/api/swagger.yml) | Activo |
 | `/api/v1/users`, `/api/v1/users/**` | `MS01_URI` | swagger MS01 | Activo |
-| `/api/v1/roles` | `MS01_URI` | swagger MS01 | Activo |
+| `/api/v1/roles`, `/api/v1/roles/**`, `/api/v1/permissions` | `MS01_URI` | swagger MS01 | Activo |
 | `/api/v1/buildings`, `/api/v1/buildings/**`, `/api/v1/floors/**`, `/api/v1/spaces/**`, `/api/v1/safe-zones`, `/api/v1/safe-zones/**`, `/api/v1/evacuation-routes`, `/api/v1/evacuation-routes/**`, `/api/v1/preventive-recommendations`, `/api/v1/preventive-recommendations/**`, `/api/v1/campuses`, `/api/v1/campuses/**`, `/api/v1/open-zones/**`, `/api/v1/exits/**`, `/api/v1/stairs/**`, `/api/v1/public/**` | `MS02_URI` | swagger MS02 (parcial: falta publicar pisos, campus, zonas abiertas, salidas, escaleras, recomendaciones y `public`) | Enrutado; MS sin desplegar |
 | `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | OpenAPI MS03 | Enrutado; MS sin desplegar |
 | `/api/v1/chi/**` | `MS04_URI` | [swagger MS04](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms04-evacuation-check-in/api/swagger.yml) | Enrutado; destino en la nube configurado, MS sin desplegar |
 | `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**` | `MS05_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
 | `/api/v1/eventos`, `/api/v1/eventos/**` | `MS06_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
 | `/api/v1/analitica/**`, `/api/v1/auditoria/**`, `/api/v1/audit/events` | `MS08_URI` | Pendiente (sin OpenAPI publicado); `audit/events` sale de EST §12 | Enrutado; MS sin desplegar |
+
+`GET /api/v1/internal/session-cuts` de MS01 (tag *Interno (Gateway)*) no figura en la tabla: la consume el propio GW (§5, `SESSION_CUTS_URL`) y no se publica a través de él, así que responde `404` aunque se envíe una clave de servicio.
 
 ## 3. Políticas de acceso
 
@@ -58,8 +60,8 @@ Formato: `ErrorResponse` de EST. El GW solo genera estos casos:
 
 | HTTP | `codigo` | Cuándo | `mensaje` |
 |---:|---|---|---|
-| 400 | `VALIDACION` | Varias cabeceras `Authorization` o `X-Service-Key`; `Authorization` junto con `X-Service-Key`; `X-User-*` inválidos en una llamada interna | `Solicitud inválida.` |
-| 401 | `NO_AUTENTICADO` | JWT ausente o inválido (RF-GW-02); clave de servicio ausente o inválida (RF-GW-08) | `Token ausente, inválido o expirado.` |
+| 400 | `VALIDACION` | Varias cabeceras `Authorization` o `X-Service-Key`; `Authorization` junto con `X-Service-Key`; identidad de usuario incompleta, repetida o con formato inválido (`X-User-Id`, `X-User-Role`, `X-User-Permission`) en una llamada interna | `Solicitud inválida.` |
+| 401 | `NO_AUTENTICADO` | JWT ausente, inválido o anterior a un corte de sesión (RF-GW-02); clave de servicio ausente o inválida (RF-GW-08) | `Token ausente, inválido o expirado.` |
 | 403 | `PROHIBIDO` | Preflight CORS no permitido | `Acceso denegado por la política perimetral.` |
 | 404 | `NO_ENCONTRADO` | Ruta sin destino | `Ruta no encontrada.` |
 | 500 | `ERROR_INTERNO` | Excepción no controlada en el GW | `Error interno del servidor.` |
@@ -80,6 +82,9 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `ms01-identity-and-access` / `campusseguro` | Iguales a los de MS01. |
 | `JWT_CLOCK_SKEW_SECONDS` | `30` | Tolerancia de reloj. |
 | `JWT_MAX_LIFETIME_SECONDS` | `3600` | Máximo `exp − iat`. |
+| `SESSION_CUTS_URL` | `${MS01_URI}/api/v1/internal/session-cuts` | URI `http(s)` absoluta de la ruta interna de MS01 con los cortes de sesión (EST §5). Usa la misma conexión que las rutas hacia MS01 (mTLS en la nube). |
+| `SESSION_CUTS_INTERVAL_SECONDS` | `4` | Cada cuántos segundos consulta los cortes de sesión, además de la consulta al arrancar. Con el timeout, fija el retraso máximo de un corte: 7 s con los valores por defecto. |
+| `SESSION_CUTS_TIMEOUT_SECONDS` | `3` | Tiempo máximo de cada consulta de cortes. |
 | `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `3000` | Timeout por llamada al MS. |
 | `GW_SERVICE_KEY_MS01` … `GW_SERVICE_KEY_MS08` | — (obligatoria por MS que llame) | Clave de servicio de cada MS (≥ 32 caracteres). |
 | `CORS_ALLOWED_ORIGINS` | — (obligatoria) | Orígenes separados por coma. |
@@ -90,12 +95,12 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `GW_CLIENT_KEYSTORE_PASSWORD` | — (obligatoria con `cloud`) | Contraseña del PKCS12. |
 | `GW_TRUSTED_CA` | — (obligatoria con `cloud`) | CA del entorno en PEM (`file:/ruta`); el GW solo confía en ella hacia los MS. |
 
-* La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; CORS; claves de servicio, RN-GW-20; con `cloud`, el certificado de cliente y la CA), el GW no arranca y el log indica la causa.
+* La configuración se valida al arrancar: si falta una variable obligatoria o es inválida (rutas y timeout, RF-GW-01 A5; políticas de acceso; JWT; cortes de sesión, con una URI `http(s)` absoluta y un intervalo y un timeout mayores que 0; CORS; claves de servicio, RN-GW-20; con `cloud`, el certificado de cliente y la CA), el GW no arranca y el log indica la causa.
 * Los perfiles `local` y `docker` solo cambian las `MSnn_URI`; ambos traen `CORS_ALLOWED_ORIGINS=http://localhost:5173` (Vite). El perfil `cloud` se suma a `docker` y activa el mTLS hacia los MS. Los secretos nunca van en el repositorio.
 
 ## 6. Dependencias
 
-* **MS01:** solo emite el JWT. El GW no lo consulta por solicitud.
+* **MS01:** emite el JWT y publica los cortes de sesión. El GW no lo consulta por solicitud: lee los cortes de una instantánea en memoria que actualiza cada `SESSION_CUTS_INTERVAL_SECONDS` (RF-GW-02). Si MS01 no responde, conserva los últimos cortes.
 * **Bases de datos y MS08:** el GW no depende de ellos.
 * **Descubrimiento de servicios:** no se usa (sin Eureka); los destinos son URI estáticas por ambiente.
 * **Reintentos:** no hay.

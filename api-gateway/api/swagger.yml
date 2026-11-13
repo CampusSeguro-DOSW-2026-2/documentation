@@ -13,18 +13,18 @@ info:
 
     **Cómo llamar al GW:**
 
-    * **Clientes externos** (frontend, Postman): `Authorization: Bearer <JWT>` emitido por `POST /api/v1/auth/login`.
+    * **Clientes externos** (frontend, Postman): `Authorization: Bearer <JWT>` emitido por `POST /api/v1/auth/login`. Si un cambio de roles, de permisos de un rol o de estado de la cuenta invalida el token, el GW responde `401 NO_AUTENTICADO` y se vuelve a iniciar sesión (EST §3).
 
-    * **Microservicios** (EST §5): `${GATEWAY_URL}/api/v1/...` con `X-Service-Key`, el `X-Correlation-ID` recibido y, si actúan en nombre de un usuario, los `X-User-Id`/`X-User-Role` recibidos sin modificarlos. Nunca envían `Authorization` junto con `X-Service-Key`.
+    * **Microservicios** (EST §5): `${GATEWAY_URL}/api/v1/...` con `X-Service-Key`, el `X-Correlation-ID` recibido y, si actúan en nombre de un usuario, los `X-User-Id`, `X-User-Role` y `X-User-Permission` recibidos sin modificarlos, las tres juntas. Nunca envían `Authorization` junto con `X-Service-Key`.
 
 
-    **Qué recibe el MS destino** (EST §4): `X-User-Id`, `X-User-Role` y `X-Correlation-ID`; además `X-Service-Name` (`ms01`…`ms08`) en las llamadas internas. Nunca recibe `Authorization` ni `X-Service-Key`. El método, la ruta, los query params y el cuerpo llegan sin cambios.
+    **Qué recibe el MS destino** (EST §4): `X-User-Id`, `X-User-Role`, `X-User-Permission` y `X-Correlation-ID`; además `X-Service-Name` (`ms01`…`ms08`) en las llamadas internas. Nunca recibe `Authorization` ni `X-Service-Key`. El método, la ruta, los query params y el cuerpo llegan sin cambios.
 
 
     **Errores:** los del GW usan `ErrorResponse` (GW-C §4). Los errores de un MS se propagan sin cambios si cumplen `ErrorResponse` (cinco campos, `status` = código HTTP, `correlation_id` = el de la petición); si no, el GW responde `502`. Cada operación lista solo su respuesta exitosa y los errores del GW; los errores de negocio están en el contrato del MS.
 
 
-    **Rutas no listadas:** `404 NO_ENCONTRADO` sin llamar a ningún MS. El preflight CORS (`OPTIONS`) lo resuelve el GW (EST §2.1). Una ruta se agrega aquí y en GW-C solo cuando el MS la publica en su `swagger.yml`.'
+    **Rutas no listadas:** `404 NO_ENCONTRADO` sin llamar a ningún MS. El preflight CORS (`OPTIONS`) lo resuelve el GW (EST §2.1). Una ruta se agrega aquí y en GW-C solo cuando el MS la publica en su `swagger.yml`. La consulta interna de cortes de sesión de MS01 (`/api/v1/internal/session-cuts`) la consume el propio GW y no se publica.'
 servers:
   - url: http://localhost:8080
     description: Acceso externo (desarrollo local)
@@ -48,9 +48,9 @@ tags:
   - name: MS01 · Público
     description: Rutas públicas de `ms01-identity-and-access` (lista cerrada de EST §2).
   - name: MS01 · Protegido
-    description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con la Matriz Rol‐Permiso; el GW no autoriza por rol.
+    description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con `X-User-Permission` contra el `x-permiso` de su contrato; el GW no autoriza.
   - name: MS01 · Interno
-    description: Rutas internas de `ms01-identity-and-access` (solo MS con clave de servicio). MS01 autoriza por `X-Service-Name`, no por la Matriz.
+    description: Rutas internas de `ms01-identity-and-access` (solo MS con clave de servicio). MS01 autoriza por `X-Service-Name`, no por `X-User-Permission`.
   - name: MS08 · Interno
     description: Rutas internas de `ms08-analytics-and-audit` (solo MS con clave de servicio).
 security:
@@ -222,6 +222,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       responses:
         '200':
           $ref: '#/components/responses/MensajeOk'
@@ -246,6 +247,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       responses:
         '200':
           $ref: '#/components/responses/UserOk'
@@ -269,6 +271,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       requestBody:
         required: true
         content:
@@ -299,6 +302,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       requestBody:
         required: true
         content:
@@ -330,6 +334,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       responses:
         '200':
           description: Página de usuarios (MS01).
@@ -361,6 +366,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - name: id
           in: path
           required: true
@@ -393,6 +399,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       requestBody:
         required: true
         content:
@@ -430,6 +437,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       requestBody:
         required: true
         content:
@@ -467,6 +475,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       responses:
         '200':
           description: Roles con sus permisos (MS01).
@@ -479,6 +488,233 @@ paths:
                 type: array
                 items:
                   $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RolePermissions'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+    post:
+      tags:
+        - MS01 · Protegido
+      summary: Crear un rol (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Rol creado (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+            Location:
+              description: Ruta del rol creado.
+              schema:
+                type: string
+                example: /api/v1/roles/MONITOR_EVACUACION
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/roles/details:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Listar los roles con su detalle (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+      responses:
+        '200':
+          description: Roles con descripción, permisos y marca de sistema (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/roles/{rol}:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Consultar un rol (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/RolePath'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+    put:
+      tags:
+        - MS01 · Protegido
+      summary: Renombrar o describir un rol (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/RolePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+    delete:
+      tags:
+        - MS01 · Protegido
+      summary: Borrar un rol (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/RolePath'
+      responses:
+        '204':
+          description: Rol borrado, sin cuerpo (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/roles/{rol}/permissions:
+    put:
+      tags:
+        - MS01 · Protegido
+      summary: Reemplazar los permisos de un rol (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/RolePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/UpdateRolePermissionsRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/RoleOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/permissions:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Consultar el catálogo de permisos (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+      responses:
+        '200':
+          description: Permisos que se pueden asignar a un rol (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/PermissionItem'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -574,6 +810,7 @@ paths:
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
       requestBody:
         required: true
         content:
@@ -603,7 +840,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'JWT RS256 emitido por MS01 y validado localmente por el GW (EST §3). Solo para clientes externos. El GW lo elimina antes de reenviar, incluso en rutas públicas.'
+      description: 'JWT RS256 emitido por MS01. El GW verifica la firma y los claims localmente y aplica los cortes de sesión de MS01 (EST §3). Solo para clientes externos. El GW lo elimina antes de reenviar, incluso en rutas públicas.'
     serviceKey:
       type: apiKey
       in: header
@@ -629,7 +866,7 @@ components:
       name: X-User-Id
       in: header
       required: false
-      description: 'Solo en llamadas internas con `X-Service-Key`, cuando el MS actúa en nombre de un usuario: el valor recibido, sin modificarlo. Va junto con `X-User-Role`; si falta uno de los dos o tiene formato inválido, 400. En peticiones externas el GW lo elimina y usa el `sub` del JWT.'
+      description: 'Solo en llamadas internas con `X-Service-Key`, cuando el MS actúa en nombre de un usuario: el valor recibido, sin modificarlo. Va junto con `X-User-Role` y `X-User-Permission`, cada una una sola vez; si falta alguna, se repite o tiene formato inválido, 400. En peticiones externas el GW lo elimina y usa el `sub` del JWT.'
       schema:
         type: string
         format: uuid
@@ -638,11 +875,28 @@ components:
       name: X-User-Role
       in: header
       required: false
-      description: 'Solo en llamadas internas con `X-Service-Key`, junto con `X-User-Id`: los roles recibidos, sin modificarlos (separados por coma, sin espacios, en orden alfabético). En peticiones externas el GW lo elimina y usa los `roles` del JWT.'
+      description: 'Solo en llamadas internas con `X-Service-Key`, junto con `X-User-Id` y `X-User-Permission`: los roles recibidos, sin modificarlos (separados por coma, sin espacios, en orden alfabético). En peticiones externas el GW lo elimina y usa los `roles` del JWT.'
       schema:
         type: string
-        pattern: ^[A-Z][A-Z0-9_]*(,[A-Z][A-Z0-9_]*)*$
+        pattern: ^[A-Z][A-Z0-9_]{1,29}(,[A-Z][A-Z0-9_]{1,29})*$
         example: BRIGADISTA,ESTUDIANTE
+    XUserPermission:
+      name: X-User-Permission
+      in: header
+      required: false
+      description: 'Solo en llamadas internas con `X-Service-Key`, junto con `X-User-Id` y `X-User-Role`: los permisos recibidos, sin modificarlos (separados por coma, sin espacios, en orden alfabético). En peticiones externas el GW lo elimina y usa los `permissions` del JWT.'
+      schema:
+        type: string
+        pattern: ^ms[0-9]{2}:[a-z][a-z0-9_]*:[a-z][a-z0-9_]*(,ms[0-9]{2}:[a-z][a-z0-9_]*:[a-z][a-z0-9_]*)*$
+        example: ms04:checkin:write,ms07:content:read
+    RolePath:
+      name: rol
+      in: path
+      required: true
+      description: Nombre del rol. El GW lo reenvía sin validarlo; MS01 recorta los espacios y lo pasa a mayúsculas (RG-08).
+      schema:
+        type: string
+        example: MONITOR_EVACUACION
   responses:
     MensajeOk:
       description: Operación exitosa (MS).
@@ -653,6 +907,15 @@ components:
         application/json:
           schema:
             $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/MensajeResponse'
+    RoleOk:
+      description: Rol con su detalle (MS01).
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/XCorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RoleDetail'
     UserOk:
       description: Usuario (MS01).
       headers:
@@ -663,7 +926,7 @@ components:
           schema:
             $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/User'
     BadRequest:
-      description: 'GW: varias cabeceras `Authorization` o `X-Service-Key`, `Authorization` junto con `X-Service-Key`, o `X-User-*` inválidos en una llamada interna. También se propagan los 400 válidos del MS.'
+      description: 'GW: varias cabeceras `Authorization` o `X-Service-Key`, `Authorization` junto con `X-Service-Key`, o identidad de usuario incompleta, repetida o con formato inválido (`X-User-Id`, `X-User-Role`, `X-User-Permission`) en una llamada interna. También se propagan los 400 válidos del MS.'
       headers:
         X-Correlation-ID:
           $ref: '#/components/headers/XCorrelationID'
@@ -678,7 +941,7 @@ components:
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
-      description: 'GW: JWT ausente o inválido (RF-GW-02), o clave de servicio ausente o inválida (RF-GW-08). El MS no recibe la petición.'
+      description: 'GW: JWT ausente, inválido o anterior a un corte de sesión (RF-GW-02), o clave de servicio ausente o inválida (RF-GW-08). El MS no recibe la petición.'
       headers:
         X-Correlation-ID:
           $ref: '#/components/headers/XCorrelationID'

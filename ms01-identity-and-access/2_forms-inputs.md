@@ -12,6 +12,10 @@
    - [F-07 · Búsqueda y filtros de usuarios](#f-07-búsqueda-y-filtros-de-usuarios)
    - [F-08 · Cambio de estado de usuario](#f-08-cambio-de-estado-de-usuario)
    - [F-09 · Asignación de roles](#f-09-asignación-de-roles)
+   - [F-10 · Crear rol](#f-10-crear-rol)
+   - [F-11 · Editar rol](#f-11-editar-rol)
+   - [F-12 · Permisos de un rol](#f-12-permisos-de-un-rol)
+   - [F-13 · Borrar rol](#f-13-borrar-rol)
 
 ---
 
@@ -20,10 +24,11 @@
 * **RG-01**: Todo texto se recorta (trim) de espacios al inicio y al final antes de validar. El correo se normaliza a minúsculas. La contraseña no se recorta ni se normaliza.
 * **RG-02**: Un campo obligatorio vacío o con solo espacios se considera faltante.
 * **RG-03**: Se rechazan entradas con etiquetas HTML o scripts (<, >) en campos de texto libre.
-* **RG-04**: Se rechazan (HTTP 400) los campos no definidos en el contrato (en especial roles, estado o id enviados por el usuario en registro y perfil).
+* **RG-04**: Se rechazan (HTTP 400) los campos no definidos en el contrato (en especial roles, estado o id enviados por el usuario en registro y perfil, y `es_sistema` en los formularios de roles, que solo se muestra y nunca se envía).
 * **RG-05**: Los mensajes de error indican el campo y la regla incumplida, salvo en login y recuperación ([RN-MS01-05](1_requirements.md#rf-ms01-02-autenticar-usuario-login), [RN-MS01-20](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña)).
 * **RG-06**: Los errores de validación responden 400 `VALIDACION`, y un correo duplicado 409 `CONFLICTO`, con el `ErrorResponse` de los [Estándares](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales). Cada campo y su mensaje van en `errores`.
 * **RG-07**: Ningún formulario incluye la identidad del solicitante ([RN-MS01-23](1_requirements.md#rf-ms01-03-gestión-de-sesión)) ni datos de auditoría ([RNF-MS01-10](1_requirements.md#requerimientos-no-funcionales-rnf)).
+* **RG-08**: El nombre de un rol se normaliza antes de validarlo: se recortan los espacios y se pasa a mayúsculas (`monitor_evacuacion` queda `MONITOR_EVACUACION`). Se guarda y se devuelve ya normalizado, así que dos nombres que solo difieren en mayúsculas o minúsculas son el mismo rol. El nombre `DETAILS` está reservado (es el segmento fijo de la ruta `GET /roles/details`) y ningún rol puede llamarse así: se rechaza con 400 `VALIDACION` al crear o renombrar, y la base de datos también lo impide. Aplica al nombre que llega en el cuerpo de [F-10](#f-10-crear-rol) y [F-11](#f-11-editar-rol) y al `{rol}` de las rutas de gestión de roles ([F-11](#f-11-editar-rol), [F-12](#f-12-permisos-de-un-rol), [F-13](#f-13-borrar-rol) y la consulta de un rol). Los filtros y las listas de roles de las rutas que ya existían ([F-07](#f-07-búsqueda-y-filtros-de-usuarios) y [F-09](#f-09-asignación-de-roles)) no cambian: siguen exigiendo el nombre exacto. Los códigos de permiso no se normalizan: solo se recortan los espacios y las mayúsculas no se cambian, así que un código con mayúsculas no existe en el catálogo y se rechaza con 400 `VALIDACION` ("Permiso no válido"). Se escriben exactamente como aparecen en `GET /api/v1/permissions`.
 
 ---
 
@@ -127,7 +132,7 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 |---|---|---|---|---|---|---|
 | Búsqueda por correo | Texto | No | 1 a 100 caracteres | Búsqueda parcial. Sin etiquetas HTML. | "Búsqueda no válida." | maria.perez |
 | Filtro de estado | Lista | No | ACTIVO / INACTIVO / TODOS | Solo valores del catálogo, en mayúsculas. Vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. | "Estado no válido." | ACTIVO |
-| Filtro de rol | Lista | No | Uno de los 8 roles / TODOS | Solo valores del catálogo, en mayúsculas. Vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. | "Rol no válido." | BRIGADISTA |
+| Filtro de rol | Lista | No | Un rol existente / TODOS | Solo nombres de roles existentes (`GET /api/v1/roles`), en mayúsculas. Vacío o `TODOS` (sin distinguir mayúsculas) equivale a Todos. | "Rol no válido." | BRIGADISTA |
 | Página | Número entero | No | ≥ 0 (por defecto 0) | Entero no negativo. | "Página no válida." | 0 |
 | Tamaño de página | Número entero | No | 1 a 100 (por defecto 20) | Entero en el rango. | "Tamaño de página no válido (1 a 100)." | 20 |
 
@@ -153,12 +158,80 @@ Referencia: [RF-MS01-05](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permis
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Ninguno: "Seleccione al menos un usuario." Id no válido: "Identificador de usuario no válido." Inexistente (404): "Usuario no encontrado." Propio (403): "No puede modificar sus propios roles." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
-| Roles a agregar | Selección múltiple | No | Si se envía, hasta 8 roles (una lista vacía equivale a no enviarla) | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | BRIGADISTA |
-| Roles a retirar | Selección múltiple | No | Si se envía, hasta 8 roles (una lista vacía equivale a no enviarla) | Solo roles del catálogo, sin repetir. | "Seleccione roles válidos." | PROFESOR |
+| Roles a agregar | Selección múltiple | No | Sin límite de tamaño por operación (una lista vacía equivale a no enviarla) | Solo roles existentes, sin repetir. | "Seleccione roles válidos." | BRIGADISTA |
+| Roles a retirar | Selección múltiple | No | Sin límite de tamaño por operación (una lista vacía equivale a no enviarla) | Solo roles existentes, sin repetir. | "Seleccione roles válidos." | PROFESOR |
 
 **Mensajes globales de formulario:**
 * Ninguna lista enviada: "Indique roles a agregar o retirar."
 * Un rol en ambas listas: "Un rol no puede agregarse y retirarse a la vez."
-* Algún usuario quedaría sin roles: "Cada usuario debe conservar al menos un rol."
+* Algún usuario quedaría sin roles (400): "Cada usuario debe conservar al menos un rol."
+* Algún usuario quedaría con más de 50 roles (422): "Un usuario no puede tener más de 50 roles." Las listas no tienen un límite propio; lo que se verifica es el total de roles que cada usuario tendría después del cambio ([RN-MS01-40](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)).
 
 *Mockup F-09: (espacio reservado para insertar imagen de la edición de roles)*
+
+---
+
+### F-10: Crear rol
+Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos), flujo base B
+
+| Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
+|---|---|---|---|---|---|---|
+| Nombre del rol | Texto | Sí | 2 a 30 caracteres | Se normaliza ([RG-08](#reglas-generales-de-entrada)): sin espacios en los extremos y en mayúsculas. Ya normalizado, empieza con una letra y el resto son letras sin tilde, dígitos o guion bajo. No puede ser `DETAILS`, nombre reservado. Único en el sistema. | Formato (400): "El nombre del rol debe tener de 2 a 30 caracteres: letras sin tilde, números y guion bajo, empezando con una letra." Reservado (400): "Ese nombre de rol está reservado." Duplicado (409): "Ya existe un rol con ese nombre." | MONITOR_EVACUACION |
+| Descripción | Texto | Sí | 3 a 200 caracteres | Sin etiquetas HTML ([RG-03](#reglas-generales-de-entrada)). | "La descripción debe tener entre 3 y 200 caracteres." | Apoya el conteo de personas en los puntos de encuentro |
+| Permisos | Selección múltiple | Sí | Al menos 1 | Códigos del catálogo (`GET /api/v1/permissions`), sin repetir. No puede incluir `ms01:role:manage`, exclusivo de ADMIN ([RN-MS01-30](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos)). | Ninguno (400): "Seleccione al menos un permiso." Código desconocido (400): "Permiso no válido: {código}" `ms01:role:manage` (422): "El permiso ms01:role:manage es exclusivo del rol ADMIN." | ms02:campus:read |
+
+**Mensajes globales de formulario:**
+* Cualquier campo no definido, como `es_sistema` (400): "Campo no permitido."
+* Sin el permiso de gestión de roles (403): "No tiene permiso para esta operación."
+
+El rol se crea sin ser de sistema y sin cortar la sesión de nadie.
+
+*Mockup F-10: (espacio reservado para insertar imagen del formulario de creación de rol)*
+
+---
+
+### F-11: Editar rol
+Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos), flujo base C
+
+| Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
+|---|---|---|---|---|---|---|
+| Rol a editar (en la ruta) | Selección de un rol | Sí | Nombre de un rol existente | Se normaliza ([RG-08](#reglas-generales-de-entrada)). Debe existir. | Formato (400): "Rol no válido." Inexistente (404): "Rol no encontrado." | MONITOR_EVACUACION |
+| Nombre del rol | Texto | Sí | 2 a 30 caracteres | Misma regla que [F-10](#f-10-crear-rol), incluida la normalización. Puede ser igual al actual. Un rol de sistema (ESTUDIANTE, ADMIN) no puede cambiar de nombre. | Formato (400) y reservado `DETAILS` (400): los mismos de [F-10](#f-10-crear-rol). Duplicado (409): "Ya existe un rol con ese nombre." Rol de sistema (409): "Los roles de sistema no se pueden renombrar." | MONITOR_PUNTOS_ENCUENTRO |
+| Descripción | Texto | Sí | 3 a 200 caracteres | Misma regla que [F-10](#f-10-crear-rol). | "La descripción debe tener entre 3 y 200 caracteres." | Apoya el conteo de personas en los puntos de encuentro del campus |
+
+**Mensajes globales de formulario:**
+* Los permisos no se editan aquí ([F-12](#f-12-permisos-de-un-rol)). Si se envían (400): "Campo no permitido."
+* Aviso al administrador antes de confirmar, si el nombre cambia: "Se cerrará la sesión de los usuarios que tienen este rol."
+
+*Mockup F-11: (espacio reservado para insertar imagen de la edición de un rol)*
+
+---
+
+### F-12: Permisos de un rol
+Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos), flujo base D
+
+| Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
+|---|---|---|---|---|---|---|
+| Rol (en la ruta) | Selección de un rol | Sí | Nombre de un rol existente | Se normaliza ([RG-08](#reglas-generales-de-entrada)). Debe existir. | Formato (400): "Rol no válido." Inexistente (404): "Rol no encontrado." | MONITOR_EVACUACION |
+| Permisos | Selección múltiple | Sí | Al menos 1 | Lista completa que reemplaza a la actual. Códigos del catálogo, sin repetir. `ms01:role:manage` solo en ADMIN, y ADMIN debe conservarlo. | Ninguno (400): "Seleccione al menos un permiso." Código desconocido (400): "Permiso no válido: {código}" En otro rol (422): "El permiso ms01:role:manage es exclusivo del rol ADMIN." Quitado a ADMIN (422): "El rol ADMIN debe conservar el permiso ms01:role:manage." | ms04:dashboard:read |
+
+**Mensaje global de formulario:**
+* Aviso al administrador antes de confirmar: "Se cerrará la sesión de los usuarios que tienen este rol para aplicar los permisos nuevos."
+
+*Mockup F-12: (espacio reservado para insertar imagen del selector de permisos de un rol)*
+
+---
+
+### F-13: Borrar rol
+Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos), flujo base E
+
+| Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
+|---|---|---|---|---|---|---|
+| Rol a borrar (en la ruta) | Selección de un rol | Sí | Nombre de un rol existente | Se normaliza ([RG-08](#reglas-generales-de-entrada)). Debe existir y no ser de sistema (ESTUDIANTE, ADMIN). | Formato (400): "Rol no válido." Inexistente (404): "Rol no encontrado." De sistema (409): "Los roles de sistema no se pueden eliminar." | MONITOR_EVACUACION |
+
+**Mensajes globales de formulario:**
+* Confirmación al administrador: "Los usuarios que tengan solo este rol pasarán a ESTUDIANTE y a los demás se les retirará este rol. Se cerrará su sesión."
+* La interfaz deshabilita el borrado de los roles con `es_sistema` verdadero; el servicio lo vuelve a verificar.
+* No lleva cuerpo. Responde 204 sin contenido.
+
+*Mockup F-13: (espacio reservado para insertar imagen de la confirmación de borrado de rol)*

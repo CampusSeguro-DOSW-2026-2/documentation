@@ -5,13 +5,13 @@ info:
   description: 'Usuarios, autenticación, roles, permisos y sesiones (MS01 - CampusSeguro).
 
 
-    **Estándares:** cabeceras, errores, paginación y JWT siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales); `x-permiso`/`x-roles` siguen la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso).
+    **Estándares:** cabeceras, errores, paginación y JWT siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales); `x-permiso` es el permiso que exige cada operación y MS01 lo comprueba contra `X-User-Permission`; `x-roles` indica los roles que lo tienen en la asignación inicial de la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso) y es solo informativo, porque el administrador puede cambiar los permisos de cada rol (RF-MS01-10).
 
 
-    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 `NO_AUTENTICADO` (RN-MS01-23).
+    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id`, `X-User-Role` (roles separados por coma) y `X-User-Permission` (permisos efectivos separados por coma); todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS01 responde 401 `NO_AUTENTICADO` (RN-MS01-23).
 
 
-    **Rutas internas (tag `Interno (servicios)`):** solo para otros MS a través del Gateway con su clave de servicio. Reciben `X-Service-Name` (lo inyecta el Gateway) en lugar de `X-User-Id`/`X-User-Role`, no usan la Matriz Rol‐Permiso y no se auditan.
+    **Rutas internas (tag `Interno (servicios)`):** solo para otros MS a través del Gateway con su clave de servicio. Reciben `X-Service-Name` (lo inyecta el Gateway) en lugar de `X-User-Id`/`X-User-Role`/`X-User-Permission`, no usan permisos de usuario y no se auditan. La ruta `/internal/session-cuts` (tag `Interno (Gateway)`) solo la consulta el propio Gateway y no se publica a través de él.
 
 
     **Auditoría:** MS01 no expone endpoints de auditoría; emite eventos asíncronos a `ms08-analytics-and-audit` (RNF-MS01-10).'
@@ -26,6 +26,8 @@ tags:
   - name: Roles y permisos
   - name: Interno (servicios)
     description: Resolución de usuarios para otros microservicios (MS03, MS05). Política INTERNA en el Gateway.
+  - name: Interno (Gateway)
+    description: Consulta de cortes de sesión que hace el API Gateway directamente a MS01. No se publica en el Gateway.
 paths:
   /auth/register:
     post:
@@ -133,6 +135,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/password/forgot:
     post:
@@ -226,6 +229,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
   /users/me:
     get:
@@ -251,6 +255,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
     put:
       tags:
@@ -283,6 +288,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
   /users:
     get:
@@ -294,6 +300,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - name: correo
           in: query
@@ -349,6 +356,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/UserId'
       responses:
@@ -408,6 +416,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
   /roles:
     get:
@@ -431,7 +440,49 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
+    post:
+      tags:
+        - Roles y permisos
+      summary: Crear un rol (RF-MS01-10, F-10)
+      x-permiso: ms01:role:manage
+      x-roles: [ADMIN]
+      description: Crea un rol con `es_sistema` falso y sin corte de sesión. El cuerpo no admite campos adicionales (en especial `es_sistema`). El nombre no puede ser `DETAILS`, reservado para la ruta `/roles/details` (400). No puede incluir `ms01:role:manage`, que es exclusivo de ADMIN.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleRequest'
+      responses:
+        '201':
+          description: Rol creado.
+          headers:
+            Location:
+              description: Ruta del rol creado.
+              schema:
+                type: string
+                example: /api/v1/roles/MONITOR_EVACUACION
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
   /users/roles:
     patch:
       tags:
@@ -439,11 +490,11 @@ paths:
       summary: Agregar/retirar roles a uno o varios usuarios (RF-MS01-05, F-09)
       x-permiso: ms01:user:roles
       x-roles: [ADMIN]
-      description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404; si algún usuario quedaría sin roles, listas vacías o un rol en ambas listas, 400. En todos
-        los casos de error no se aplica ningún cambio.
+      description: Operación atómica. Si incluye al propio administrador responde 403; si algún id no existe, 404; si algún usuario quedaría sin roles, listas vacías o un rol en ambas listas, 400; si algún usuario quedaría con más de 50 roles (RN-MS01-40), 422. Las listas `agregar` y `retirar` no tienen un límite propio de tamaño; solo cuenta el total de roles que cada usuario tendría después del cambio. En todos los casos de error no se aplica ningún cambio.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
       requestBody:
         required: true
@@ -476,6 +527,246 @@ paths:
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/MaxRolesPerUser'
+  /roles/details:
+    get:
+      tags:
+        - Roles y permisos
+      summary: Listar los roles con su detalle (RF-MS01-10)
+      x-permiso: ms01:role:read_all
+      x-roles: [ADMIN]
+      description: Devuelve todos los roles ordenados por `rol` ascendente, con su descripción, sus permisos (ordenados y sin repetidos) y la marca `es_sistema`. La ruta literal tiene prioridad sobre `/roles/{rol}`; por eso `DETAILS` es un nombre reservado y ningún rol puede llamarse así. Un permiso guardado que ya no existe en el catálogo se omite.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Roles con su detalle.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleDetail'
+              example:
+                - rol: ESTUDIANTE
+                  descripcion: Estudiante de la comunidad universitaria
+                  permisos:
+                    - ms01:password:change
+                    - ms01:profile:read
+                    - ms01:profile:write
+                    - ms01:role:read_own
+                    - ms01:session:logout
+                    - ms02:campus:read
+                    - ms02:preventive_info:read
+                    - ms02:route:read
+                    - ms03:alert:receive
+                    - ms04:assistance:request
+                    - ms04:checkin:read_own
+                    - ms04:checkin:write
+                    - ms07:content:read
+                    - ms07:quiz:take
+                    - ms07:tutor:use
+                  es_sistema: true
+                - rol: MONITOR_EVACUACION
+                  descripcion: Apoya el conteo de personas en los puntos de encuentro
+                  permisos:
+                    - ms01:password:change
+                    - ms01:profile:read
+                    - ms01:profile:write
+                    - ms01:role:read_own
+                    - ms01:session:logout
+                    - ms02:campus:read
+                    - ms04:dashboard:read
+                  es_sistema: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /roles/{rol}:
+    get:
+      tags:
+        - Roles y permisos
+      summary: Consultar un rol (RF-MS01-10)
+      x-permiso: ms01:role:read_all
+      x-roles: [ADMIN]
+      description: Devuelve un rol con su descripción, sus permisos y la marca `es_sistema`. El nombre se normaliza (RG-08). Si no cumple el formato, 400; si no existe, 404.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/RolePath'
+      responses:
+        '200':
+          description: El rol.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+    put:
+      tags:
+        - Roles y permisos
+      summary: Renombrar o describir un rol (RF-MS01-10, F-11)
+      x-permiso: ms01:role:manage
+      x-roles: [ADMIN]
+      description: Reemplaza el nombre y la descripción del rol; no toca sus permisos (ver `/roles/{rol}/permissions`). Un rol de sistema (ESTUDIANTE, ADMIN) no cambia de nombre. El nombre nuevo no puede ser `DETAILS`, reservado para la ruta `/roles/details` (400). Si el nombre cambia, los usuarios con el rol lo conservan con el nombre nuevo y se corta su sesión, incluida la del administrador si también tiene el rol (RF-MS01-11).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/RolePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleRequest'
+      responses:
+        '200':
+          description: El rol actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '409':
+          description: El nombre nuevo ya pertenece a otro rol, o el rol es de sistema y el nombre cambia.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: Los roles de sistema no se pueden renombrar.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    delete:
+      tags:
+        - Roles y permisos
+      summary: Borrar un rol (RF-MS01-10, F-13)
+      x-permiso: ms01:role:manage
+      x-roles: [ADMIN]
+      description: En una sola transacción, a cada usuario que solo tiene este rol le asigna ESTUDIANTE, a cada usuario que tiene varios le retira este rol, corta su sesión (RF-MS01-11) y borra el rol. Un rol de sistema no se puede borrar. Si algo falla no se aplica ningún cambio.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/RolePath'
+      responses:
+        '204':
+          description: Rol borrado. Sin cuerpo.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '409':
+          description: El rol es de sistema (ESTUDIANTE o ADMIN).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: Los roles de sistema no se pueden eliminar.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+  /roles/{rol}/permissions:
+    put:
+      tags:
+        - Roles y permisos
+      summary: Reemplazar los permisos de un rol (RF-MS01-10, F-12)
+      x-permiso: ms01:role:manage
+      x-roles: [ADMIN]
+      description: Reemplaza la lista completa de permisos del rol (al menos uno, todos del catálogo, sin repetidos) y corta las sesiones de todos los usuarios que tienen el rol (RF-MS01-11). `ms01:role:manage` solo puede estar en ADMIN y ADMIN siempre debe conservarlo.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/RolePath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRolePermissionsRequest'
+      responses:
+        '200':
+          description: El rol con sus permisos nuevos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '422':
+          $ref: '#/components/responses/BusinessRule'
+  /permissions:
+    get:
+      tags:
+        - Roles y permisos
+      summary: Consultar el catálogo de permisos (RF-MS01-10)
+      x-permiso: ms01:role:read_all
+      x-roles: [ADMIN]
+      description: Devuelve todos los permisos que se pueden asignar a un rol, ordenados por código. Es solo de lectura. No indica qué roles tienen cada permiso (eso lo dicen las rutas de roles).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Catálogo de permisos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionItem'
+              example:
+                - permiso: ms01:password:change
+                  descripcion: Cambiar la propia contraseña
+                - permiso: ms01:profile:read
+                  descripcion: Consultar el propio perfil
+                - permiso: ms01:role:manage
+                  descripcion: Crear, renombrar, actualizar y borrar roles y asignarles permisos
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /users/batch:
     post:
       tags:
@@ -589,6 +880,35 @@ paths:
           $ref: '#/components/responses/InternalUnauthorized'
         '403':
           $ref: '#/components/responses/InternalForbidden'
+  /internal/session-cuts:
+    get:
+      tags:
+        - Interno (Gateway)
+      summary: Instantánea de cortes de sesión (RF-MS01-11)
+      description: Ruta interna que consulta el API Gateway cada 4 segundos, con la cabecera `X-Service-Name` igual a `gateway`. Solo acepta ese servicio (no usa la lista `INTERNAL_ALLOWED_SERVICES`) y la cabecera no se comprueba con ninguna credencial, así que su seguridad es el aislamiento de red de MS01, que solo debe ser accesible desde el Gateway. No se publica en el Gateway y no se audita. Devuelve la instantánea completa de los cortes (`valido_desde`) de los últimos 3700 segundos, medidos con la hora de la base de datos; los usuarios y roles sin corte, o con un corte más antiguo, no aparecen. El Gateway rechaza una credencial cuyo `iat` sea menor que el corte del usuario o que el de alguno de sus roles.
+      parameters:
+        - $ref: '#/components/parameters/XServiceName'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Cortes vigentes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionCuts'
+              example:
+                generado_en: '2026-11-10T23:05:20Z'
+                ventana_segundos: 3700
+                usuarios:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    valido_desde: '2026-11-10T23:04:57Z'
+                roles:
+                  - rol: BRIGADISTA
+                    valido_desde: '2026-11-10T22:58:03Z'
+        '401':
+          $ref: '#/components/responses/InternalUnauthorized'
+        '403':
+          $ref: '#/components/responses/InternalForbidden'
 components:
   headers:
     XCorrelationID:
@@ -623,6 +943,21 @@ components:
       schema:
         type: string
         example: BRIGADISTA,ESTUDIANTE
+    XUserPermission:
+      name: X-User-Permission
+      in: header
+      required: true
+      description: Permisos efectivos del usuario autenticado (claim `permissions`) separados por coma, en orden alfabético y sin espacios. MS01 autoriza cada operación con esta cabecera (ver `x-permiso`). El Gateway descarta la que envíe el cliente y la fija a partir del token.
+      schema:
+        type: string
+        example: ms01:profile:read,ms04:checkin:write
+    RolePath:
+      name: rol
+      in: path
+      required: true
+      description: Nombre del rol. Se recortan los espacios y se pasa a mayúsculas antes de validarlo (RG-08), de modo que `monitor_evacuacion` equivale a `MONITOR_EVACUACION`.
+      schema:
+        $ref: '#/components/schemas/RolEntrada'
     XServiceName:
       name: X-Service-Name
       in: header
@@ -656,7 +991,7 @@ components:
                 mensaje: El primer nombre debe tener entre 2 y 30 letras.
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
-      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role) o no son válidas.
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role / X-User-Permission) o no son válidas.
       content:
         application/json:
           schema:
@@ -668,7 +1003,7 @@ components:
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Forbidden:
-      description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
+      description: X-User-Permission no incluye el permiso requerido por la operación (ver x-permiso).
       content:
         application/json:
           schema:
@@ -715,6 +1050,54 @@ components:
             mensaje: Usuario no encontrado.
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    RoleNotFound:
+      description: Rol no encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: Rol no encontrado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    Conflict:
+      description: Ya existe un rol con ese nombre.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: Ya existe un rol con ese nombre.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    BusinessRule:
+      description: Se incumple la regla de `ms01:role:manage` (RN-MS01-30) - solo ADMIN lo tiene y ADMIN siempre lo conserva.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: El permiso ms01:role:manage es exclusivo del rol ADMIN.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    MaxRolesPerUser:
+      description: El cambio dejaría a algún usuario con más de 50 roles (RN-MS01-40). No se aplica ningún cambio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: Un usuario no puede tener más de 50 roles.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
   schemas:
     Estado:
       type: string
@@ -723,17 +1106,23 @@ components:
         - INACTIVO
     Rol:
       type: string
-      enum:
-        - ESTUDIANTE
-        - PROFESOR
-        - ADMINISTRATIVO
-        - BRIGADISTA
-        - COORDINADOR
-        - ORGANIZADOR
-        - ADMIN
-        - AUDITOR
-      description: Catálogo de roles (RN-MS01-14).
+      minLength: 2
+      maxLength: 30
+      pattern: '^[A-Z][A-Z0-9_]{1,29}$'
+      description: Nombre de un rol existente (RN-MS01-14 y RN-MS01-28). Ya no es una lista fija, los roles son datos que el administrador gestiona (RF-MS01-10). `DETAILS` está reservado y ningún rol lo usa. Los ocho roles iniciales son ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN y AUDITOR.
       example: ESTUDIANTE
+    RolEntrada:
+      type: string
+      minLength: 2
+      maxLength: 30
+      pattern: '^[A-Za-z][A-Za-z0-9_]{1,29}$'
+      description: Nombre de un rol tal como lo envía el cliente. El servicio recorta los espacios de los extremos y lo pasa a mayúsculas antes de validarlo (RG-08); se guarda y se devuelve en mayúsculas como `Rol`. `DETAILS` (en cualquier combinación de mayúsculas y minúsculas) es un nombre reservado y se rechaza con 400.
+      example: monitor_evacuacion
+    Permiso:
+      type: string
+      pattern: '^ms[0-9]{2}:[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$'
+      description: Código de un permiso del catálogo, con el formato `ms<dos dígitos>:<recurso>:<acción>`.
+      example: ms04:checkin:write
     Correo:
       type: string
       format: email
@@ -1056,7 +1445,7 @@ components:
           type: array
           items:
             type: string
-          description: Códigos de permiso del rol según la Matriz Rol‐Permiso de la wiki (RN-MS01-14).
+          description: Códigos de permiso del rol, tomados de la tabla `roles` (RN-MS01-14). La Matriz Rol‐Permiso de la wiki es solo la asignación inicial.
           example:
             - ms02:campus:read
             - ms04:checkin:write
@@ -1170,8 +1559,7 @@ components:
             - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
         agregar:
           type: array
-          description: Una lista vacía equivale a no enviarla.
-          maxItems: 8
+          description: Una lista vacía equivale a no enviarla. Sin límite de tamaño por operación; el total de roles de cada usuario no puede superar 50 (RN-MS01-40).
           uniqueItems: true
           items:
             $ref: '#/components/schemas/Rol'
@@ -1179,8 +1567,7 @@ components:
             - BRIGADISTA
         retirar:
           type: array
-          description: Una lista vacía equivale a no enviarla.
-          maxItems: 8
+          description: Una lista vacía equivale a no enviarla. Sin límite de tamaño por operación.
           uniqueItems: true
           items:
             $ref: '#/components/schemas/Rol'
@@ -1210,3 +1597,154 @@ components:
                 example:
                   - BRIGADISTA
                   - ESTUDIANTE
+    RoleDetail:
+      type: object
+      required:
+        - rol
+        - descripcion
+        - permisos
+        - es_sistema
+      properties:
+        rol:
+          $ref: '#/components/schemas/Rol'
+        descripcion:
+          type: string
+          minLength: 3
+          maxLength: 200
+          example: Apoya el conteo de personas en los puntos de encuentro
+        permisos:
+          type: array
+          description: Permisos del rol, ordenados y sin repetidos. Al menos uno.
+          items:
+            $ref: '#/components/schemas/Permiso'
+          example:
+            - ms01:profile:read
+            - ms04:dashboard:read
+        es_sistema:
+          type: boolean
+          description: Verdadero solo en ESTUDIANTE y ADMIN. Solo se devuelve, nunca se recibe.
+          example: false
+    CreateRoleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - rol
+        - descripcion
+        - permisos
+      properties:
+        rol:
+          $ref: '#/components/schemas/RolEntrada'
+        descripcion:
+          type: string
+          minLength: 3
+          maxLength: 200
+          example: Apoya el conteo de personas en los puntos de encuentro
+        permisos:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Permisos del catálogo (`GET /permissions`). No puede incluir `ms01:role:manage`.
+          items:
+            $ref: '#/components/schemas/Permiso'
+          example:
+            - ms01:password:change
+            - ms01:profile:read
+            - ms01:profile:write
+            - ms01:role:read_own
+            - ms01:session:logout
+            - ms02:campus:read
+            - ms04:dashboard:read
+    UpdateRoleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - rol
+        - descripcion
+      properties:
+        rol:
+          $ref: '#/components/schemas/RolEntrada'
+        descripcion:
+          type: string
+          minLength: 3
+          maxLength: 200
+          example: Apoya el conteo de personas en los puntos de encuentro del campus
+    UpdateRolePermissionsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - permisos
+      properties:
+        permisos:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: Lista completa que reemplaza a la actual.
+          items:
+            $ref: '#/components/schemas/Permiso'
+          example:
+            - ms01:password:change
+            - ms01:profile:read
+            - ms01:profile:write
+            - ms01:role:read_own
+            - ms01:session:logout
+            - ms02:campus:read
+            - ms04:dashboard:read
+            - ms04:history:read
+    PermissionItem:
+      type: object
+      required:
+        - permiso
+        - descripcion
+      properties:
+        permiso:
+          $ref: '#/components/schemas/Permiso'
+        descripcion:
+          type: string
+          example: Cambiar la propia contraseña
+    SessionCuts:
+      type: object
+      required:
+        - generado_en
+        - ventana_segundos
+        - usuarios
+        - roles
+      properties:
+        generado_en:
+          type: string
+          format: date-time
+          description: Hora de la base de datos en que se armó la respuesta.
+          example: '2026-11-10T23:05:20Z'
+        ventana_segundos:
+          type: integer
+          description: 3700 = 3600 de vigencia del token + 30 de tolerancia de reloj + 70 de margen.
+          example: 3700
+        usuarios:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - valido_desde
+            properties:
+              id:
+                type: string
+                format: uuid
+                example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+              valido_desde:
+                type: string
+                format: date-time
+                example: '2026-11-10T23:04:57Z'
+        roles:
+          type: array
+          items:
+            type: object
+            required:
+              - rol
+              - valido_desde
+            properties:
+              rol:
+                $ref: '#/components/schemas/Rol'
+              valido_desde:
+                type: string
+                format: date-time
+                example: '2026-11-10T22:58:03Z'
