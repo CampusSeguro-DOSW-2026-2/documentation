@@ -1,6 +1,6 @@
 # ADR-005 — Llamadas internas a través del Gateway con clave de servicio
 
-**Estado:** Aceptada · **Fecha:** 2026-10-25 · **RF:** [RF-GW-08](../01-requerimientos-funcionales.md#rf-gw-08)
+**Estado:** Aceptada · **Fecha:** 2026-11-10 · **RF:** [RF-GW-08](../01-requerimientos-funcionales.md#rf-gw-08)
 
 ## Contexto
 Algunos MS llaman a otros (p. ej. MS04 → MS05, MS01…MS07 → MS08). Si se llamaran directamente, esas llamadas quedarían fuera de la correlación, los logs, el `ErrorResponse` y la autenticación del GW (Estándares §5).
@@ -9,12 +9,14 @@ Algunos MS llaman a otros (p. ej. MS04 → MS05, MS01…MS07 → MS08). Si se ll
 * **Todo el tráfico MS → MS pasa por el GW**, en `${GATEWAY_URL}/api/v1/...`.
 * **Una clave por MS** (`GW_SERVICE_KEY_MS01` … `_MS08`, ≥ 32 caracteres, sin repetidas; se valida al arrancar sin mostrar las claves). El GW compara resúmenes SHA-256 en tiempo constante contra todas las claves y obtiene el llamante.
 * **Políticas:** una ruta interna solo acepta clave; una protegida acepta JWT **o** clave. `Authorization` y `X-Service-Key` juntas son `400`.
-* **Identidad propagada:** si el MS actúa por un usuario, envía los `X-User-Id`/`X-User-Role` que recibió; el GW exige que vengan juntos y con formato válido (si no, `400`) y los reenvía.
+* **Identidad propagada:** si el MS actúa por un usuario, envía los `X-User-Id`, `X-User-Role` y `X-User-Permission` que recibió; el GW exige que vengan las tres juntas, cada una una sola vez y con formato válido (si no, `400`) y las reenvía.
 * **El GW elimina `X-Service-Key` e inyecta `X-Service-Name`** (`ms01`…`ms08`). El log de acceso registra `origen = msNN`; la clave nunca se registra ni se reenvía.
-* **La autorización es del destino:** por `X-Service-Name` (ruta interna) o por `X-User-Role` (ruta protegida). El GW no decide qué servicio llama a cuál.
+* **La autorización es del destino:** por `X-Service-Name` (ruta interna) o por `X-User-Permission` (ruta protegida). El GW no decide qué servicio llama a cuál.
 * **Aislamiento de red:** en Docker solo se publica el 8080 del GW; los MS y el 9090 viven en una red interna (`docker-compose.yml`). En la nube, con una VM por servicio, el aislamiento lo dan el firewall y el mTLS de [ADR-006](ADR-006-aislamiento-en-la-nube.md).
 
 ## Consecuencias
+* Las llamadas internas no llevan JWT, así que los cortes de sesión ([ADR-003](ADR-003-jwt.md)) no se les aplican: la identidad que propagan es la que el GW validó en la solicitud original del usuario.
+* La consulta de cortes de sesión del GW a MS01 sale del propio GW: no usa una clave de servicio ni pasa por este flujo.
 * Agregar o cambiar una clave exige configuración y reinicio del GW y del MS llamante.
 * Una clave filtrada permite actuar como ese MS hasta rotarla; cada MS la guarda solo en su variable de entorno.
 * Las rutas internas de MS01 (`POST /api/v1/users/batch`, `GET /api/v1/users/by-role`) están activas. `POST /api/v1/audit/events` ya está declarada como interna, pero su ruta a MS08 se agrega cuando se publique su OpenAPI (decisión abierta 1 de los Estándares); la de MS05, con la decisión abierta 3.

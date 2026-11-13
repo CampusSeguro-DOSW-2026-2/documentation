@@ -5,7 +5,7 @@
 ## Contexto
 En la nube cada servicio tiene su propia VM: los MS están en cuentas distintas de Azure o AWS y el GW en otra. Así desaparece la red interna de Docker de [ADR-005](ADR-005-llamadas-internas.md), que hoy es lo único que impide llegar directo a un MS.
 
-Los MS confían en `X-User-Id`, `X-User-Role` y `X-Service-Name` sin validar un JWT (Estándares §3 y §4). Por eso alguien que llegara directo a uno podría falsificar esas cabeceras. Hay que garantizar que solo el GW llegue a los MS, sin cambiar su código.
+Los MS confían en `X-User-Id`, `X-User-Role`, `X-User-Permission` y `X-Service-Name` sin validar un JWT (Estándares §3 y §4). Por eso alguien que llegara directo a uno podría falsificar esas cabeceras. Hay que garantizar que solo el GW llegue a los MS, sin cambiar su código.
 
 ## Decisión
 * **Tres capas:**
@@ -26,6 +26,7 @@ Los MS confían en `X-User-Id`, `X-User-Role` y `X-Service-Name` sin validar un 
   * el certificado de cliente se carga con un *SSL bundle* de Spring Boot (`GW_CLIENT_KEYSTORE`), que se valida al arrancar;
   * el GW solo confía en la CA del entorno (`GW_TRUSTED_CA`).
 * **TLS rechazado = destino inalcanzable:** `502 SERVICIO_NO_DISPONIBLE` (RF-GW-01 A2).
+* **La consulta de cortes de sesión** ([ADR-003](ADR-003-jwt.md)) usa la misma conexión del GW hacia MS01, así que también viaja con mTLS.
 * **Kit y plantillas en el repositorio del GW:**
   * `infra/mtls/` emite los certificados;
   * `infra/edge/` es el borde del GW;
