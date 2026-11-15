@@ -40,9 +40,9 @@ Referencia: [RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-instituc
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Primer nombre | Texto | Sí | 2 a 30 caracteres | Solo letras (con tildes y ñ), espacios, guion y apóstrofe. Sin números ni símbolos. | "El primer nombre debe tener entre 2 y 30 letras." | María |
-| Segundo nombre | Texto | No | 2 a 30 caracteres | Opcional. Si se envía, misma regla que el primer nombre. | "El segundo nombre debe tener entre 2 y 30 letras." | José |
+| Segundo nombre | Texto | No | 1 a 30 caracteres | Opcional. Si se envía, mismas reglas de caracteres que el primer nombre, pero admite desde un carácter. | "El segundo nombre debe tener entre 1 y 30 letras." | José |
 | Primer apellido | Texto | Sí | 2 a 30 caracteres | Solo letras (con tildes y ñ), espacios, guion y apóstrofe. Sin números ni símbolos. | "El primer apellido debe tener entre 2 y 30 letras." | Pérez |
-| Segundo apellido | Texto | No | 2 a 30 caracteres | Opcional. Si se envía, misma regla que el primer apellido. | "El segundo apellido debe tener entre 2 y 30 letras." | Gómez |
+| Segundo apellido | Texto | No | 1 a 30 caracteres | Opcional. Si se envía, mismas reglas de caracteres que el primer apellido, pero admite desde un carácter. | "El segundo apellido debe tener entre 1 y 30 letras." | Gómez |
 | Correo institucional | Correo | Sí | Máx. 100 caracteres | Formato de correo válido. Dominio igual al institucional configurado. Único en el sistema (sin distinguir mayúsculas). | Formato o dominio: "Correo no válido." Duplicado (409): "El correo ya está registrado." | maria.perez@escuelaing.edu.co |
 | Contraseña | Texto oculto | Sí | 8 a 64 caracteres | Al menos 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial. Sin espacios. | "La contraseña debe tener 8 a 64 caracteres, con mayúscula, minúscula, número y carácter especial." | Campus#2026 |
 | Confirmar contraseña | Texto oculto | Sí | Igual a Contraseña | Debe ser idéntica a Contraseña. | "Las contraseñas no coinciden." | Campus#2026 |
@@ -73,9 +73,9 @@ Referencia: [RF-MS01-06](1_requirements.md#rf-ms01-06-gestión-del-perfil)
 | Campo | Tipo | Obligatorio | Editable | Longitud / formato | Reglas de validación | Mensaje de error |
 |---|---|---|---|---|---|---|
 | Primer nombre | Texto | Sí | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El primer nombre debe tener entre 2 y 30 letras." |
-| Segundo nombre | Texto | No | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo nombre debe tener entre 2 y 30 letras." |
+| Segundo nombre | Texto | No | Sí | 1 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo nombre debe tener entre 1 y 30 letras." |
 | Primer apellido | Texto | Sí | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El primer apellido debe tener entre 2 y 30 letras." |
-| Segundo apellido | Texto | No | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo apellido debe tener entre 2 y 30 letras." |
+| Segundo apellido | Texto | No | Sí | 1 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo apellido debe tener entre 1 y 30 letras." |
 | Correo institucional | Correo | — | No (solo lectura) | — | Cualquier intento de cambio se rechaza ([RN-MS01-15](1_requirements.md#rf-ms01-06-gestión-del-perfil)). | "El correo no se puede modificar." |
 | Roles | Lista | — | No (solo lectura) | — | Se modifican solo por el administrador ([F-09](#f-09-asignación-de-roles)). | "Los roles no se pueden modificar desde el perfil." |
 | Estado | Etiqueta | — | No (solo lectura) | ACTIVO / INACTIVO | Se modifica solo por el administrador ([F-08](#f-08-cambio-de-estado-de-usuario)). | "El estado no se puede modificar desde el perfil." |
@@ -213,7 +213,7 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Rol (en la ruta) | Selección de un rol | Sí | Nombre de un rol existente | Se normaliza ([RG-08](#reglas-generales-de-entrada)). Debe existir. | Formato (400): "Rol no válido." Inexistente (404): "Rol no encontrado." | MONITOR_EVACUACION |
-| Permisos | Selección múltiple | Sí | Al menos 1 | Lista completa que reemplaza a la actual. Códigos del catálogo, sin repetir. `ms01:role:manage` solo en ADMIN, y ADMIN debe conservarlo. | Ninguno (400): "Seleccione al menos un permiso." Código desconocido (400): "Permiso no válido: {código}" En otro rol (422): "El permiso ms01:role:manage es exclusivo del rol ADMIN." Quitado a ADMIN (422): "El rol ADMIN debe conservar el permiso ms01:role:manage." | ms04:dashboard:read |
+| Permisos | Selección múltiple | Sí | Al menos 1 | Lista completa que reemplaza a la actual. Códigos del catálogo, sin repetir. `ms01:role:manage` solo en ADMIN, y ADMIN debe conservarlo. ESTUDIANTE y ADMIN deben conservar `ms01:profile:read` y `ms01:profile:write` ([RN-MS01-41](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos)). | Ninguno (400): "Seleccione al menos un permiso." Código desconocido (400): "Permiso no válido: {código}" En otro rol (422): "El permiso ms01:role:manage es exclusivo del rol ADMIN." Quitado a ADMIN (422): "El rol ADMIN debe conservar el permiso ms01:role:manage." Quitados a ESTUDIANTE o a ADMIN (422): "El rol {rol} debe conservar los permisos ms01:profile:read y ms01:profile:write." | ms04:dashboard:read |
 
 **Mensaje global de formulario:**
 * Aviso al administrador antes de confirmar: "Se cerrará la sesión de los usuarios que tienen este rol para aplicar los permisos nuevos."

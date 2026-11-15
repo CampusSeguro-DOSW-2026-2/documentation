@@ -536,7 +536,7 @@ paths:
       summary: Listar los roles con su detalle (RF-MS01-10)
       x-permiso: ms01:role:read_all
       x-roles: [ADMIN]
-      description: Devuelve todos los roles ordenados por `rol` ascendente, con su descripción, sus permisos (ordenados y sin repetidos) y la marca `es_sistema`. La ruta literal tiene prioridad sobre `/roles/{rol}`; por eso `DETAILS` es un nombre reservado y ningún rol puede llamarse así. Un permiso guardado que ya no existe en el catálogo se omite.
+      description: Devuelve todos los roles ordenados por `rol` ascendente, con su descripción, sus permisos (ordenados y sin repetidos) y la marca `es_sistema`. La ruta literal tiene prioridad sobre `/roles/{rol}`; por eso `DETAILS` es un nombre reservado y ningún rol puede llamarse así.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -704,7 +704,7 @@ paths:
       summary: Reemplazar los permisos de un rol (RF-MS01-10, F-12)
       x-permiso: ms01:role:manage
       x-roles: [ADMIN]
-      description: Reemplaza la lista completa de permisos del rol (al menos uno, todos del catálogo, sin repetidos) y corta las sesiones de todos los usuarios que tienen el rol (RF-MS01-11). `ms01:role:manage` solo puede estar en ADMIN y ADMIN siempre debe conservarlo.
+      description: Reemplaza la lista completa de permisos del rol (al menos uno, todos del catálogo, sin repetidos) y corta las sesiones de todos los usuarios que tienen el rol (RF-MS01-11). `ms01:role:manage` solo puede estar en ADMIN y ADMIN siempre debe conservarlo; ESTUDIANTE y ADMIN deben conservar siempre `ms01:profile:read` y `ms01:profile:write` (RN-MS01-41).
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -741,7 +741,7 @@ paths:
       summary: Consultar el catálogo de permisos (RF-MS01-10)
       x-permiso: ms01:role:read_all
       x-roles: [ADMIN]
-      description: Devuelve todos los permisos que se pueden asignar a un rol, ordenados por código. Es solo de lectura. No indica qué roles tienen cada permiso (eso lo dicen las rutas de roles).
+      description: Devuelve todos los permisos que se pueden asignar a un rol, ordenados por código. Es solo de lectura y ninguna ruta crea, edita ni borra permisos (RN-MS01-42). No indica qué roles tienen cada permiso (eso lo dicen las rutas de roles).
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -1075,7 +1075,7 @@ components:
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     BusinessRule:
-      description: Se incumple la regla de `ms01:role:manage` (RN-MS01-30) - solo ADMIN lo tiene y ADMIN siempre lo conserva.
+      description: Se incumple una regla de los permisos de un rol - `ms01:role:manage` solo lo tiene ADMIN y ADMIN siempre lo conserva (RN-MS01-30), o ESTUDIANTE o ADMIN perderían `ms01:profile:read` o `ms01:profile:write` (RN-MS01-41).
       content:
         application/json:
           schema:
@@ -1145,7 +1145,7 @@ components:
       example: María
     SegundoNombre:
       type: string
-      minLength: 2
+      minLength: 1
       maxLength: 30
       pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
       example: José
@@ -1157,7 +1157,7 @@ components:
       example: Pérez
     SegundoApellido:
       type: string
-      minLength: 2
+      minLength: 1
       maxLength: 30
       pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
       example: Gómez
@@ -1445,7 +1445,7 @@ components:
           type: array
           items:
             type: string
-          description: Códigos de permiso del rol, tomados de la tabla `roles` (RN-MS01-14). La Matriz Rol‐Permiso de la wiki es solo la asignación inicial.
+          description: Códigos de permiso del rol, tomados de la base de datos (RN-MS01-14). La Matriz Rol‐Permiso de la wiki es solo la asignación inicial.
           example:
             - ms02:campus:read
             - ms04:checkin:write

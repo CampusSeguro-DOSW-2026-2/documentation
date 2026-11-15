@@ -57,7 +57,7 @@ JWT (RFC 7519) firmado con RS256 y una llave RSA de al menos 2048 bits.
 | `iss` / `aud` | Fijos en el código (`util/GlobalValues.java`), con los valores de los Estándares. |
 | `sub` | UUID del usuario (`usuarios.id`). |
 | `roles` | Roles vigentes al momento del login, en orden alfabético. Mínimo 1. Sus nombres son los de la tabla `roles` ([modelo de datos](4_modelo-datos.md#roles)); ya no son un conjunto fijo. |
-| `permissions` | Permisos efectivos del usuario: la **unión** de los permisos de todos sus roles, tomados de la tabla `roles` al emitir. Orden alfabético, sin repetidos, mínimo 1. Cada permiso tiene el formato `ms<dos dígitos>:<recurso>:<acción>` (p. ej. `ms04:checkin:write`). Ningún rol hereda de otro. MS01 ignora, con un aviso en el log, los códigos guardados que ya no existen en el catálogo de permisos. |
+| `permissions` | Permisos efectivos del usuario: la **unión** de los permisos de todos sus roles, tomados de la base de datos al emitir. Orden alfabético, sin repetidos, mínimo 1. Cada permiso tiene el formato `ms<dos dígitos>:<recurso>:<acción>` (p. ej. `ms04:checkin:write`). Ningún rol hereda de otro. Todo permiso de un rol existe en el catálogo de la base de datos, así que el token nunca lleva un código que el catálogo no tenga. |
 | `iat` / `exp` | `exp = iat + 3600 s`. La vigencia está fija en el código. |
 | `email` | Correo institucional (el Gateway no lo usa). |
 | `jti` | UUID aleatorio por token (reservado; el corte de sesión no lo usa, compara `iat`). |
@@ -76,12 +76,11 @@ JWT (RFC 7519) firmado con RS256 y una llave RSA de al menos 2048 bits.
 
 ### Cómo se calcula `permissions`
 
-1. Al emitir el token, MS01 lee de la tabla `roles` los permisos de cada rol del usuario.
+1. Al emitir el token, MS01 lee de la base de datos (`rol_permiso` y `permisos`) los permisos de cada rol del usuario.
 2. Hace la unión de todas las listas. Si un permiso no está en ninguno de sus roles, no está en el token.
-3. Descarta los códigos que ya no existan en el catálogo de permisos (enum `Permission`) y deja un aviso en el log, para que retirar un permiso del código no impida iniciar sesión.
-4. Ordena alfabéticamente y quita repetidos.
+3. Ordena alfabéticamente y quita repetidos.
 
-Ejemplo: un usuario con `PROFESOR` (16 permisos: los 15 de `ESTUDIANTE` más `ms05:incident:report`) y `AUDITOR` (17 permisos, 8 de ellos compartidos con `ESTUDIANTE`) recibe 25 permisos: los 16 de `PROFESOR` más los 9 propios de `AUDITOR` (`ms01:user:read`, `ms03:alert:read_history`, `ms04:dashboard:read`, `ms04:history:read`, `ms05:incident:read`, `ms06:drill:read`, `ms06:drill:compare_report`, `ms08:indicators:read` y `ms08:audit:read`).
+Ejemplo: un usuario con `PROFESOR` (16 permisos, los mismos de `ESTUDIANTE`) y `AUDITOR` (17 permisos, 8 de ellos compartidos con `ESTUDIANTE`) recibe 25 permisos: los 16 de `PROFESOR` más los 9 propios de `AUDITOR` (`ms01:user:read`, `ms03:alert:read_history`, `ms04:dashboard:read`, `ms04:history:read`, `ms05:incident:read`, `ms06:drill:read`, `ms06:drill:compare_report`, `ms08:indicators:read` y `ms08:audit:read`).
 
 **Tamaño:** cada código pesa en promedio unos 23 bytes con su coma. El catálogo completo (48 permisos) ocupa cerca de 1,1 KB en la cabecera `X-User-Permission` y alrededor de 1,5 KB más en el JWT. Los límites habituales de cabeceras (8 KB) no se alcanzan con esos valores (aproximación, no medida).
 
