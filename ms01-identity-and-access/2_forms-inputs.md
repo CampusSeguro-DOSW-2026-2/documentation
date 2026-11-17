@@ -16,6 +16,7 @@
    - [F-11 · Editar rol](#f-11-editar-rol)
    - [F-12 · Permisos de un rol](#f-12-permisos-de-un-rol)
    - [F-13 · Borrar rol](#f-13-borrar-rol)
+   - [F-14 · Verificación del registro](#f-14-verificación-del-registro)
 
 ---
 
@@ -25,7 +26,7 @@
 * **RG-02**: Un campo obligatorio vacío o con solo espacios se considera faltante.
 * **RG-03**: Se rechazan entradas con etiquetas HTML o scripts (<, >) en campos de texto libre.
 * **RG-04**: Se rechazan (HTTP 400) los campos no definidos en el contrato (en especial roles, estado o id enviados por el usuario en registro y perfil, y `es_sistema` en los formularios de roles, que solo se muestra y nunca se envía).
-* **RG-05**: Los mensajes de error indican el campo y la regla incumplida, salvo en login y recuperación ([RN-MS01-05](1_requirements.md#rf-ms01-02-autenticar-usuario-login), [RN-MS01-20](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña)).
+* **RG-05**: Los mensajes de error indican el campo y la regla incumplida, salvo en login, recuperación y verificación del registro ([RN-MS01-05](1_requirements.md#rf-ms01-02-autenticar-usuario-login), [RN-MS01-20](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña), [F-14](#f-14-verificación-del-registro)).
 * **RG-06**: Los errores de validación responden 400 `VALIDACION`, y un correo duplicado 409 `CONFLICTO`, con el `ErrorResponse` de los [Estándares](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales). Cada campo y su mensaje van en `errores`.
 * **RG-07**: Ningún formulario incluye la identidad del solicitante ([RN-MS01-23](1_requirements.md#rf-ms01-03-gestión-de-sesión)) ni datos de auditoría ([RNF-MS01-10](1_requirements.md#requerimientos-no-funcionales-rnf)).
 * **RG-08**: El nombre de un rol se normaliza antes de validarlo: se recortan los espacios y se pasa a mayúsculas (`monitor_evacuacion` queda `MONITOR_EVACUACION`). Se guarda y se devuelve ya normalizado, así que dos nombres que solo difieren en mayúsculas o minúsculas son el mismo rol. El nombre `DETAILS` está reservado (es el segmento fijo de la ruta `GET /roles/details`) y ningún rol puede llamarse así: se rechaza con 400 `VALIDACION` al crear o renombrar, y la base de datos también lo impide. Aplica al nombre que llega en el cuerpo de [F-10](#f-10-crear-rol) y [F-11](#f-11-editar-rol) y al `{rol}` de las rutas de gestión de roles ([F-11](#f-11-editar-rol), [F-12](#f-12-permisos-de-un-rol), [F-13](#f-13-borrar-rol) y la consulta de un rol). Los filtros y las listas de roles de las rutas que ya existían ([F-07](#f-07-búsqueda-y-filtros-de-usuarios) y [F-09](#f-09-asignación-de-roles)) no cambian: siguen exigiendo el nombre exacto. Los códigos de permiso no se normalizan: solo se recortan los espacios y las mayúsculas no se cambian, así que un código con mayúsculas no existe en el catálogo y se rechaza con 400 `VALIDACION` ("Permiso no válido"). Se escriben exactamente como aparecen en `GET /api/v1/permissions`.
@@ -40,12 +41,15 @@ Referencia: [RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-instituc
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Primer nombre | Texto | Sí | 2 a 30 caracteres | Solo letras (con tildes y ñ), espacios, guion y apóstrofe. Sin números ni símbolos. | "El primer nombre debe tener entre 2 y 30 letras." | María |
-| Segundo nombre | Texto | No | 1 a 30 caracteres | Opcional. Si se envía, mismas reglas de caracteres que el primer nombre, pero admite desde un carácter. | "El segundo nombre debe tener entre 1 y 30 letras." | José |
+| Segundo nombre | Texto | No | 2 a 30 caracteres | Opcional. Si se envía, mismas reglas que el primer nombre. | "El segundo nombre debe tener entre 2 y 30 letras." | José |
 | Primer apellido | Texto | Sí | 2 a 30 caracteres | Solo letras (con tildes y ñ), espacios, guion y apóstrofe. Sin números ni símbolos. | "El primer apellido debe tener entre 2 y 30 letras." | Pérez |
-| Segundo apellido | Texto | No | 1 a 30 caracteres | Opcional. Si se envía, mismas reglas de caracteres que el primer apellido, pero admite desde un carácter. | "El segundo apellido debe tener entre 1 y 30 letras." | Gómez |
+| Segundo apellido | Texto | No | 2 a 30 caracteres | Opcional. Si se envía, mismas reglas que el primer apellido. | "El segundo apellido debe tener entre 2 y 30 letras." | Gómez |
 | Correo institucional | Correo | Sí | Máx. 100 caracteres | Formato de correo válido. Dominio igual al institucional configurado. Único en el sistema (sin distinguir mayúsculas). | Formato o dominio: "Correo no válido." Duplicado (409): "El correo ya está registrado." | maria.perez@escuelaing.edu.co |
 | Contraseña | Texto oculto | Sí | 8 a 64 caracteres | Al menos 1 mayúscula, 1 minúscula, 1 número y 1 carácter especial. Sin espacios. | "La contraseña debe tener 8 a 64 caracteres, con mayúscula, minúscula, número y carácter especial." | Campus#2026 |
 | Confirmar contraseña | Texto oculto | Sí | Igual a Contraseña | Debe ser idéntica a Contraseña. | "Las contraseñas no coinciden." | Campus#2026 |
+
+**Mensajes globales de formulario:**
+* Envío aceptado (202): "Enviamos un código de verificación a su correo. Ingréselo para crear la cuenta.", con el token de registro que exige [F-14](#f-14-verificación-del-registro). La cuenta todavía no existe: se crea al confirmar el código.
 
 *Mockup F-01: (espacio reservado para insertar imagen del formulario de registro)*
 
@@ -73,9 +77,9 @@ Referencia: [RF-MS01-06](1_requirements.md#rf-ms01-06-gestión-del-perfil)
 | Campo | Tipo | Obligatorio | Editable | Longitud / formato | Reglas de validación | Mensaje de error |
 |---|---|---|---|---|---|---|
 | Primer nombre | Texto | Sí | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El primer nombre debe tener entre 2 y 30 letras." |
-| Segundo nombre | Texto | No | Sí | 1 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo nombre debe tener entre 1 y 30 letras." |
+| Segundo nombre | Texto | No | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo nombre debe tener entre 2 y 30 letras." |
 | Primer apellido | Texto | Sí | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El primer apellido debe tener entre 2 y 30 letras." |
-| Segundo apellido | Texto | No | Sí | 1 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo apellido debe tener entre 1 y 30 letras." |
+| Segundo apellido | Texto | No | Sí | 2 a 30 caracteres | Misma regla que [F-01](#f-01-registro-de-usuario). | "El segundo apellido debe tener entre 2 y 30 letras." |
 | Correo institucional | Correo | — | No (solo lectura) | — | Cualquier intento de cambio se rechaza ([RN-MS01-15](1_requirements.md#rf-ms01-06-gestión-del-perfil)). | "El correo no se puede modificar." |
 | Roles | Lista | — | No (solo lectura) | — | Se modifican solo por el administrador ([F-09](#f-09-asignación-de-roles)). | "Los roles no se pueden modificar desde el perfil." |
 | Estado | Etiqueta | — | No (solo lectura) | ACTIVO / INACTIVO | Se modifica solo por el administrador ([F-08](#f-08-cambio-de-estado-de-usuario)). | "El estado no se puede modificar desde el perfil." |
@@ -148,6 +152,9 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 | Usuario(s) | Selección de uno o más usuarios | Sí | UUID existentes | Deben existir. No puede incluir al propio administrador. | Ninguno: "Seleccione al menos un usuario." Id no válido: "Identificador de usuario no válido." Inexistente (404): "Usuario no encontrado." Propio (403): "No puede cambiar su propio estado." | 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42 |
 | Nuevo estado | Lista | Sí | ACTIVO / INACTIVO | Solo valores del catálogo. | "Estado no válido." | INACTIVO |
 
+**Mensaje global de formulario:**
+* La interfaz permite elegir un estado distinto para cada usuario seleccionado y envía solo los que cambian, una petición por estado.
+
 *Mockup F-08: (espacio reservado para insertar imagen de la confirmación de cambio de estado)*
 
 ---
@@ -165,6 +172,7 @@ Referencia: [RF-MS01-05](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permis
 * Ninguna lista enviada: "Indique roles a agregar o retirar."
 * Un rol en ambas listas: "Un rol no puede agregarse y retirarse a la vez."
 * Algún usuario quedaría sin roles (400): "Cada usuario debe conservar al menos un rol."
+* La interfaz muestra una sola lista de roles con una casilla de tres estados (todos, ninguno o algunos de los seleccionados lo tienen) y la traduce a estas dos listas. Antes de enviar muestra los roles con los que quedaría cada usuario.
 * Algún usuario quedaría con más de 50 roles (422): "Un usuario no puede tener más de 50 roles." Las listas no tienen un límite propio; lo que se verifica es el total de roles que cada usuario tendría después del cambio ([RN-MS01-40](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)).
 
 *Mockup F-09: (espacio reservado para insertar imagen de la edición de roles)*
@@ -235,3 +243,21 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 * No lleva cuerpo. Responde 204 sin contenido.
 
 *Mockup F-13: (espacio reservado para insertar imagen de la confirmación de borrado de rol)*
+
+---
+
+### F-14: Verificación del registro
+Referencia: [RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional), flujo base B y flujo alterno A1
+
+| Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
+|---|---|---|---|---|---|---|
+| Correo institucional | Correo | Sí | Máx. 100 caracteres | Formato de correo válido. Es el correo enviado en [F-01](#f-01-registro-de-usuario). | "Ingrese un correo válido." | maria.perez@escuelaing.edu.co |
+| Código de verificación | Texto numérico | Sí (solo al confirmar) | 6 dígitos | Solo dígitos. El último enviado al correo, vigente y sin agotar sus intentos ([RN-MS01-44](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). | "Código incorrecto o vencido." (genérico) | 482913 |
+| Token de registro | Texto (oculto, no lo escribe la persona) | Sí | Máx. 100 caracteres | El que devolvió el registro de [F-01](#f-01-registro-de-usuario). La interfaz lo guarda solo en memoria ([RN-MS01-46](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). | "Código incorrecto o vencido." (genérico) | (43 caracteres aleatorios) |
+
+**Mensajes globales de formulario:**
+* Confirmar (`POST /auth/register/verify`, correo y código): crea la cuenta y responde 201. Un correo que se registró mientras tanto responde 409: "El correo ya está registrado."
+* Reenviar el código (`POST /auth/register/resend`, correo y token, sin código): responde siempre 200 con "Si hay un registro pendiente para este correo, enviamos un nuevo código de verificación.", exista o no el registro.
+* La interfaz recuerda el correo y el token de [F-01](#f-01-registro-de-usuario) para no pedirlos. Si se recarga la pantalla del código, el token se pierde y hay que registrarse de nuevo.
+
+*Mockup F-14: (espacio reservado para insertar imagen del formulario de verificación del registro)*

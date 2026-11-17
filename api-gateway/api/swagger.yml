@@ -91,7 +91,7 @@ paths:
     post:
       tags:
         - MS01 · Público
-      summary: Registrar usuario institucional (RF-MS01-01)
+      summary: Solicitar el registro y enviar el código de verificación (RF-MS01-01)
       x-politica: PUBLICA
       x-destino: MS01_URI
       security: []
@@ -104,6 +104,41 @@ paths:
             schema:
               $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RegisterRequest'
       responses:
+        '202':
+          description: Registro pendiente; MS01 envió el código de verificación al correo y devuelve el token de registro.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RegisterAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/register/verify:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Confirmar el correo con el código y crear el usuario (RF-MS01-01)
+      description: El GW nunca registra el cuerpo (RF-GW-07).
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/VerifyRegistrationRequest'
+      responses:
         '201':
           description: Usuario creado (MS01).
           headers:
@@ -113,6 +148,33 @@ paths:
             application/json:
               schema:
                 $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/auth/register/resend:
+    post:
+      tags:
+        - MS01 · Público
+      summary: Reenviar el código de verificación del registro (RF-MS01-01)
+      x-politica: PUBLICA
+      x-destino: MS01_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/ResendRegistrationCodeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/MensajeOk'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':

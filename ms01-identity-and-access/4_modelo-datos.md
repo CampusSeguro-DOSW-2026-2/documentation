@@ -13,6 +13,7 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
     - [role_permissions](#role_permissions)
     - [user_roles](#user_roles)
     - [password_reset_codes](#password_reset_codes)
+    - [pending_registrations](#pending_registrations)
 5. [Relaciones](#relaciones)
 6. [Correspondencia entre API y columnas](#correspondencia-entre-api-y-columnas)
 7. [Reglas de integridad](#reglas-de-integridad)
@@ -24,7 +25,7 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
 
 ## Alcance
 
-**Se almacena:** usuarios, los roles (con su descripción), el catálogo de permisos, los permisos de cada rol, la asignación de roles a usuarios, las marcas de corte de sesión y los códigos de recuperación de contraseña.
+**Se almacena:** usuarios, los roles (con su descripción), el catálogo de permisos, los permisos de cada rol, la asignación de roles a usuarios, las marcas de corte de sesión, los códigos de recuperación de contraseña y los registros pendientes de verificación del correo.
 
 **No se almacena:**
 * **Auditoría:** la delega MS08 ([RNF-MS01-10](1_requirements.md#requerimientos-no-funcionales-rnf)).
@@ -45,11 +46,12 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
 * Las restricciones llevan prefijo por tipo (`pk_`, `fk_`, `uq_`, `chh_` para CHECK y `trg_` para triggers). Los CHECK de `roles` protegen el formato del nombre, el nombre reservado `DETAILS` y la longitud de la descripción; el de `permissions`, el formato del código. Lo que depende de varias filas o de otra tabla no cabe en un CHECK y lo hacen cumplir triggers: la protección de los roles de sistema y las reglas de los permisos de cada rol ([`role_permissions`](#role_permissions)). Los errores de esos triggers usan SQLSTATE `23S01`.
 * `valid_from` (`valido_desde` en la ruta interna de cortes) guarda el instante de corte de sesión truncado a segundos (el mismo tipo de dato que el `iat` del token) y es `NULL` cuando no hay corte. Lo escribe MS01 con la hora de la base de datos, la misma con la que fija el `iat` de las credenciales ([corte de sesión](3_jwt-spec.md#corte-de-sesión)), así que todas las instancias de MS01 comparten un solo reloj.
 * Los usuarios no se borran físicamente: se inactivan ([RN-MS01-17](1_requirements.md#rf-ms01-07-administración-de-usuarios)).
-* El esquema se versiona como scripts SQL numerados en `database/`. Las bases nuevas se crean con `001_create_schema.sql` y `002_index_schema.sql`: `001` incluye todas las tablas (también `password_reset_codes`), funciones y triggers de este documento y la siembra del catálogo de permisos y de los ocho roles ([datos iniciales](#datos-iniciales)), todo en una sola transacción, y `002` crea los índices. Dos scripts manuales, de una sola transacción cada uno, no se usan en bases nuevas y por eso están en subcarpetas que Postgres no ejecuta al crear una base:
+* El esquema se versiona como scripts SQL numerados en `database/`. Las bases nuevas se crean con `001_create_schema.sql` y `002_index_schema.sql`: `001` incluye todas las tablas (también `password_reset_codes` y `pending_registrations`), funciones y triggers de este documento y la siembra del catálogo de permisos y de los ocho roles ([datos iniciales](#datos-iniciales)), todo en una sola transacción, y `002` crea los índices. Dos scripts manuales, de una sola transacción cada uno, no se usan en bases nuevas y por eso están en subcarpetas que Postgres no ejecuta al crear una base:
     * `database/migrations/004_migration_roles_permissions.sql` lleva una base ya desplegada con el modelo anterior (tablas `usuarios`, `usuario_rol` y `codigos_recuperacion`, con los nombres en español) al esquema de este documento: tablas, columnas, restricciones e índices con nombres en inglés, tablas `roles`, `permissions` y `role_permissions`, columnas `valid_from` y `role_id`, claves foráneas, restricciones y triggers.
     * `database/maintenance/005_maintenance_roles_permissions.sql` deja el catálogo y los permisos de los ocho roles de la Matriz como los define la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso) ([datos iniciales](#datos-iniciales)).
+    * `database/migrations/006_migration_pending_registrations.sql` agrega la tabla [`pending_registrations`](#pending_registrations) y su índice a una base desplegada antes de la verificación del correo. Se aplica en cada entorno **antes** de desplegar esa versión de MS01, que no arranca sin la tabla.
 
-  Los cambios puntuales posteriores del catálogo de permisos de `ms02` a `ms08` se escriben como scripts numerados y versionados (`006` en adelante), uno por cambio, que ejecuta en cada entorno el responsable de la base de datos ([`permissions`](#permissions)). La aplicación no crea ni modifica el esquema: lo valida al arrancar (`spring.jpa.hibernate.ddl-auto: validate`).
+  Los cambios puntuales posteriores del catálogo de permisos de `ms02` a `ms08` se escriben como scripts numerados y versionados (`007` en adelante), uno por cambio, que ejecuta en cada entorno el responsable de la base de datos ([`permissions`](#permissions)). La aplicación no crea ni modifica el esquema: lo valida al arrancar (`spring.jpa.hibernate.ddl-auto: validate`).
 
 ---
 
@@ -58,6 +60,7 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
 Detalle técnico de [RN-MS01-04](1_requirements.md#rf-ms01-01-registrar-usuario-institucional):
 * **Contraseñas:** solo se guarda su hash BCrypt (`users.password_hash`). La contraseña en claro nunca se guarda, no se registra en logs y nunca se devuelve.
 * **Códigos de recuperación:** solo se guarda su hash BCrypt (`password_reset_codes.code_hash`). El código en claro solo viaja en el correo al usuario.
+* **Registros pendientes:** la contraseña y el código de verificación se guardan solo como hash BCrypt (`pending_registrations.password_hash` y `code_hash`), y el token de registro solo como su hash SHA-256 (`request_token_hash`); un token aleatorio de 32 bytes no necesita un hash lento. Al confirmar el código, el hash de la contraseña pasa tal cual a `users.password_hash`: la contraseña en claro no vuelve a existir.
 
 ---
 
@@ -70,9 +73,9 @@ Una fila por persona registrada.
 |---|---|---|---|---|---|
 | `id` | UUID | No | `gen_random_uuid()` | PK | Identificador del usuario. |
 | `first_name` | VARCHAR(30) | No | — | CHECK `chh_user_first_name` (2 a 30 caracteres) | [F-01](2_forms-inputs.md#f-01-registro-de-usuario). |
-| `second_name` | VARCHAR(30) | Sí | NULL | CHECK `chh_user_second_name` (1 a 30 si existe) | Opcional. Admite desde un carácter. |
+| `second_name` | VARCHAR(30) | Sí | NULL | CHECK `chh_user_second_name` (1 a 30 si existe) | Opcional. El servicio exige de 2 a 30 ([F-01](2_forms-inputs.md#f-01-registro-de-usuario)); la BD acepta desde 1 para que los datos anteriores sigan siendo válidos. |
 | `first_lastname` | VARCHAR(30) | No | — | CHECK `chh_user_first_lastname` (2 a 30 caracteres) | |
-| `second_lastname` | VARCHAR(30) | Sí | NULL | CHECK `chh_user_second_lastname` (1 a 30 si existe) | Opcional. Admite desde un carácter. |
+| `second_lastname` | VARCHAR(30) | Sí | NULL | CHECK `chh_user_second_lastname` (1 a 30 si existe) | Opcional. El servicio exige de 2 a 30; la BD acepta desde 1, como `second_name`. |
 | `email` | VARCHAR(100) | No | — | UNIQUE (`uq_users_email`); CHECK `chh_user_email` (`email = lower(email)`); CHECK `chh_user_email_format` (`email ~ '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'`) | Correo institucional. No cambia después del registro ([RN-MS01-15](1_requirements.md#rf-ms01-06-gestión-del-perfil)). Los dos CHECK son independientes: uno garantiza las minúsculas y el otro la forma de un correo; el dominio institucional lo valida el servicio. |
 | `password_hash` | VARCHAR(100) | No | — | — | Ver [almacenamiento seguro](#almacenamiento-seguro). |
 | `status` | VARCHAR(20) | No | `'ACTIVO'` | CHECK `chh_user_status` IN (`ACTIVO`, `INACTIVO`) | [RN-MS01-17](1_requirements.md#rf-ms01-07-administración-de-usuarios). Es texto y no un booleano para poder agregar un estado ampliando el CHECK, sin cambiar el tipo de la columna. |
@@ -190,6 +193,28 @@ Códigos de un solo uso para restablecer la contraseña ([RF-MS01-08](1_requirem
 **Índices:** PK `id`; `idx_password_reset_codes_user (user_id, expires_at)`.
 **Vigente** = `used_at IS NULL` y `expires_at > now()`.
 
+### pending_registrations
+Registros que esperan la verificación del correo ([RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional), [RN-MS01-43](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). No son usuarios: el usuario se crea en `users` al confirmar el código, y en ese momento se borra la fila. No tiene claves foráneas, porque el usuario todavía no existe.
+
+| Columna | Tipo | Nulo | Por defecto | Restricciones | Descripción |
+|---|---|---|---|---|---|
+| `email` | VARCHAR(100) | No | — | PK; CHECK `chh_pending_registrations_email` (`email = lower(email)`) y `chh_pending_registrations_email_format` | Correo que se verifica. Al ser la clave, cada correo tiene a lo sumo un registro pendiente. |
+| `first_name` | VARCHAR(30) | No | — | CHECK `chh_pending_registrations_first_name` (2 a 30) | Mismas reglas que en `users`. |
+| `second_name` | VARCHAR(30) | Sí | NULL | CHECK `chh_pending_registrations_second_name` (1 a 30) | |
+| `first_lastname` | VARCHAR(30) | No | — | CHECK `chh_pending_registrations_first_lastname` (2 a 30) | |
+| `second_lastname` | VARCHAR(30) | Sí | NULL | CHECK `chh_pending_registrations_second_lastname` (1 a 30) | |
+| `password_hash` | VARCHAR(100) | No | — | — | Ver [almacenamiento seguro](#almacenamiento-seguro). |
+| `code_hash` | VARCHAR(100) | No | — | — | Último código enviado. Un código nuevo reemplaza al anterior. |
+| `request_token_hash` | VARCHAR(64) | No | — | — | SHA-256 en hexadecimal del token que recibió quien hizo el registro ([RN-MS01-46](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). Cambia en cada nuevo registro del correo; el reenvío no lo cambia. |
+| `attempts` | INTEGER | No | `0` | CHECK `chh_pending_registrations_attempts` (`attempts >= 0`) | Intentos fallidos con el código actual. Vuelve a `0` con cada código nuevo. |
+| `expires_at` | TIMESTAMPTZ | No | — | — | Envío + vigencia ([configuración](#configuración)). Al agotar los intentos se mueve al presente, lo que invalida el código. |
+| `code_sent_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | — | Envío del último código; mide la espera mínima entre dos códigos. |
+| `codes_sent` | INTEGER | No | `1` | CHECK `chh_pending_registrations_codes_sent` (`codes_sent >= 1`) | Códigos enviados en la ventana actual de 24 horas (límite diario). |
+| `window_started_at` | TIMESTAMPTZ | No | `CURRENT_TIMESTAMP` | — | Inicio de la ventana de 24 horas del límite diario. |
+
+**Índices:** PK `email`; `idx_pending_registrations_expires (expires_at)`, para la limpieza periódica.
+**Vigente** = `expires_at > now()`. Todas las horas de esta tabla salen del reloj de la base de datos (`now()`).
+
 ---
 
 ## Relaciones
@@ -201,6 +226,8 @@ Códigos de un solo uso para restablecer la contraseña ([RF-MS01-08](1_requirem
 | `roles` → `role_permissions` | 1 a N (mínimo 2 filas por rol, los permisos obligatorios, validado por el trigger diferido) | Cascada: al borrar un rol se borran sus permisos asignados |
 | `permissions` → `role_permissions` | 1 a N | Cascada: al retirar un permiso se quita de todos los roles; el trigger diferido impide dejar un rol sin los permisos obligatorios o sin los mínimos de `ADMIN` y `ESTUDIANTE` |
 | `users` → `password_reset_codes` | 1 a N (a lo sumo uno sin usar a la vez) | Sin cascada |
+
+`pending_registrations` no se relaciona con ninguna tabla: guarda solicitudes de usuarios que todavía no existen. Su único vínculo con `users` es el correo, y el servicio verifica que no esté registrado al solicitar y al confirmar.
 
 ---
 
@@ -214,7 +241,7 @@ Los campos del contrato están en español y las columnas en inglés. Los que no
 | `primer_nombre`, `segundo_nombre`, `primer_apellido`, `segundo_apellido` | `users.first_name`, `users.second_name`, `users.first_lastname`, `users.second_lastname` | |
 | `correo` | `users.email` | Se guarda en minúsculas. |
 | `estado` | `users.status` | Los valores (`ACTIVO`, `INACTIVO`) son los mismos en la API y en la base. |
-| `contrasena`, `nueva_contrasena` | `users.password_hash` | Solo entra. No se devuelve. |
+| `contrasena`, `nueva_contrasena` | `users.password_hash` | Solo entra. No se devuelve. En el registro se guarda primero en `pending_registrations.password_hash` y pasa a `users` al confirmar el código. |
 | `roles` (de un usuario) | `roles.name` de las filas de `user_roles` del usuario (por `role_id`) | Arreglo de nombres en orden alfabético (igual que en el token). |
 | `rol` (en los roles) | `roles.name` | Nombre del rol. |
 | `descripcion` (de un rol) | `roles.description` | |
@@ -223,7 +250,7 @@ Los campos del contrato están en español y las columnas en inglés. Los que no
 | `es_sistema` | `roles.is_system` | Solo se devuelve; nunca se recibe. |
 | `permissions` (token) | `permissions.name` de las filas de `role_permissions` de todos los roles del usuario | Unión ordenada y sin repetidos; se calcula al emitir el token. |
 | `valido_desde` | `users.valid_from` y `roles.valid_from` | Solo viaja en la ruta interna de cortes de sesión (usuarios y roles con corte), nunca en la API pública. |
-| `codigo` | `password_reset_codes.code_hash` | Se compara contra el hash. No se devuelve. |
+| `codigo` | `password_reset_codes.code_hash` (recuperación) y `pending_registrations.code_hash` (verificación del registro) | Se compara contra el hash. No se devuelve. |
 | `expira_en` (login) | — | Sale del claim `exp` del token, no de la BD. |
 
 ---
@@ -247,6 +274,10 @@ Los campos del contrato están en español y las columnas en inglés. Los que no
 | Nadie cambia sus propios roles ni su estado ([RN-MS01-12](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos), [RN-MS01-19](1_requirements.md#rf-ms01-07-administración-de-usuarios)) | Servicio: compara el id del solicitante con los ids objetivo. |
 | [RN-MS01-21](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña) un solo código sin usar y un solo uso | Servicio: un código nuevo marca `used_at` en los anteriores; el restablecimiento marca el consumido. |
 | [RN-MS01-03](1_requirements.md#rf-ms01-01-registrar-usuario-institucional) política de contraseña | Servicio, antes de calcular el hash. La BD solo ve el hash. |
+| [RN-MS01-43](1_requirements.md#rf-ms01-01-registrar-usuario-institucional) un registro pendiente por correo, que se reemplaza | BD: PK `email` de `pending_registrations`. El servicio escribe con `INSERT ... ON CONFLICT (email) DO UPDATE`, una sola sentencia, así que dos solicitudes simultáneas nunca crean dos filas. |
+| [RN-MS01-44](1_requirements.md#rf-ms01-01-registrar-usuario-institucional) espera mínima y límite diario de códigos | BD: la condición va en la misma sentencia que escribe el código (el `WHERE` del `ON CONFLICT DO UPDATE` y del `UPDATE` del reenvío), así que dos solicitudes simultáneas no envían más códigos de los permitidos. Servicio: cuenta los intentos fallidos con la fila bloqueada y, al llegar al máximo, invalida el código. |
+| [RN-MS01-46](1_requirements.md#rf-ms01-01-registrar-usuario-institucional) solo quien hizo el registro lo confirma | Servicio: compara en tiempo constante el hash del token recibido con `request_token_hash` antes de mirar el código; un token que no corresponde no cuenta como intento. El reenvío solo actualiza la fila si el token coincide (`WHERE request_token_hash = ...`). |
+| [RN-MS01-45](1_requirements.md#rf-ms01-01-registrar-usuario-institucional) limpieza de registros vencidos | Servicio: tarea programada que borra las filas con el código vencido y la ventana diaria terminada. |
 
 ---
 
@@ -256,7 +287,10 @@ Cada operación de escritura es una sola transacción: se aplica completa o no s
 
 | Operación | Lecturas | Escrituras |
 |---|---|---|
-| Registro ([RF-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)) | ¿Existe el `email`? | INSERT `users` (ACTIVO) + INSERT `user_roles` (ESTUDIANTE) |
+| Solicitar el registro ([RF-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)) | ¿Existe el `email` en `users`? | `INSERT ... ON CONFLICT (email) DO UPDATE` de `pending_registrations` con los datos, los hashes (también el del token nuevo), `attempts = 0`, la vigencia, `code_sent_at` y el contador diario, solo si se cumplen la espera y el límite diario; si escribió la fila, envía el código después de confirmar la transacción |
+| Confirmar el registro ([RF-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)) | `pending_registrations` por `email`, con bloqueo de escritura; ¿coincide el token?; ¿existe el `email` en `users`? | Token que no corresponde: nada. Código incorrecto: `attempts + 1` (y `expires_at = now()` al llegar al máximo). Correcto: INSERT `users` (ACTIVO) + INSERT `user_roles` (ESTUDIANTE) + DELETE de la fila de `pending_registrations` |
+| Reenviar el código ([RF-01](1_requirements.md#rf-ms01-01-registrar-usuario-institucional), A1) | — | UPDATE de `code_hash`, `attempts = 0`, `expires_at`, `code_sent_at` y el contador diario de la fila del `email`, solo si existe con ese token y se cumplen la espera y el límite diario |
+| Limpiar registros pendientes (tarea periódica, [RN-MS01-45](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)) | — | DELETE de `pending_registrations` con `expires_at < now()` y la ventana diaria terminada |
 | Login ([RF-02](1_requirements.md#rf-ms01-02-autenticar-usuario-login)) | `users` por `email` + sus roles + los permisos de esos roles (`role_permissions` y `permissions`) | Ninguna |
 | Actualizar perfil ([RF-06](1_requirements.md#rf-ms01-06-gestión-del-perfil)) | `users` por id | UPDATE de los 4 campos de nombre (`updated_at` lo fija el trigger) |
 | Cambio de estado en lote ([RF-07](1_requirements.md#rf-ms01-07-administración-de-usuarios)) | Usuarios objetivo con bloqueo de escritura | UPDATE `status` y `valid_from` de cada usuario |
@@ -290,6 +324,11 @@ Variables de entorno que afectan los datos (valores por defecto de `application.
 | Variable | Por defecto | Uso |
 |---|---|---|
 | `INSTITUTIONAL_EMAIL_DOMAINS` | `escuelaing.edu.co,mail.escuelaing.edu.co` | Dominios permitidos en el registro. |
+| `REGISTRATION_CODE_TTL_MINUTES` | `15` | Vigencia del código de verificación del registro ([RN-MS01-44](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). |
+| `REGISTRATION_MAX_ATTEMPTS` | `5` | Intentos fallidos permitidos antes de invalidar el código de verificación. |
+| `REGISTRATION_RESEND_COOLDOWN_SECONDS` | `60` | Espera mínima entre dos códigos de verificación del mismo correo (`0` la desactiva). |
+| `REGISTRATION_MAX_CODES_PER_DAY` | `5` | Códigos de verificación por correo en una ventana de 24 horas. |
+| `REGISTRATION_CLEANUP_INTERVAL_MINUTES` | `60` | Cada cuántos minutos se borran los registros pendientes vencidos ([RN-MS01-45](1_requirements.md#rf-ms01-01-registrar-usuario-institucional)). |
 | `RECOVERY_CODE_TTL_MINUTES` | `15` | Vigencia del código ([RN-MS01-21](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña)). |
 | `RECOVERY_MAX_ATTEMPTS` | `5` | Intentos fallidos permitidos antes de invalidar el código. |
 | `RECOVERY_RESEND_COOLDOWN_SECONDS` | `60` | Espera mínima entre dos códigos del mismo usuario (`0` la desactiva). |
