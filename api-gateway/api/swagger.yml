@@ -730,7 +730,7 @@ paths:
       tags:
         - MS01 · Interno
       summary: Consultar varios usuarios por id (RF-MS01-09)
-      description: 'Hasta 100 ids. MS01 responde con `usuarios` y `no_encontrados`; sus errores (400, 403 si el servicio no está autorizado) están en el contrato MS01. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
+      description: 'Hasta 100 ids. MS01 responde con `usuarios` y `no_encontrados`; sus errores (400, 403 si el servicio no está autorizado) están en el contrato MS01. Llamadas registradas: MS03 → MS01, MS04 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS01_URI
       security:
@@ -768,7 +768,7 @@ paths:
       tags:
         - MS01 · Interno
       summary: Listar los usuarios que tienen un rol (RF-MS01-09)
-      description: 'Los query params (`rol`, `creado_antes`, `page`, `size`) son los del contrato MS01 y se reenvían sin cambios. Llamadas registradas: MS03 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
+      description: 'Los query params (`rol`, `creado_antes`, `page`, `size`) son los del contrato MS01 y se reenvían sin cambios. Llamadas registradas: MS03 → MS01, MS04 → MS01 y MS05 → MS01 (EST §5). Un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS01_URI
       security:
