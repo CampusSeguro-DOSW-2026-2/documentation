@@ -25,7 +25,7 @@ tags:
   - name: Administración de usuarios
   - name: Roles y permisos
   - name: Interno (servicios)
-    description: Resolución de usuarios para otros microservicios (MS03, MS05). Política INTERNA en el Gateway.
+    description: Resolución de usuarios para otros microservicios (MS03, MS04, MS05). Política INTERNA en el Gateway.
   - name: Interno (Gateway)
     description: Consulta de cortes de sesión que hace el API Gateway directamente a MS01. No se publica en el Gateway.
 paths:
@@ -448,7 +448,7 @@ paths:
       summary: Crear un rol (RF-MS01-10, F-10)
       x-permiso: ms01:role:manage
       x-roles: [ADMIN]
-      description: Crea un rol con `es_sistema` falso y sin corte de sesión. El cuerpo no admite campos adicionales (en especial `es_sistema`). El nombre no puede ser `DETAILS`, reservado para la ruta `/roles/details` (400). No puede incluir `ms01:role:manage`, que es exclusivo de ADMIN.
+      description: Crea un rol con `es_sistema` falso y sin corte de sesión. El cuerpo no admite campos adicionales (en especial `es_sistema`). El nombre no puede ser `DETAILS`, reservado para la ruta `/roles/details` (400). `permisos` es opcional y el sistema agrega siempre `ms01:profile:read` y `ms01:session:logout`, que todo rol conserva (RN-MS01-41), así que sin `permisos` o con la lista vacía el rol queda solo con esos dos. No puede incluir `ms01:role:manage`, que es exclusivo de ADMIN.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -704,7 +704,7 @@ paths:
       summary: Reemplazar los permisos de un rol (RF-MS01-10, F-12)
       x-permiso: ms01:role:manage
       x-roles: [ADMIN]
-      description: Reemplaza la lista completa de permisos del rol (al menos uno, todos del catálogo, sin repetidos) y corta las sesiones de todos los usuarios que tienen el rol (RF-MS01-11). `ms01:role:manage` solo puede estar en ADMIN y ADMIN siempre debe conservarlo; ESTUDIANTE y ADMIN deben conservar siempre `ms01:profile:read` y `ms01:profile:write` (RN-MS01-41).
+      description: Reemplaza la lista completa de permisos del rol (todos del catálogo, sin repetidos) y corta las sesiones de todos los usuarios que tienen el rol (RF-MS01-11). La lista debe incluir `ms01:profile:read` y `ms01:session:logout`, que todo rol conserva, y ESTUDIANTE y ADMIN además `ms01:profile:write` (RN-MS01-41); a diferencia de la creación, aquí el sistema no los agrega, y una lista vacía o un cuerpo sin `permisos` responde 422. `ms01:role:manage` solo puede estar en ADMIN y ADMIN siempre debe conservarlo (RN-MS01-30).
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -962,7 +962,7 @@ components:
       name: X-Service-Name
       in: header
       required: true
-      description: Servicio que llama, derivado por el Gateway de su clave de servicio (el cliente no puede enviarlo). Servicios autorizados por defecto `ms03` y `ms05`.
+      description: Servicio que llama, derivado por el Gateway de su clave de servicio (el cliente no puede enviarlo). Servicios autorizados por defecto `ms03`, `ms04` y `ms05`.
       schema:
         type: string
         example: ms05
@@ -1075,7 +1075,7 @@ components:
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     BusinessRule:
-      description: Se incumple una regla de los permisos de un rol - `ms01:role:manage` solo lo tiene ADMIN y ADMIN siempre lo conserva (RN-MS01-30), o ESTUDIANTE o ADMIN perderían `ms01:profile:read` o `ms01:profile:write` (RN-MS01-41).
+      description: Se incumple una regla de los permisos de un rol - `ms01:role:manage` solo lo tiene ADMIN y ADMIN siempre lo conserva (RN-MS01-30), un rol perdería `ms01:profile:read` o `ms01:session:logout`, o ESTUDIANTE o ADMIN perderían `ms01:profile:write` (RN-MS01-41).
       content:
         application/json:
           schema:
@@ -1614,7 +1614,7 @@ components:
           example: Apoya el conteo de personas en los puntos de encuentro
         permisos:
           type: array
-          description: Permisos del rol, ordenados y sin repetidos. Al menos uno.
+          description: Permisos del rol, ordenados y sin repetidos. Siempre incluye `ms01:profile:read` y `ms01:session:logout`.
           items:
             $ref: '#/components/schemas/Permiso'
           example:
@@ -1630,7 +1630,6 @@ components:
       required:
         - rol
         - descripcion
-        - permisos
       properties:
         rol:
           $ref: '#/components/schemas/RolEntrada'
@@ -1641,9 +1640,8 @@ components:
           example: Apoya el conteo de personas en los puntos de encuentro
         permisos:
           type: array
-          minItems: 1
           uniqueItems: true
-          description: Permisos del catálogo (`GET /permissions`). No puede incluir `ms01:role:manage`.
+          description: Permisos del catálogo (`GET /permissions`). Opcional. El sistema agrega siempre `ms01:profile:read` y `ms01:session:logout`. No puede incluir `ms01:role:manage`.
           items:
             $ref: '#/components/schemas/Permiso'
           example:
@@ -1676,9 +1674,8 @@ components:
       properties:
         permisos:
           type: array
-          minItems: 1
           uniqueItems: true
-          description: Lista completa que reemplaza a la actual.
+          description: Lista completa que reemplaza a la actual. Debe incluir `ms01:profile:read` y `ms01:session:logout`, y ESTUDIANTE y ADMIN además `ms01:profile:write`.
           items:
             $ref: '#/components/schemas/Permiso'
           example:
