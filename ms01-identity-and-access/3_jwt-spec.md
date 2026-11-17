@@ -76,9 +76,11 @@ JWT (RFC 7519) firmado con RS256 y una llave RSA de al menos 2048 bits.
 
 ### Cómo se calcula `permissions`
 
-1. Al emitir el token, MS01 lee de la base de datos (`rol_permiso` y `permisos`) los permisos de cada rol del usuario.
+1. Al emitir el token, MS01 lee de la base de datos (`role_permissions` y `permissions`) los permisos de cada rol del usuario.
 2. Hace la unión de todas las listas. Si un permiso no está en ninguno de sus roles, no está en el token.
 3. Ordena alfabéticamente y quita repetidos.
+
+Como todo rol tiene siempre `ms01:profile:read` y `ms01:session:logout` ([RN-MS01-41](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos)), todo token los incluye.
 
 Ejemplo: un usuario con `PROFESOR` (16 permisos, los mismos de `ESTUDIANTE`) y `AUDITOR` (17 permisos, 8 de ellos compartidos con `ESTUDIANTE`) recibe 25 permisos: los 16 de `PROFESOR` más los 9 propios de `AUDITOR` (`ms01:user:read`, `ms03:alert:read_history`, `ms04:dashboard:read`, `ms04:history:read`, `ms05:incident:read`, `ms06:drill:read`, `ms06:drill:compare_report`, `ms08:indicators:read` y `ms08:audit:read`).
 
@@ -98,7 +100,7 @@ MS01 nunca recibe ni valida el token. Lee las cabeceras que inyecta el Gateway, 
 | `X-Service-Name` | Solo en endpoints internos: servicio que llama (`ms01`…`ms08`), derivado por el Gateway de su clave de servicio. Se compara sin distinguir mayúsculas con `INTERNAL_ALLOWED_SERVICES`. La ruta de cortes de sesión solo acepta `gateway`, que fija el propio Gateway cuando llama a MS01. | Falta o vacía: 401 `NO_AUTENTICADO`. Servicio no autorizado: 403 `PROHIBIDO`. |
 | `X-Correlation-ID` | UUID v4. Si falta o no es un UUID v4, MS01 genera uno. | Nunca rechaza. |
 
-MS01 autoriza cada operación con los permisos de `X-User-Permission`, que ya son la unión de los de todos los roles del usuario; no los recalcula a partir de los roles ni consulta la base para autorizar. Si falta el permiso exigido, responde 403 `PROHIBIDO`. `X-User-Role` se usa solo donde la respuesta depende de los roles del solicitante, como `GET /roles`. Los endpoints internos no usan permisos: los autoriza el servicio que llama, con la lista `INTERNAL_ALLOWED_SERVICES` (MS03 y MS05) en `/users/batch` y `/users/by-role`, y solo `gateway` en la consulta de cortes de sesión.
+MS01 autoriza cada operación con los permisos de `X-User-Permission`, que ya son la unión de los de todos los roles del usuario; no los recalcula a partir de los roles ni consulta la base para autorizar. Si falta el permiso exigido, responde 403 `PROHIBIDO`. `X-User-Role` se usa solo donde la respuesta depende de los roles del solicitante, como `GET /roles`. Los endpoints internos no usan permisos: los autoriza el servicio que llama, con la lista `INTERNAL_ALLOWED_SERVICES` (MS03, MS04 y MS05) en `/users/batch` y `/users/by-role`, y solo `gateway` en la consulta de cortes de sesión.
 
 MS01 confía en estas cabeceras porque solo el Gateway puede llegar a él ([Estándares §2](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales)):
 * **En local:** su puerto no se publica fuera de la red Docker.
@@ -125,17 +127,17 @@ La ruta interna de cortes de sesión no tiene otra defensa: `X-Service-Name: gat
 
 Detalle técnico de [RF-MS01-11](1_requirements.md#rf-ms01-11-corte-de-sesión-por-cambios-de-acceso).
 
-**Dónde se guarda:** en las mismas tablas, como la columna `valido_desde` (`TIMESTAMPTZ`, nula por defecto) de `usuarios` y de `roles` ([modelo de datos](4_modelo-datos.md#tablas)). `NULL` significa "sin corte". No hay tabla propia ni lista de tokens.
+**Dónde se guarda:** en las mismas tablas, como la columna `valid_from` (`TIMESTAMPTZ`, nula por defecto) de `users` y de `roles`; en la ruta interna de cortes viaja como `valido_desde` ([modelo de datos](4_modelo-datos.md#tablas)). `NULL` significa "sin corte". No hay tabla propia ni lista de tokens.
 
 **Cuándo se escribe** (siempre "ahora" según la hora de la base de datos, truncada a segundos, en la misma transacción del cambio):
 
 | Evento | Marca que se escribe | A quién corta |
 |---|---|---|
-| Agregar o retirar roles a un usuario | `usuarios.valido_desde` de cada usuario afectado | Ese usuario |
-| Activar o inactivar una cuenta | `usuarios.valido_desde` de cada usuario afectado | Ese usuario |
-| Cambiar los permisos de un rol | `roles.valido_desde` del rol | Todos los que tienen ese rol |
-| Renombrar un rol | `usuarios.valido_desde` de cada usuario que lo tiene | Los usuarios con ese rol (su token lleva el nombre viejo) |
-| Borrar un rol | `usuarios.valido_desde` de cada usuario afectado | Los usuarios con ese rol |
+| Agregar o retirar roles a un usuario | `users.valid_from` de cada usuario afectado | Ese usuario |
+| Activar o inactivar una cuenta | `users.valid_from` de cada usuario afectado | Ese usuario |
+| Cambiar los permisos de un rol | `roles.valid_from` del rol | Todos los que tienen ese rol |
+| Renombrar un rol | `users.valid_from` de cada usuario que lo tiene | Los usuarios con ese rol (su token lleva el nombre viejo) |
+| Borrar un rol | `users.valid_from` de cada usuario afectado | Los usuarios con ese rol |
 | Crear un rol, cambiar solo su descripción, logout, cambiar o restablecer la contraseña | Ninguna | Nadie |
 
 **Regla en el Gateway:** rechaza con 401 `NO_AUTENTICADO` (mensaje genérico) un token cuyo `iat` sea estrictamente menor que `valido_desde` del usuario (`sub`) o que el de alguno de los roles del claim `roles`. Si son iguales, el token se acepta.
@@ -176,7 +178,7 @@ El corte no distingue quién hizo el cambio: si el administrador que cambia los 
 | `JWT_PRIVATE_KEY` | MS01 | — (obligatoria fuera de desarrollo) | Llave privada RSA (≥ 2048 bits) en PEM PKCS#8 (`BEGIN PRIVATE KEY`; PKCS#1 se rechaza). Admite saltos de línea escritos como `\n` o solo el contenido Base64, sin las líneas BEGIN/END. Sin ella, MS01 genera un par efímero solo para desarrollo, que el Gateway no puede verificar. |
 | `JWT_KEY_ID` | MS01 | `ms01-2026-01` | Valor del `kid` (informativo). |
 | `JWT_PUBLIC_KEY` | Gateway | — | Llave pública en PEM del mismo par. |
-| `INTERNAL_ALLOWED_SERVICES` | MS01 | `ms03,ms05` | Servicios autorizados para los endpoints internos de consulta de usuarios (`/users/batch` y `/users/by-role`), separados por coma. No aplica a la ruta de cortes de sesión, que solo acepta `gateway`. |
+| `INTERNAL_ALLOWED_SERVICES` | MS01 | `ms03,ms04,ms05` | Servicios autorizados para los endpoints internos de consulta de usuarios (`/users/batch` y `/users/by-role`), separados por coma. No aplica a la ruta de cortes de sesión, que solo acepta `gateway`. |
 | `SESSION_CUTS_URL` | Gateway | Dirección interna de MS01 + `/api/v1/internal/session-cuts` | A dónde consulta los cortes de sesión. |
 | `SESSION_CUTS_INTERVAL_SECONDS` | Gateway | `4` | Cada cuántos segundos consulta. |
 | `SESSION_CUTS_TIMEOUT_SECONDS` | Gateway | `3` | Tiempo máximo de espera por consulta. Con el intervalo, fija el retraso máximo de un corte: 7 segundos con los valores por defecto. |
