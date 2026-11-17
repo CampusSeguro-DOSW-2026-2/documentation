@@ -44,6 +44,8 @@ La política es independiente del prefijo. Se evalúa por **método + ruta exact
 |---|---|---|---|
 | Pública | `GET` | `/actuator/health` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/register` | Ninguna |
+| Pública | `POST` | `/api/v1/auth/register/verify` | Ninguna |
+| Pública | `POST` | `/api/v1/auth/register/resend` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/login` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/password/forgot` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/password/reset` | Ninguna |

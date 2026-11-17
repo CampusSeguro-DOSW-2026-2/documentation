@@ -20,7 +20,7 @@ Se ejecutan a través del GW, con MS01 real o con un doble que cumpla su `swagge
 
 | ID | Escenario | Resultado esperado | Prueba automatizada |
 |---|---|---|---|
-| INT-GW-01 | `POST /api/v1/auth/register` y `/login` sin JWT | Llegan a MS01 sin cambios; ni las credenciales ni el token aparecen en los logs. | `RoutingIntegrationTest`, `JwtIntegrationTest`, `LoggingIntegrationTest` |
+| INT-GW-01 | `POST /api/v1/auth/register`, `/register/verify`, `/register/resend` y `/login` sin JWT | Llegan a MS01 sin cambios; ni las credenciales ni el token aparecen en los logs. | `RoutingIntegrationTest`, `JwtIntegrationTest`, `LoggingIntegrationTest` |
 | INT-GW-02 | Solicitud protegida con un JWT válido de MS01 | MS01 recibe `X-User-Id`, `X-User-Role`, `X-User-Permission` y `X-Correlation-ID`, sin `Authorization`. | `IdentityIntegrationTest` |
 | INT-GW-03 | JWT ausente, expirado, alterado o con `iss`/`aud`/`alg` incorrectos, o sin `permissions` | `401 NO_AUTENTICADO`; MS01 no recibe la solicitud. | `JwtIntegrationTest` |
 | INT-GW-04 | Cliente envía `X-User-Id`, `X-User-Role`, `X-User-Permission` o `X-Service-Name` falsos | MS01 recibe solo la identidad del JWT. | `IdentityIntegrationTest` |

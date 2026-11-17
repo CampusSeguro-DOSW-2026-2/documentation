@@ -33,8 +33,8 @@ paths:
     post:
       tags:
         - Autenticación y sesión
-      summary: Registrar usuario institucional (RF-MS01-01, F-01)
-      description: Crea el usuario ACTIVO con rol ESTUDIANTE. No inicia sesión.
+      summary: Solicitar el registro de un usuario institucional (RF-MS01-01, F-01)
+      description: Guarda la solicitud como registro pendiente y envía un código de verificación al correo; el usuario todavía no se crea (RN-MS01-43). Una nueva solicitud con el mismo correo reemplaza la pendiente. Si no pasó la espera mínima o el correo alcanzó el límite diario de códigos (RN-MS01-44), no envía nada y responde igual.
       requestBody:
         required: true
         content:
@@ -42,15 +42,18 @@ paths:
             schema:
               $ref: '#/components/schemas/RegisterRequest'
       responses:
-        '201':
-          description: Usuario creado.
+        '202':
+          description: Registro pendiente; se envió el código de verificación al correo.
           headers:
             X-Correlation-ID:
               $ref: '#/components/headers/XCorrelationID'
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterResponse'
+                $ref: '#/components/schemas/RegisterAcceptedResponse'
+              example:
+                mensaje: Enviamos un código de verificación a su correo. Ingréselo para crear la cuenta.
+                token_registro: CiEOLxpCsVeAiYavrAqntXV4nuZUo4zR2l6kPq9wE1s
         '400':
           $ref: '#/components/responses/BadRequest'
         '409':
@@ -65,6 +68,79 @@ paths:
                 mensaje: El correo ya está registrado.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/register/verify:
+    post:
+      tags:
+        - Autenticación y sesión
+      summary: Confirmar el correo y crear el usuario (RF-MS01-01, F-14)
+      description: Con el token del registro y el último código enviado al correo, vigente y sin agotar sus intentos, crea el usuario ACTIVO con rol ESTUDIANTE y elimina el registro pendiente (RN-MS01-46). No inicia sesión.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRegistrationRequest'
+      responses:
+        '201':
+          description: Usuario creado.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Código incorrecto, vencido o reemplazado, token de otro registro, correo sin registro pendiente (mensaje genérico) o datos inválidos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: CODIGO_INVALIDO
+                mensaje: Código incorrecto o vencido.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '409':
+          description: El correo se registró mientras el registro estaba pendiente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 409
+                codigo: CONFLICTO
+                mensaje: El correo ya está registrado.
+                errores: []
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+  /auth/register/resend:
+    post:
+      tags:
+        - Autenticación y sesión
+      summary: Reenviar el código de verificación del registro (RF-MS01-01 A1, F-14)
+      description: Respuesta idéntica exista o no un registro pendiente del correo. Solo si existe con ese token y se cumplen la espera mínima y el límite diario (RN-MS01-44), envía un código nuevo que reemplaza al anterior; los datos del registro no cambian.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResendRegistrationCodeRequest'
+      responses:
+        '200':
+          description: Respuesta única.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MensajeResponse'
+              example:
+                mensaje: Si hay un registro pendiente para este correo, enviamos un nuevo código de verificación.
+        '400':
+          $ref: '#/components/responses/BadRequest'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/login:
@@ -1145,7 +1221,7 @@ components:
       example: María
     SegundoNombre:
       type: string
-      minLength: 1
+      minLength: 2
       maxLength: 30
       pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
       example: José
@@ -1157,7 +1233,7 @@ components:
       example: Pérez
     SegundoApellido:
       type: string
-      minLength: 1
+      minLength: 2
       maxLength: 30
       pattern: ^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' -]+$
       example: Gómez
@@ -1266,6 +1342,55 @@ components:
                 $ref: '#/components/schemas/Rol'
               example:
                 - ESTUDIANTE
+    RegisterAcceptedResponse:
+      type: object
+      required:
+        - mensaje
+        - token_registro
+      properties:
+        mensaje:
+          type: string
+          example: Enviamos un código de verificación a su correo. Ingréselo para crear la cuenta.
+        token_registro:
+          $ref: '#/components/schemas/TokenRegistro'
+    TokenRegistro:
+      type: string
+      maxLength: 100
+      description: Token aleatorio que solo recibe quien hizo el registro (RN-MS01-46). La verificación y el reenvío lo exigen; si alguien registra después el mismo correo, deja de servir.
+      example: CiEOLxpCsVeAiYavrAqntXV4nuZUo4zR2l6kPq9wE1s
+    VerifyRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - correo
+        - codigo
+        - token_registro
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 100
+          example: maria.perez@escuelaing.edu.co
+        codigo:
+          type: string
+          pattern: ^[0-9]{6}$
+          example: '482913'
+        token_registro:
+          $ref: '#/components/schemas/TokenRegistro'
+    ResendRegistrationCodeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - correo
+        - token_registro
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 100
+          example: maria.perez@escuelaing.edu.co
+        token_registro:
+          $ref: '#/components/schemas/TokenRegistro'
     ForgotPasswordRequest:
       type: object
       additionalProperties: false
