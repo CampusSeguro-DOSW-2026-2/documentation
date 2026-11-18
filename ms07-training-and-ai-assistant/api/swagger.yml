@@ -10,8 +10,6 @@ info:
     **Deletion:** MS07 never deletes. Categories and contents are deactivated and can be reactivated.
 
     **Pagination:** lists take `page` (from 0) and `size` (default 20, max 100) and answer with the common page envelope (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
-
-    **Pending:** tutor (RF-15) will be added to this contract by its owner.
 servers:
   - url: http://localhost:8080/api/v1
     description: External access (API Gateway)
@@ -20,6 +18,7 @@ tags:
   - name: Contents
   - name: Evaluations
   - name: Progress
+  - name: Tutor
 paths:
   /training/categories:
     get:
@@ -736,6 +735,67 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /tutor/questions:
+    post:
+      tags:
+        - Tutor
+      summary: Ask the CampusSeguro tutor (RF-15) - Community
+      x-permiso: ms07:tutor:use
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: |
+        Answers questions about prevention and response to earthquakes using only the active training contents (RF-10). Steps:
+        1. The question is cleaned and validated (not empty, at most 500 characters).
+        2. MS07 looks for up to 3 related active contents. If none is related, it answers `sufficient: false` with the official protocol message and does not call the AI provider.
+        3. Otherwise it sends the question and those contents to the language model, with the instruction to answer only with them and only about earthquakes.
+        4. If the model says the contents are not enough, the answer is `sufficient: false` like in step 2. If not, the answer lists the contents used as sources.
+
+        Every answered or out-of-scope query records only the user (`X-User-Id`), the date and time and the result (`RESPONDIDA` or `FUERA_DE_ALCANCE`); the question and the answer are never stored. If that record cannot be saved, the user still gets the answer.
+
+        Asking does not create a resource, so the answer is 200. If the AI provider fails or does not answer within `LLM_TIMEOUT`, MS07 answers 503 and returns no generated text.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TutorQuestionRequest'
+      responses:
+        '200':
+          description: Answer of the tutor, or `sufficient` false with the official protocol message.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorAnswer'
+              examples:
+                answered:
+                  summary: Answered with the related contents
+                  value:
+                    answer: Agáchate, cúbrete debajo del escritorio y sujétate de él, lejos de ventanas. Cuando pase el movimiento, evacúa por las escaleras siguiendo la ruta señalizada.
+                    sufficient: true
+                    sources:
+                      - id: 10000000-0000-0000-0000-000000000015
+                        title: Protégete en tu puesto de trabajo durante un sismo
+                outOfScope:
+                  summary: No information in the contents
+                  value:
+                    answer: No cuento con información suficiente en los contenidos de CampusSeguro para responder esa pregunta. Consulta el protocolo oficial de emergencias de la ECI o sigue las indicaciones de los brigadistas de tu edificio.
+                    sufficient: false
+                    sources: []
+        '400':
+          $ref: '#/components/responses/TutorQuestionInvalid'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
 components:
   headers:
     XCorrelationID:
@@ -1093,6 +1153,33 @@ components:
                   - campo: answers
                     mensaje: Hay respuestas a preguntas que no son de esta evaluación.
                 correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    TutorQuestionInvalid:
+      description: The question is empty or has more than 500 characters, or the body is missing.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            empty:
+              summary: Empty question
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: question
+                    mensaje: La pregunta es obligatoria.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            tooLong:
+              summary: More than 500 characters
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: question
+                    mensaje: La pregunta debe tener máximo 500 caracteres.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     ContentNotFound:
       description: The content does not exist.
       content:
@@ -1126,7 +1213,7 @@ components:
           example:
             status: 503
             codigo: DEPENDENCIA_NO_DISPONIBLE
-            mensaje: El tutor no está disponible en este momento. Puedes consultar el centro de aprendizaje.
+            mensaje: El tutor no está disponible en este momento. Intenta de nuevo o consulta el centro de aprendizaje.
             errores: []
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
   schemas:
@@ -1616,6 +1703,47 @@ components:
           type: string
           format: uuid
           example: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+    TutorQuestionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - question
+      properties:
+        question:
+          type: string
+          maxLength: 500
+          description: Question about prevention or response to earthquakes. Spaces and line breaks are collapsed; accents are kept.
+          example: ¿Qué hago si hay un sismo mientras estoy en clase?
+    TutorAnswer:
+      type: object
+      required:
+        - answer
+        - sufficient
+        - sources
+      properties:
+        answer:
+          type: string
+          description: Answer of the tutor, or the official protocol message when `sufficient` is false.
+        sufficient:
+          type: boolean
+          description: False when the contents were not enough or the question is out of scope.
+        sources:
+          type: array
+          description: Contents the answer is based on. Empty when `sufficient` is false.
+          items:
+            $ref: '#/components/schemas/TutorSource'
+    TutorSource:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Qué hacer durante un sismo
     ContentView:
       type: object
       required:
