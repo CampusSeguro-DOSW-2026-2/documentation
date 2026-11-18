@@ -1,0 +1,51 @@
+@startuml ms02_despliegue_azure
+title MS02 Campus y seguridad · Despliegue en Azure
+skinparam defaultTextAlignment center
+
+node "GitHub" as gh {
+  artifact "GitHub Actions (ci.yml)\npruebas → imagen → despliegue" as ci
+  artifact "GHCR\nghcr.io/…/ms02-campus-and-security:sha-xxxxxxx" as ghcr
+}
+
+node "VM del API Gateway (Azure)" as vmgw {
+  component "API Gateway" as gw
+}
+
+cloud "OSRM peatonal\nrouting.openstreetmap.de" as osrm
+
+node "VM de MS02 (Azure, Ubuntu 24.04)\nNSG: 443 y 8443 solo desde la IP del GW; 22 solo desde quien administra" as vm {
+  node "Borde (red campus-edge)" as edge {
+    component "Caddy\nmTLS: exige el certificado de cliente del GW" as caddy
+  }
+  node "Stack ms02-prod (puerto 443)" as prod {
+    component "MS02 :8082" as ms02p
+    database "PostgreSQL\nvolumen datos" as dbp
+    storage "volumen imagenes" as imgp
+  }
+  node "Stack ms02-test (puerto 8443)" as test {
+    component "MS02 :8082" as ms02t
+    database "PostgreSQL\nvolumen datos" as dbt
+    storage "volumen imagenes" as imgt
+  }
+  component "Runner self-hosted\n(etiqueta ms02)" as runner
+}
+
+ci --> ghcr : publica la imagen
+runner ..> ci : toma los jobs de despliegue
+runner --> ghcr : docker pull
+gw --> caddy : HTTPS + mTLS
+caddy --> ms02p : 443 → ms02-prod:8082
+caddy --> ms02t : 8443 → ms02-test:8082
+ms02p --> dbp
+ms02p --> imgp
+ms02t --> dbt
+ms02t --> imgt
+ms02p --> osrm : HTTPS (salida)
+ms02t --> osrm : HTTPS (salida)
+
+note bottom of test
+  develop → despliegue automático en prueba.
+  main → despliegue manual a producción con el tag
+  de la imagen probada; un tag anterior es el rollback.
+end note
+@enduml
