@@ -11,13 +11,14 @@ info:
 
     **Pagination:** lists take `page` (from 0) and `size` (default 20, max 100) and answer with the common page envelope (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
 
-    **Pending:** evaluations (RF-14), progress (RF-13) and tutor (RF-15) will be added to this contract by their owners.
+    **Pending:** progress (RF-13) and tutor (RF-15) will be added to this contract by their owners.
 servers:
   - url: http://localhost:8080/api/v1
     description: External access (API Gateway)
 tags:
   - name: Categories
   - name: Contents
+  - name: Evaluations
 paths:
   /training/categories:
     get:
@@ -392,6 +393,278 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/AlreadyActive'
+  /training/evaluations:
+    get:
+      tags:
+        - Evaluations
+      summary: List evaluations (RF-14) - Community and ADMIN
+      x-permiso: [ms07:quiz:take, ms07:content:manage]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN]
+      description: Evaluations ordered by title, optionally filtered by category. The community gets only active evaluations, even when their category is inactive. With `includeInactive=true` ADMIN also gets inactive evaluations; the flag is ignored for other roles. The list does not include the questions; use the detail endpoint.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/EvaluationCategoryFilter'
+        - $ref: '#/components/parameters/IncludeInactive'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Page of evaluations.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationSummaryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Evaluations
+      summary: Create evaluation (RF-14) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Creates the evaluation with status ACTIVO, with its questions and options in the order they are sent. The category must exist and be active. The evaluation needs at least one question, each question at least two options and exactly one correct option (422 otherwise).
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '201':
+          description: Evaluation created, including which option of each question is correct.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/EvaluationRulesNotMet'
+  /training/evaluations/{id}:
+    get:
+      tags:
+        - Evaluations
+      summary: Get evaluation (RF-14) - Community and ADMIN
+      x-permiso: [ms07:quiz:take, ms07:content:manage]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN]
+      description: Evaluation with its questions and options in order. The community never receives which option is correct (`correct` is omitted) and an inactive evaluation answers 404 to it. ADMIN gets any evaluation with `correct` in every option.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Evaluation.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+              examples:
+                community:
+                  summary: Community view (without the correct option)
+                  value:
+                    id: 8c2e4a61-7d3b-4f9e-b1a2-3c4d5e6f7a8b
+                    title: Evacuación básica
+                    topic: Rutas de salida
+                    categoryId: 00000000-0000-0000-0000-000000000004
+                    status: ACTIVO
+                    questions:
+                      - id: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d
+                        position: 1
+                        statement: ¿Por dónde se debe salir?
+                        options:
+                          - id: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+                            position: 1
+                            text: Por la escalera
+                          - id: 3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f
+                            position: 2
+                            text: Por el ascensor
+                    createdAt: '2026-11-17T15:00:00Z'
+                    updatedAt: '2026-11-17T15:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EvaluationNotFound'
+    put:
+      tags:
+        - Evaluations
+      summary: Update evaluation (RF-14) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Updates title, topic, category and questions. Questions and options are replaced as a whole. The current category can be kept even if it is now inactive; changing to another category requires it to exist and be active. An evaluation that already has attempts cannot be updated (409); deactivate it and create a new one. The status does not change here.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '200':
+          description: Evaluation updated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EvaluationNotFound'
+        '409':
+          $ref: '#/components/responses/EvaluationHasAttempts'
+        '422':
+          $ref: '#/components/responses/EvaluationRulesNotMet'
+  /training/evaluations/{id}/deactivate:
+    patch:
+      tags:
+        - Evaluations
+      summary: Deactivate evaluation (RF-14) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Changes the status to INACTIVO. The evaluation and its attempts are kept; the community stops seeing it.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Evaluation deactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EvaluationNotFound'
+        '409':
+          $ref: '#/components/responses/EvaluationAlreadyInactive'
+  /training/evaluations/{id}/reactivate:
+    patch:
+      tags:
+        - Evaluations
+      summary: Reactivate evaluation (RF-14) - ADMIN
+      x-permiso: ms07:content:manage
+      x-roles: [ADMIN]
+      description: Changes the status to ACTIVO, keeping its questions and attempts.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Evaluation reactivated.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evaluation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EvaluationNotFound'
+        '409':
+          $ref: '#/components/responses/EvaluationAlreadyActive'
+  /training/evaluations/{id}/attempts:
+    post:
+      tags:
+        - Evaluations
+      summary: Answer evaluation (RF-14) - Community
+      x-permiso: ms07:quiz:take
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Registers an attempt of the user identified by `X-User-Id` (never by the body). Every question must be answered exactly once with one of its own options. The score is the percentage of correct answers (0 to 100, rounded). The attempt stores the score, the topic of the evaluation and the date. A user can answer the same evaluation several times. An inactive evaluation answers 422 and nothing is registered.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptRequest'
+      responses:
+        '201':
+          description: Attempt registered, with the score and the correction of each answer.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attempt'
+        '400':
+          $ref: '#/components/responses/AttemptInvalidAnswers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/EvaluationNotFound'
+        '422':
+          $ref: '#/components/responses/EvaluationInactive'
 components:
   headers:
     XCorrelationID:
@@ -427,6 +700,23 @@ components:
       schema:
         type: string
         example: BRIGADISTA,ESTUDIANTE
+    XUserPermission:
+      name: X-User-Permission
+      in: header
+      required: true
+      description: Comma-separated permissions of the authenticated user (union of all their roles). Set by the API Gateway. MS07 authorizes only by this header, never by role name.
+      schema:
+        type: string
+        example: ms07:content:read,ms07:quiz:take,ms07:tutor:use
+    EvaluationCategoryFilter:
+      name: categoryId
+      in: query
+      required: false
+      description: Only evaluations of this category. Without it, evaluations of every category are returned.
+      schema:
+        type: string
+        format: uuid
+        example: 00000000-0000-0000-0000-000000000004
     XCorrelationId:
       name: X-Correlation-ID
       in: header
@@ -586,6 +876,152 @@ components:
             mensaje: La categoría 'Laboratorios' está inactiva.
             errores: []
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationNotFound:
+      description: The evaluation does not exist (or, for the community, it is inactive).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: La evaluación no existe.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationRulesNotMet:
+      description: The questions or the category do not meet the rules of RF-14.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            noQuestions:
+              summary: Without questions
+              value:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La evaluación debe tener al menos una pregunta.
+                errores: []
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            fewOptions:
+              summary: A question with fewer than two options
+              value:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La pregunta 2 debe tener al menos dos opciones.
+                errores: []
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            correctOption:
+              summary: A question without exactly one correct option
+              value:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La pregunta 1 debe tener exactamente una opción correcta.
+                errores: []
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            inactiveCategory:
+              summary: Inactive category
+              value:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La categoría 'Laboratorios' está inactiva.
+                errores: []
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationHasAttempts:
+      description: The evaluation already has attempts, so its questions cannot change.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: 'La evaluación ya tiene intentos registrados: inactívela y cree una nueva.'
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationAlreadyInactive:
+      description: The evaluation is already inactive.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: La evaluación ya está inactiva.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationAlreadyActive:
+      description: The evaluation is already active.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 409
+            codigo: CONFLICTO
+            mensaje: La evaluación ya está activa.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    EvaluationInactive:
+      description: The evaluation is inactive; the attempt is not registered.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: La evaluación no está activa.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    AttemptInvalidAnswers:
+      description: The answers are missing or do not match the questions of the evaluation. Also applies to path ids with an invalid format.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unanswered:
+              summary: A question without answer
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: answers
+                    mensaje: Falta responder la pregunta 3.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            repeated:
+              summary: The same question answered twice
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: answers
+                    mensaje: Cada pregunta se responde una sola vez.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            wrongOption:
+              summary: An option of another question
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: answers
+                    mensaje: La opción elegida no pertenece a la pregunta 1.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+            otherEvaluation:
+              summary: A question of another evaluation
+              value:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: answers
+                    mensaje: Hay respuestas a preguntas que no son de esta evaluación.
+                correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     ServiceUnavailable:
       description: A dependency did not answer in time (for example, the AI provider used by the tutor).
       content:
@@ -782,6 +1218,309 @@ components:
         total_paginas:
           type: integer
           example: 1
+    EvaluationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - topic
+        - categoryId
+        - questions
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Evacuación básica
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Topic (tema) stored with every attempt.
+          example: Rutas de salida
+        categoryId:
+          type: string
+          format: uuid
+          description: Must exist and be active (on update, it may stay the same even if it is now inactive).
+          example: 00000000-0000-0000-0000-000000000004
+        questions:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: In order. At least one question (422 otherwise).
+          items:
+            $ref: '#/components/schemas/EvaluationQuestionRequest'
+    EvaluationQuestionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - statement
+        - options
+      properties:
+        statement:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: ¿Por dónde se debe salir?
+        options:
+          type: array
+          minItems: 2
+          maxItems: 10
+          description: In order. At least two options and exactly one with `correct = true` (422 otherwise).
+          items:
+            $ref: '#/components/schemas/EvaluationOptionRequest'
+    EvaluationOptionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - text
+        - correct
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 300
+          example: Por la escalera
+        correct:
+          type: boolean
+          example: true
+    EvaluationSummary:
+      type: object
+      required:
+        - id
+        - title
+        - topic
+        - categoryId
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8c2e4a61-7d3b-4f9e-b1a2-3c4d5e6f7a8b
+        title:
+          type: string
+          example: Evacuación básica
+        topic:
+          type: string
+          example: Rutas de salida
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000004
+        status:
+          $ref: '#/components/schemas/Status'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T15:00:00Z'
+    Evaluation:
+      type: object
+      required:
+        - id
+        - title
+        - topic
+        - categoryId
+        - status
+        - questions
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8c2e4a61-7d3b-4f9e-b1a2-3c4d5e6f7a8b
+        title:
+          type: string
+          example: Evacuación básica
+        topic:
+          type: string
+          example: Rutas de salida
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000004
+        status:
+          $ref: '#/components/schemas/Status'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationQuestion'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T15:00:00Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T15:00:00Z'
+    EvaluationQuestion:
+      type: object
+      required:
+        - id
+        - position
+        - statement
+        - options
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d
+        position:
+          type: integer
+          minimum: 1
+          example: 1
+        statement:
+          type: string
+          example: ¿Por dónde se debe salir?
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationOption'
+    EvaluationOption:
+      type: object
+      required:
+        - id
+        - position
+        - text
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+        position:
+          type: integer
+          minimum: 1
+          example: 1
+        text:
+          type: string
+          example: Por la escalera
+        correct:
+          type: boolean
+          description: Only for ADMIN (`ms07:content:manage`). Omitted in the community view.
+          example: true
+    EvaluationSummaryPage:
+      type: object
+      description: Common page envelope; field names are fixed by the integration standards.
+      required:
+        - contenido
+        - page
+        - size
+        - total_elementos
+        - total_paginas
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationSummary'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        total_elementos:
+          type: integer
+          format: int64
+          example: 1
+        total_paginas:
+          type: integer
+          example: 1
+    AttemptRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - answers
+      properties:
+        answers:
+          type: array
+          description: One answer per question of the evaluation.
+          items:
+            $ref: '#/components/schemas/AttemptAnswer'
+    AttemptAnswer:
+      type: object
+      additionalProperties: false
+      required:
+        - questionId
+        - optionId
+      properties:
+        questionId:
+          type: string
+          format: uuid
+          example: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d
+        optionId:
+          type: string
+          format: uuid
+          example: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+    Attempt:
+      type: object
+      required:
+        - id
+        - evaluationId
+        - topic
+        - score
+        - correctAnswers
+        - totalQuestions
+        - attemptedAt
+        - answers
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 4d5e6f7a-8b9c-4d0e-9f1a-2b3c4d5e6f7a
+        evaluationId:
+          type: string
+          format: uuid
+          example: 8c2e4a61-7d3b-4f9e-b1a2-3c4d5e6f7a8b
+        topic:
+          type: string
+          description: Topic of the evaluation when the attempt was registered.
+          example: Rutas de salida
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentage of correct answers, rounded.
+          example: 50
+        correctAnswers:
+          type: integer
+          example: 1
+        totalQuestions:
+          type: integer
+          example: 2
+        attemptedAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T16:20:00Z'
+        answers:
+          type: array
+          description: Correction of each answer, in the order of the questions.
+          items:
+            $ref: '#/components/schemas/AttemptAnswerResult'
+    AttemptAnswerResult:
+      type: object
+      required:
+        - questionId
+        - optionId
+        - correct
+        - correctOptionId
+      properties:
+        questionId:
+          type: string
+          format: uuid
+          example: 1a2b3c4d-5e6f-4a1b-8c2d-3e4f5a6b7c8d
+        optionId:
+          type: string
+          format: uuid
+          description: Option chosen by the user.
+          example: 3c4d5e6f-7a8b-4c3d-8e4f-5a6b7c8d9e0f
+        correct:
+          type: boolean
+          example: false
+        correctOptionId:
+          type: string
+          format: uuid
+          example: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
     ErrorResponse:
       type: object
       description: Normalized error body without internal traces. Field names and codes are fixed by the integration standards.
