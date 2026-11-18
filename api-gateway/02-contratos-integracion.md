@@ -32,6 +32,7 @@ Los prefijos los pide cada squad (guía de la wiki, *Conexión al API Gateway*) 
 | `/api/v1/chi/**` | `MS04_URI` | [swagger MS04](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms04-evacuation-check-in/api/swagger.yml) | Enrutado; destino en la nube configurado, MS sin desplegar |
 | `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**` | `MS05_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
 | `/api/v1/eventos`, `/api/v1/eventos/**` | `MS06_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
+| `/api/v1/training/**`, `/api/v1/tutor/**` | `MS07_URI` | swagger MS07 (rama `ms07-training-docs`) | Enrutado; MS sin desplegar. `/api/v1/tutor/**` espera hasta `GATEWAY_TUTOR_TIMEOUT_MS` |
 | `/api/v1/analitica/**`, `/api/v1/auditoria/**`, `/api/v1/audit/events` | `MS08_URI` | Pendiente (sin OpenAPI publicado); `audit/events` sale de EST §12 | Enrutado; MS sin desplegar |
 
 `GET /api/v1/internal/session-cuts` de MS01 (tag *Interno (Gateway)*) no figura en la tabla: la consume el propio GW (§5, `SESSION_CUTS_URL`) y no se publica a través de él, así que responde `404` aunque se envíe una clave de servicio.
@@ -79,7 +80,7 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `SPRING_PROFILES_ACTIVE` | — (el `Dockerfile` fija `docker`) | `local` (MS01 en `localhost:8081`) o `docker` (MS01 por su nombre DNS en la red Docker). En la nube, `docker,cloud` ([ADR-006](adr/ADR-006-aislamiento-en-la-nube.md)). |
 | `SERVER_PORT` | `8080` | Puerto externo (el único publicado). En la nube lo publica Caddy en `443` (prod) y `8443` (test). |
 | `MANAGEMENT_SERVER_PORT` | `9090` | Actuator (métricas); solo red interna. |
-| `MS01_URI` … `MS08_URI` (sin `MS07_URI`, que no tiene ruta) | Los perfiles `local` y `docker` las traen (`http://localhost:808N` y `http://<repositorio>:808N`) | En la nube, `https://<IP de la VM del MS>:443` (prod) o `:8443` (test): `MS01_URI` es variable propia y las demás van en `GW_EXTRA_ENV`. Mientras un MS no tenga VM, su ruta responde `502 SERVICIO_NO_DISPONIBLE`. |
+| `MS01_URI` … `MS08_URI` | Los perfiles `local` y `docker` las traen (`http://localhost:808N` y `http://<repositorio>:808N`) | En la nube, `https://<IP de la VM del MS>:443` (prod) o `:8443` (test): `MS01_URI` es variable propia y las demás van en `GW_EXTRA_ENV`. Mientras un MS no tenga VM, su ruta responde `502 SERVICIO_NO_DISPONIBLE`. |
 | `JWT_PUBLIC_KEY` | — (obligatoria) | Llave pública RSA en PEM. |
 | `JWT_ISSUER` / `JWT_AUDIENCE` | `ms01-identity-and-access` / `campusseguro` | Iguales a los de MS01. |
 | `JWT_CLOCK_SKEW_SECONDS` | `30` | Tolerancia de reloj. |
@@ -88,6 +89,7 @@ Los valores por defecto **deben coincidir** con EST. Si cambian allí, se actual
 | `SESSION_CUTS_INTERVAL_SECONDS` | `4` | Cada cuántos segundos consulta los cortes de sesión, además de la consulta al arrancar. Con el timeout, fija el retraso máximo de un corte: 7 s con los valores por defecto. |
 | `SESSION_CUTS_TIMEOUT_SECONDS` | `3` | Tiempo máximo de cada consulta de cortes. |
 | `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `3000` | Timeout por llamada al MS. |
+| `GATEWAY_TUTOR_TIMEOUT_MS` | `10000` | Tiempo de respuesta solo para `/api/v1/tutor/**` (`gateway.path-timeouts`): el tutor de MS07 consulta un modelo de lenguaje y corta su llamada a los 8 s. La conexión sigue con `GATEWAY_DOWNSTREAM_TIMEOUT_MS`. |
 | `GW_SERVICE_KEY_MS01` … `GW_SERVICE_KEY_MS08` | — (obligatoria por MS que llame) | Clave de servicio de cada MS (≥ 32 caracteres). |
 | `CORS_ALLOWED_ORIGINS` | — (obligatoria) | Orígenes separados por coma. |
 | `CORS_ALLOW_CREDENTIALS` | `false` | Si es `true`, se prohíbe `*`. |
