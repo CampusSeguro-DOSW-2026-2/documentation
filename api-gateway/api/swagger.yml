@@ -636,6 +636,40 @@ paths:
           $ref: '#/components/responses/BadGateway'
         '504':
           $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/roles/alert-recipients:
+    get:
+      tags:
+        - MS01 · Protegido
+      summary: Listar los roles que reciben alertas (RF-MS01-10)
+      x-politica: PROTEGIDA
+      x-destino: MS01_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+      responses:
+        '200':
+          description: Roles con `ms03:alert:receive`, solo con nombre y descripción (MS01).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../../ms01-identity-and-access/api/swagger.yml#/components/schemas/AlertRecipientRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
   /api/v1/roles/{rol}:
     get:
       tags:

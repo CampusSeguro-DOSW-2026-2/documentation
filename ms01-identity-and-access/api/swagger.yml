@@ -639,10 +639,13 @@ paths:
                     - ms02:campus:read
                     - ms02:preventive_info:read
                     - ms02:route:read
+                    - ms03:alert:read_history
                     - ms03:alert:receive
                     - ms04:assistance:request
                     - ms04:checkin:read_own
                     - ms04:checkin:write
+                    - ms05:incident:manage_own
+                    - ms05:incident:report
                     - ms07:content:read
                     - ms07:quiz:take
                     - ms07:tutor:use
@@ -658,6 +661,45 @@ paths:
                     - ms02:campus:read
                     - ms04:dashboard:read
                   es_sistema: false
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /roles/alert-recipients:
+    get:
+      tags:
+        - Roles y permisos
+      summary: Listar los roles que reciben alertas (RF-MS01-10)
+      x-permiso: [ms03:alert:manage, ms03:alert:manage_drill]
+      x-roles: [PROFESOR, COORDINADOR, ORGANIZADOR]
+      description: Devuelve los roles que tienen `ms03:alert:receive`, ordenados por `rol` ascendente, solo con su nombre y su descripción (sin `permisos` ni `es_sistema`). Es el selector de destinatarios de las alertas de MS03, para quien crea o edita alertas sin `ms01:role:read_all` (RN-MS01-47). Incluye los roles creados o editados por el administrador. Si ningún rol tiene `ms03:alert:receive`, responde 200 con una lista vacía. La ruta literal tiene prioridad sobre `/roles/{rol}`, y ningún rol puede llamarse así porque el nombre no admite guiones.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Roles que reciben alertas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertRecipientRole'
+              example:
+                - rol: ADMINISTRATIVO
+                  descripcion: Personal administrativo de la comunidad universitaria
+                - rol: BRIGADISTA
+                  descripcion: Brigadista de emergencias del campus
+                - rol: COORDINADOR
+                  descripcion: "Coordinador de emergencias: gestiona alertas, brigadistas y asistencia"
+                - rol: ESTUDIANTE
+                  descripcion: Estudiante de la comunidad universitaria
+                - rol: ORGANIZADOR
+                  descripcion: Organizador de simulacros y eventos de evacuación
+                - rol: PROFESOR
+                  descripcion: Profesor de la comunidad universitaria
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1823,6 +1865,18 @@ components:
         descripcion:
           type: string
           example: Cambiar la propia contraseña
+    AlertRecipientRole:
+      type: object
+      description: Rol que puede recibir alertas (tiene `ms03:alert:receive`), sin sus permisos.
+      required:
+        - rol
+        - descripcion
+      properties:
+        rol:
+          $ref: '#/components/schemas/Rol'
+        descripcion:
+          type: string
+          example: Brigadista de emergencias del campus
     SessionCuts:
       type: object
       required:

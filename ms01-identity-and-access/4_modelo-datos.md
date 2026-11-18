@@ -341,14 +341,14 @@ Variables de entorno que afectan los datos (valores por defecto de `application.
 
    | Rol | `is_system` | Permisos | Descripción inicial |
    |---|---|---|---|
-   | `ESTUDIANTE` | Sí | 16 | Estudiante de la comunidad universitaria |
-   | `PROFESOR` | No | 16 | Profesor de la comunidad universitaria |
-   | `ADMINISTRATIVO` | No | 16 | Personal administrativo de la comunidad universitaria |
-   | `BRIGADISTA` | No | 23 | Brigadista de emergencias del campus |
+   | `ESTUDIANTE` | Sí | 18 | Estudiante de la comunidad universitaria |
+   | `PROFESOR` | No | 19 | Profesor de la comunidad universitaria |
+   | `ADMINISTRATIVO` | No | 18 | Personal administrativo de la comunidad universitaria |
+   | `BRIGADISTA` | No | 25 | Brigadista de emergencias del campus |
    | `COORDINADOR` | No | 34 | Coordinador de emergencias: gestiona alertas, brigadistas y asistencia |
-   | `ORGANIZADOR` | No | 28 | Organizador de simulacros y eventos de evacuación |
-   | `ADMIN` | Sí | 22 | Administrador del sistema: gestiona usuarios, roles, campus y contenidos |
-   | `AUDITOR` | No | 17 | Auditor: consulta históricos, indicadores y auditoría (solo lectura) |
+   | `ORGANIZADOR` | No | 33 | Organizador de simulacros y eventos de evacuación |
+   | `ADMIN` | Sí | 24 | Administrador del sistema: gestiona usuarios, roles, campus y contenidos |
+   | `AUDITOR` | No | 20 | Auditor: consulta históricos, indicadores y auditoría (solo lectura) |
 
    Los códigos de permiso de cada rol están en el script y en la matriz de la wiki (56 permisos en el catálogo). `ms01:role:manage` queda solo en `ADMIN`, los ocho roles llevan `ms01:profile:read` y `ms01:session:logout`, y `ESTUDIANTE` y `ADMIN` llevan además `ms01:profile:write`.
 2. **Mantenimiento de roles y permisos:** `database/maintenance/005_maintenance_roles_permissions.sql` es un script manual, de una sola transacción, que deja el catálogo y los permisos de los ocho roles de la Matriz exactamente como los define la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). A todos los roles les quita todos los permisos salvo los básicos (`ms01:profile:read`, `ms01:profile:write`, `ms01:password:change`, `ms01:session:logout` y `ms01:role:read_own`; `ADMIN` conserva además `ms01:role:manage`), quita del catálogo los permisos que no son básicos, vuelve a cargar el catálogo completo con sus descripciones, asigna a los ocho roles los permisos de la Matriz y corta las sesiones de todos los roles, de modo que los tokens emitidos antes se rechazan y cada usuario inicia sesión de nuevo con sus permisos nuevos. Los roles creados desde la API quedan solo con `ms01:profile:read` y `ms01:session:logout`, los permisos obligatorios de todo rol ([RN-MS01-41](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos)). Se vuelve a ejecutar cada vez que la Matriz gana permisos o asignaciones, y antes de aplicarlo conviene guardar una copia de la base de datos.
