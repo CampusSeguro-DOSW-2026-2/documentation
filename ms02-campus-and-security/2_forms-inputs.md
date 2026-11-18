@@ -26,10 +26,10 @@
 * **RG-01**: Todo texto se recorta (trim) de espacios al inicio y al final antes de guardar.
 * **RG-02**: Un campo obligatorio vacío o con solo espacios se considera faltante.
 * **RG-03**: Todos los ids (de la ruta o del cuerpo) son UUID. Un valor con formato inválido se rechaza con HTTP 400 `VALIDACION`.
-* **RG-04**: Los errores de validación de campos son HTTP 400 `VALIDACION`, con el `ErrorResponse` de los Estándares y el campo y su mensaje en `errores`. Los errores de reglas de negocio son HTTP 422 `REGLA_NEGOCIO`, con el mensaje en `mensaje`.
+* **RG-04**: Los errores de validación de campos son HTTP 400 `VALIDACION`, con el `ErrorResponse` de los Estándares y el campo y su mensaje en `errores`. Los errores de reglas de negocio son HTTP 422 `REGLA_NEGOCIO`, con el mensaje en `mensaje`. Excepción: las solicitudes de recomendaciones preventivas con un ámbito no admitido responden HTTP 400 `SOLICITUD_INVALIDA`.
 * **RG-05**: Los valores de catálogo (tipos, estados, ámbitos) se envían en MAYÚSCULAS, tal como aparecen en cada tabla. Un valor fuera del catálogo es 400.
 * **RG-06**: Latitud y longitud son decimales en grados (WGS84), con hasta 6 decimales. La latitud va de -90 a 90 y la longitud de -180 a 180. Donde son opcionales, se envían juntas o no se envían; si llega solo una, la respuesta es 422 «La latitud y la longitud deben enviarse juntas».
-* **RG-07**: El estado (`ACTIVO`/`INACTIVO`) nunca se envía en un formulario: lo asigna el sistema al crear y cambia con «Inactivar» y «Reactivar».
+* **RG-07**: El estado (`ACTIVO`/`INACTIVO`) nunca se envía en un formulario: lo asigna el sistema al crear. Cambia mediante «Inactivar» y, cuando la entidad dispone de esa operación, «Reactivar». Las recomendaciones preventivas solo permiten inactivación.
 * **RG-08**: La identidad del usuario nunca viaja en el cuerpo: llega del Gateway en `X-User-Id`, `X-User-Role` y `X-User-Permission`.
 
 ---
@@ -198,8 +198,8 @@ Referencia: **RF-MS02-14** · `POST /images` (`multipart/form-data`)
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Tipo de elemento (`tipoElemento`) | Selección | Sí | `EDIFICIO` / `ESPACIO` / `SALIDA` / `ZONA_SEGURA` | — | "El tipo de elemento es obligatorio." | SALIDA |
-| Elemento (`elementoId`) | UUID | Sí | — | Debe existir y estar activo (422) | "El identificador del elemento es obligatorio." / "No se pueden asociar imágenes a un elemento inactivo." | — |
-| Archivo (`archivo`) | Archivo | Sí | JPEG, PNG o WEBP; máx. 5 MB; nombre máx. 255 | 422 si no cumple | "Formato de imagen no permitido. Use JPEG, PNG o WEBP." / "La imagen no puede estar vacía." / "La imagen supera el tamaño máximo permitido de 5242880 bytes." | salida-principal.jpg |
+| Elemento (`elementoId`) | UUID | Sí | — | Debe existir (404) y estar activo (422) | "El identificador del elemento es obligatorio." / "No se pueden asociar imágenes a un elemento inactivo." | — |
+| Archivo (`archivo`) | Archivo | Sí | JPEG, PNG o WEBP; máx. 5 MB; nombre máx. 255 | 422 `REGLA_NEGOCIO` para formato no permitido o archivo vacío; 500 `ERROR_INTERNO` si Spring rechaza la carga por superar el límite multipart; 400 `VALIDACION` si faltan parámetros; 404 si el elemento no existe; 422 si está inactivo | "Formato de imagen no permitido. Use JPEG, PNG o WEBP." / "La imagen no puede estar vacía." / "La imagen supera el tamaño máximo permitido de 5242880 bytes." | salida-principal.jpg |
 
 <a id="f-13"></a>
 ### F-13 · Filtros de los listados
@@ -208,6 +208,7 @@ Referencia: **RF-MS02-09**
 | Parámetro | Dónde | Valores | Por defecto | Efecto |
 |---|---|---|---|---|
 | `incluirInactivos` | Listados de campus, zonas abiertas, edificios, pisos, espacios, salidas y zonas seguras | `true` / `false` | `false` | `false` devuelve solo los activos (espacios y salidas: solo los disponibles). |
+| `incluirInactivas` | `GET /stairs` | `true` / `false` | `false` | `false` devuelve solo las escaleras activas. |
 | `puntoEncuentro` | `GET /safe-zones` | `true` / `false` | — | Filtra por la marca de punto de encuentro. |
 | `sinCoordenadas` | `GET /safe-zones` | `true` | — | Lista las zonas que aún no tienen coordenadas. |
 | `tipoElemento`, `elementoId` | `GET /images` | Como en F-12 | — | Imágenes de un elemento. |
@@ -218,6 +219,6 @@ Referencia: **RF-MS02-09**
 ## Pantallas sin formulario
 
 * **Consulta de rutas** (RF-MS02-06): el usuario elige edificio y espacio en listas; no hay campos de texto.
-* **Inactivar y reactivar** (RF-MS02-07): botones con confirmación. Si el sistema responde 422, la pantalla muestra el `mensaje` tal cual (por ejemplo, las rutas que deben bloquearse antes).
+* **Inactivar y reactivar** (RF-MS02-07): botones con confirmación para las entidades que tienen ambas operaciones. Las recomendaciones preventivas solo muestran la opción de inactivar. Si el sistema responde 422, la pantalla muestra el `mensaje` tal cual (por ejemplo, las rutas que deben bloquearse antes).
 * **Códigos QR** (RF-MS02-15): botón que descarga el PNG.
 * **Consulta pública por QR** (RF-MS02-16): la abre el QR; el id viene en el enlace (`#/qr/{espacios|salidas|zonas}/{id}`) y no hay formulario.

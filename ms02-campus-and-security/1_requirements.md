@@ -48,7 +48,7 @@ La evacuación tiene dos partes independientes:
 
 | Concepto | Definición |
 |---|---|
-| **Estado** (`ACTIVO` / `INACTIVO`) | Lo tienen campus, zonas abiertas, edificios, pisos, espacios, salidas, escaleras, zonas seguras y recomendaciones. Se asigna `ACTIVO` al crear y solo cambia con «Inactivar» o «Reactivar». Nada se elimina, salvo las imágenes ([RN-MS02-01](#rn-ms02-01)). |
+| **Estado** (`ACTIVO` / `INACTIVO`) | Lo tienen campus, zonas abiertas, edificios, pisos, espacios, salidas, escaleras, zonas seguras y recomendaciones. Se asigna `ACTIVO` al crear. Las entidades que cuentan con operaciones de reactivación pueden cambiar entre `ACTIVO` e `INACTIVO`; las recomendaciones preventivas solo cuentan con operación de inactivación. Nada se elimina, salvo las imágenes ([RN-MS02-01](#rn-ms02-01)). |
 | **Disponible** | Un espacio está disponible si él, su piso y su edificio están activos. Una salida está disponible si ella, su piso y su edificio están activos. Las respuestas lo exponen como `disponible`. |
 | **Estado de una ruta** (`DISPONIBLE` / `BLOQUEADA` / `RESTRINGIDA`) | Una ruta es **activa** si está `DISPONIBLE` o `RESTRINGIDA`. Una ruta `BLOQUEADA` no impide inactivar nada. |
 | **Disponibilidad de una escalera** (`DISPONIBLE` / `BLOQUEADA` / `FUERA_DE_SERVICIO`) | Es independiente de su estado. Solo una escalera `ACTIVO` y `DISPONIBLE` se recomienda en la guía. |
@@ -247,7 +247,7 @@ La evacuación tiene dos partes independientes:
 | **Descripción** | Permitir a los usuarios y a los demás microservicios consultar campus, zonas abiertas, edificios, pisos, espacios, salidas, escaleras, zonas seguras e imágenes con su id y su estado. |
 | **Actor(es)** | Todos los roles (`ms02:campus:read`); otros MS por el Gateway con la identidad propagada |
 | **Precondiciones** | Usuario autenticado. |
-| **Flujo base** | <ol><li>El cliente pide un listado o un elemento por id.</li><li>El sistema responde solo los activos (para espacios y salidas, solo los disponibles), salvo que se pida `incluirInactivos=true`.</li></ol> |
+| **Flujo base** | <ol><li>El cliente pide un listado o un elemento por id.</li><li>El sistema responde solo los activos (para espacios y salidas, solo los disponibles), salvo que se pida `incluirInactivos=true`. En escaleras, el parámetro equivalente es `incluirInactivas`.</li></ol> |
 | **Flujos alternos / excepciones** | <ul><li>**A1, id con formato inválido:** 400.</li><li>**A2, elemento inexistente:** 404.</li></ul> |
 | **Reglas De Negocio** | <ul><li><a id="rn-ms02-25"></a>**RN-MS02-25:** La consulta es de solo lectura. Los demás microservicios no acceden a la base de datos de MS02: usan esta API a través del Gateway.</li><li><a id="rn-ms02-26"></a>**RN-MS02-26:** Las respuestas incluyen `tieneFotografia` para edificios, espacios, salidas y zonas seguras.</li></ul> |
 | **Postcondiciones** | Solo lectura. |
@@ -358,7 +358,7 @@ La evacuación tiene dos partes independientes:
 | **Actor(es)** | ADMIN (`ms02:building:write`); todos los roles para ver (`ms02:campus:read`) |
 | **Precondiciones** | El elemento existe y está activo. |
 | **Flujo base** | <ol><li>El administrador sube el archivo con el tipo y el id del elemento.</li><li>El sistema valida el formato y el tamaño y que el elemento esté activo.</li><li>Guarda el archivo en disco y sus datos en la base de datos.</li></ol> |
-| **Flujos alternos / excepciones** | <ul><li>**A1, formato distinto de JPEG, PNG o WEBP, archivo vacío o mayor de 5 MB:** 422 `REGLA_NEGOCIO`.</li><li>**A2, elemento inactivo:** 422.</li><li>**A3, imagen inexistente:** 404.</li></ul> |
+| **Flujos alternos / excepciones** | <ul><li>**A1, formato distinto de JPEG, PNG o WEBP o archivo vacío:** 422 `REGLA_NEGOCIO`. Si se supera el límite de carga multipart de 5 MB, Spring puede rechazar la solicitud antes de llegar al controlador y responder 500 `ERROR_INTERNO`.</li><li>**A2, faltan `tipoElemento` o `elementoId`:** 400 `VALIDACION`.</li><li>**A3, elemento inexistente:** 404 `NO_ENCONTRADO`.</li><li>**A4, elemento inactivo:** 422 `REGLA_NEGOCIO`.</li><li>**A5, imagen inexistente:** 404.</li></ul> |
 | **Reglas De Negocio** | <ul><li><a id="rn-ms02-35"></a>**RN-MS02-35:** Los archivos se guardan fuera de PostgreSQL, en un volumen; la base guarda nombre, tipo, tamaño, ruta y elemento.</li><li><a id="rn-ms02-36"></a>**RN-MS02-36:** Las imágenes sí se eliminan (archivo y registro).</li></ul> |
 | **Postcondiciones** | La imagen queda asociada al elemento, o eliminada. |
 | **Requerimientos asociados** | [RF-MS02-09](#rf-ms02-09) |
@@ -420,7 +420,7 @@ La evacuación tiene dos partes independientes:
 | **RNF-MS02-01** | Aplicación Spring Boot independiente (Java 21, Maven) con Spring Data JPA y base de datos PostgreSQL propia. El esquema se versiona con Flyway (`ddl-auto=validate`). Ningún otro servicio accede a la base. |
 | **RNF-MS02-02** | Todos los endpoints están bajo `/api/v1/` y documentados con OpenAPI 3 (`/v3/api-docs`, publicado en [`api/swagger.yml`](api/swagger.yml)). Cada operación protegida declara `x-permiso` igual a la Matriz Rol‐Permiso; una prueba automática (`ContratoPermisosTest`) lo verifica. |
 | **RNF-MS02-03** | Todo acceso llega por el API Gateway. En las rutas protegidas MS02 recibe `X-User-Id`, `X-User-Role` y `X-User-Permission` y autoriza con `X-User-Permission`; si faltan responde 401 `NO_AUTENTICADO` y si falta el permiso, 403 `PROHIBIDO`. Las tres rutas de `/api/v1/public` no exigen identidad. |
-| **RNF-MS02-04** | Todo error, incluidos los del framework (404, 405, 415), responde con el `ErrorResponse` de los Estándares, sin trazas internas. |
+| **RNF-MS02-04** | Todo error, incluidos los del framework (404, 405 y 400 para tipos de contenido no compatibles), responde con el `ErrorResponse` de los Estándares, sin trazas internas. |
 | **RNF-MS02-05** | Cada línea de log lleva el `X-Correlation-ID`. Las operaciones de escritura quedan en el log, sin tokens ni datos personales. Actuator expone `health`. |
 | **RNF-MS02-06** | La consulta de rutas en una emergencia no depende de servicios externos: usa las rutas exteriores guardadas ([RN-MS02-19](#rn-ms02-19)). El proveedor de navegación tiene timeouts configurables (3 s de conexión y 10 s de lectura por defecto). |
 | **RNF-MS02-07** | Las imágenes se guardan en un volumen fuera de la base de datos, con un máximo de 5 MB por archivo y solo JPEG, PNG o WEBP. |
@@ -454,7 +454,7 @@ MS02 no llama a otros microservicios del proyecto. Su única dependencia externa
 <a id="api-ms02-campus-and-security"></a>
 ## API: ms02-campus-and-security
 
-Contrato OpenAPI: [`api/swagger.yml`](api/swagger.yml). La columna *Permiso* coincide con el `x-permiso` del contrato y con la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). **Todos** = los 8 roles iniciales. Los listados aceptan `incluirInactivos=true`.
+Contrato OpenAPI: [`api/swagger.yml`](api/swagger.yml). La columna *Permiso* coincide con el `x-permiso` del contrato y con la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). **Todos** = los 8 roles iniciales. Los listados aceptan `incluirInactivos=true`, excepto el listado de escaleras (`GET /stairs`), que utiliza `incluirInactivas=true`.
 
 | Categoría | Método | Ruta (/api/v1) | Acceso | Permiso | RF |
 |---|---|---|---|---|---|
