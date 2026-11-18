@@ -11,7 +11,7 @@ info:
 
     **Pagination:** lists take `page` (from 0) and `size` (default 20, max 100) and answer with the common page envelope (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
 
-    **Pending:** progress (RF-13) and tutor (RF-15) will be added to this contract by their owners.
+    **Pending:** tutor (RF-15) will be added to this contract by its owner.
 servers:
   - url: http://localhost:8080/api/v1
     description: External access (API Gateway)
@@ -19,6 +19,7 @@ tags:
   - name: Categories
   - name: Contents
   - name: Evaluations
+  - name: Progress
 paths:
   /training/categories:
     get:
@@ -665,6 +666,76 @@ paths:
           $ref: '#/components/responses/EvaluationNotFound'
         '422':
           $ref: '#/components/responses/EvaluationInactive'
+  /training/contents/{id}/views:
+    post:
+      tags:
+        - Progress
+      summary: Register content view (RF-13) - Community
+      x-permiso: ms07:content:read
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Records that the user identified by `X-User-Id` (never by the body) opened the content. There is a single record per user and content (RF-13 rule 2) - the first view creates it (201) and every later view only moves `lastViewedAt` (200). Simultaneous views of the same user never create duplicates. The front calls it when the user opens a content. An inactive content answers 422 and nothing is registered.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '201':
+          description: First view of the content by this user.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentView'
+        '200':
+          description: The content was already viewed; only the date of the last view changed.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentView'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/ContentNotFound'
+        '422':
+          $ref: '#/components/responses/ContentNotAvailable'
+  /training/progress/me:
+    get:
+      tags:
+        - Progress
+      summary: My progress (RF-13) - Community
+      x-permiso: ms07:quiz:take
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      description: Progress of the user identified by `X-User-Id` only (rule MR-02); there is no route to read the progress of another user. `contents` lists the viewed contents, newest view first. `evaluations` has one item per answered evaluation with its best attempt (highest score; on a tie, the most recent), newest first. A content or evaluation deactivated after it was used comes with `available = false`. Without records both lists are empty.
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Progress of the current user.
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   headers:
     XCorrelationID:
@@ -1022,6 +1093,30 @@ components:
                   - campo: answers
                     mensaje: Hay respuestas a preguntas que no son de esta evaluación.
                 correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    ContentNotFound:
+      description: The content does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: El contenido no existe.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
+    ContentNotAvailable:
+      description: The content is inactive; the view is not registered.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 422
+            codigo: REGLA_NEGOCIO
+            mensaje: El contenido no está disponible.
+            errores: []
+            correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     ServiceUnavailable:
       description: A dependency did not answer in time (for example, the AI provider used by the tutor).
       content:
@@ -1521,6 +1616,117 @@ components:
           type: string
           format: uuid
           example: 2b3c4d5e-6f7a-4b2c-9d3e-4f5a6b7c8d9e
+    ContentView:
+      type: object
+      required:
+        - contentId
+        - firstViewedAt
+        - lastViewedAt
+      properties:
+        contentId:
+          type: string
+          format: uuid
+          example: 5d1f3a9c-2b7e-4c8d-9a6f-0e1b2c3d4e5f
+        firstViewedAt:
+          type: string
+          format: date-time
+          example: '2026-11-10T10:00:00Z'
+        lastViewedAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T10:00:00Z'
+    Progress:
+      type: object
+      required:
+        - contents
+        - evaluations
+      properties:
+        contents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressContent'
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgressEvaluation'
+    ProgressContent:
+      type: object
+      required:
+        - contentId
+        - title
+        - categoryId
+        - firstViewedAt
+        - lastViewedAt
+        - available
+      properties:
+        contentId:
+          type: string
+          format: uuid
+          example: 5d1f3a9c-2b7e-4c8d-9a6f-0e1b2c3d4e5f
+        title:
+          type: string
+          example: Qué hacer si tiembla en el salón
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000006
+        firstViewedAt:
+          type: string
+          format: date-time
+          example: '2026-11-10T10:00:00Z'
+        lastViewedAt:
+          type: string
+          format: date-time
+          example: '2026-11-17T10:00:00Z'
+        available:
+          type: boolean
+          description: False when the content was deactivated after the user viewed it ("no disponible").
+          example: true
+    ProgressEvaluation:
+      type: object
+      required:
+        - evaluationId
+        - title
+        - categoryId
+        - topic
+        - bestScore
+        - attemptedAt
+        - attempts
+        - available
+      properties:
+        evaluationId:
+          type: string
+          format: uuid
+          example: 8c2e4a61-7d3b-4f9e-b1a2-3c4d5e6f7a8b
+        title:
+          type: string
+          example: Evacuación básica
+        categoryId:
+          type: string
+          format: uuid
+          example: 00000000-0000-0000-0000-000000000004
+        topic:
+          type: string
+          description: Topic of the best attempt.
+          example: Rutas de salida
+        bestScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 67
+        attemptedAt:
+          type: string
+          format: date-time
+          description: Date of the best attempt.
+          example: '2026-11-17T16:20:00Z'
+        attempts:
+          type: integer
+          minimum: 1
+          example: 3
+        available:
+          type: boolean
+          description: False when the evaluation was deactivated after the user answered it.
+          example: true
     ErrorResponse:
       type: object
       description: Normalized error body without internal traces. Field names and codes are fixed by the integration standards.
