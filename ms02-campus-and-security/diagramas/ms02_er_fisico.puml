@@ -1,0 +1,154 @@
+@startuml ms02_er_fisico
+title MS02 Campus y seguridad · Modelo de datos físico (PostgreSQL, Flyway V17)
+hide circle
+hide empty methods
+skinparam linetype ortho
+
+entity campus {
+  * id : UUID <<PK>>
+  --
+  * nombre : VARCHAR(100)
+  descripcion : TEXT
+  * estado : VARCHAR(20) = 'ACTIVO'
+}
+entity zona_abierta {
+  * id : UUID <<PK>>
+  --
+  * campus_id : UUID <<FK>>
+  * nombre : VARCHAR(100)
+  * tipo : VARCHAR(20) <<CHECK>>
+  latitud : NUMERIC(9,6)
+  longitud : NUMERIC(9,6)
+  * estado : VARCHAR(20) = 'ACTIVO'
+}
+entity edificio {
+  * id : UUID <<PK>>
+  --
+  * campus_id : UUID <<FK>>
+  * nombre : VARCHAR(100)
+  descripcion : TEXT
+  * estado : VARCHAR(20) = 'ACTIVO'
+}
+entity piso {
+  * id : UUID <<PK>>
+  --
+  * edificio_id : UUID <<FK>>
+  * numero : INTEGER
+  nombre : VARCHAR(100)
+  * estado : VARCHAR(20) = 'ACTIVO'
+  ..
+  UNIQUE (edificio_id, numero)
+  UNIQUE (id, edificio_id)
+}
+entity espacio {
+  * id : UUID <<PK>>
+  --
+  * edificio_id : UUID <<FK>>
+  * piso_id : UUID <<FK (piso_id, edificio_id)>>
+  * nombre : VARCHAR(100)
+  * tipo : VARCHAR(20) <<CHECK>>
+  * estado : VARCHAR(20) = 'ACTIVO'
+}
+entity salida {
+  * id : UUID <<PK>>
+  --
+  * edificio_id : UUID <<FK>>
+  * piso_id : UUID <<FK (piso_id, edificio_id)>>
+  * nombre : VARCHAR(100)
+  * latitud : NUMERIC(9,6)
+  * longitud : NUMERIC(9,6)
+  * estado : VARCHAR(20) = 'ACTIVO'
+}
+entity escalera {
+  * id : UUID <<PK>>
+  --
+  * edificio_id : UUID <<FK>>
+  * codigo : VARCHAR(30) <<UNIQUE>>
+  * nombre : VARCHAR(100)
+  * disponibilidad : VARCHAR(25) = 'DISPONIBLE'
+  motivo : VARCHAR(255)
+  * estado : VARCHAR(20) = 'ACTIVO'
+  * prioridad : INTEGER = 1
+}
+entity escalera_piso {
+  * escalera_id : UUID <<PK, FK>>
+  * piso_id : UUID <<PK, FK>>
+}
+entity zona_segura {
+  * id : UUID <<PK>>
+  --
+  * codigo : VARCHAR(50) <<UNIQUE>>
+  * nombre : VARCHAR(100)
+  * ubicacion : VARCHAR(255)
+  * descripcion : TEXT
+  * capacidad : INTEGER <<CHECK > 0>>
+  * estado : VARCHAR(20) = 'ACTIVO'
+  latitud : NUMERIC(9,6)
+  longitud : NUMERIC(9,6)
+  zona_abierta_id : UUID <<FK>>
+  * es_punto_encuentro : BOOLEAN = TRUE
+}
+entity ruta_evacuacion {
+  * id : UUID <<PK>>
+  --
+  espacio_origen_id : UUID <<FK, UNIQUE>>
+  salida_origen_id : UUID <<FK>>
+  * zona_segura_destino_id : UUID <<FK>>
+  * descripcion : VARCHAR(1000)
+  * estado : VARCHAR(20) = 'DISPONIBLE'
+  motivo : VARCHAR(255)
+  distancia_metros : NUMERIC(10,2)
+  duracion_segundos : NUMERIC(10,2)
+  geometria : TEXT
+  pasos : TEXT
+  calculada_en : TIMESTAMPTZ
+  * created_at : TIMESTAMPTZ
+  * updated_at : TIMESTAMPTZ
+  ..
+  CHECK un solo origen
+  UNIQUE (salida_origen_id, zona_segura_destino_id)
+}
+entity recomendacion_preventiva {
+  * id : UUID <<PK>>
+  --
+  * ambito : VARCHAR(20) <<CHECK>>
+  edificio_id : UUID <<FK>>
+  tipo_espacio : VARCHAR(20) <<CHECK>>
+  * titulo : VARCHAR(150)
+  * recomendacion : TEXT
+  * estado : VARCHAR(20) = 'ACTIVO'
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+entity imagen {
+  * id : UUID <<PK>>
+  --
+  * tipo_elemento : VARCHAR(30) <<CHECK>>
+  * elemento_id : UUID
+  * nombre_original : VARCHAR(255)
+  * tipo_contenido : VARCHAR(50) <<CHECK>>
+  * tamanio_bytes : BIGINT <<CHECK > 0>>
+  * ruta_archivo : VARCHAR(500)
+  * created_at : TIMESTAMP
+}
+
+campus ||--o{ edificio
+campus ||--o{ zona_abierta
+zona_abierta |o--o{ zona_segura
+edificio ||--o{ piso
+piso ||--o{ espacio
+piso ||--o{ salida
+edificio ||--o{ escalera
+escalera ||--|{ escalera_piso
+piso ||--o{ escalera_piso
+espacio |o--o| ruta_evacuacion
+salida |o--o{ ruta_evacuacion
+zona_segura ||--o{ ruta_evacuacion
+edificio |o--o{ recomendacion_preventiva
+
+note bottom of imagen
+  elemento_id apunta a edificio, espacio,
+  salida o zona_segura según tipo_elemento
+  (sin FK). El archivo vive en un volumen.
+end note
+@enduml

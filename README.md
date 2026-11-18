@@ -31,19 +31,19 @@ Cada carpeta utiliza el nombre del repositorio del microservicio y mantiene una 
 
 | **MS** | **Carpeta** | **Estado** |
 |---|---|---|
-| MS01 — Identidad y acceso | [`ms01-identity-and-access/`](ms01-identity-and-access/) | Publicado |
-| MS02 — Campus y Seguridad | — | Pendiente de documentación |
-| MS03 — Alertas y Emergencias | [`ms03-alerts-and-emergencies/`](ms03-alerts-and-emergencies/) | Publicado |
-| MS04 — Evacuación y check-in | [`ms04-evacuation-check-in/`](ms04-evacuation-check-in/) | Publicado |
+| MS01 — Identidad y acceso | [ms01-identity-and-access/](ms01-identity-and-access/) | Publicado |
+| MS02 — Campus y seguridad | [ms02-campus-and-security/](ms02-campus-and-security/) | Publicado |
+| MS03 — Alertas y Emergencias | [ms03-alerts-and-emergencies/](ms03-alerts-and-emergencies/) | Publicado |
+| MS04 — Evacuación y check-in | [ms04-evacuation-check-in/](ms04-evacuation-check-in/) | Publicado |
 | MS05 — Brigadas e Incidentes | — | Pendiente de documentación |
 | MS06 — Eventos | — | Pendiente de documentación |
 | MS07 — Formación e IA | — | Pendiente de documentación |
 | MS08 — Analítica y Auditoría | — | Pendiente de documentación |
-| GW — API Gateway | [`api-gateway/`](api-gateway/) | Publicado |
+| GW — API Gateway | [api-gateway/](api-gateway/) | Publicado |
 
 ## Reglas
 
-- Un dato tiene **un solo lugar**: los documentos de cada microservicio enlazan a la Wiki en lugar de duplicar información transversal.
+- Un dato tiene un solo lugar: los documentos de cada microservicio enlazan a la Wiki en lugar de duplicar información transversal.
 - El `x-permiso` y `x-roles` de cada `swagger.yml` deben coincidir con la matriz general de roles y permisos.
 - El Gateway solo enruta las rutas publicadas en los contratos OpenAPI correspondientes.
 - Cada squad es responsable de mantener actualizada la documentación de su microservicio.

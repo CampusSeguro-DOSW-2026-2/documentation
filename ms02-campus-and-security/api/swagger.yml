@@ -2,9 +2,9 @@ openapi: 3.1.0
 info:
   title: MS02 Campus y seguridad
   description: |-
-    Edificios, pisos, espacios, zonas seguras y rutas de evacuaci├│n de CampusSeguro.
+    Edificios, pisos, espacios, zonas seguras y rutas de evacuación de CampusSeguro.
 
-    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id` y `X-User-Role` (roles separados por coma), que pone el API Gateway; todos aceptan `X-Correlation-ID`. Si faltan las de identidad, MS02 responde 401. Cada operaci├│n declara su permiso en `x-permiso` y los roles que lo tienen en `x-roles`.
+    **Entradas de identidad:** los endpoints protegidos reciben `X-User-Id`, `X-User-Role` y `X-User-Permission` (permisos separados por coma, sin espacios), que pone el API Gateway; todos aceptan `X-Correlation-ID`. Si falta alguna, MS02 responde 401. Cada operación declara el permiso que exige en `x-permiso`; MS02 autoriza con `X-User-Permission` y nunca por nombre de rol.
   version: v1
 servers:
 - url: http://localhost:8080
@@ -12,44 +12,45 @@ servers:
 - url: http://localhost:8082
   description: "MS02 directo, solo desarrollo"
 tags:
-- name: Recomendaciones preventivas
-  description: RF-13. Informaci├│n preventiva para edificios y tipos de espacio.
-- name: Consulta p├║blica
-  description: "ADR-003 (D7). Lo que se ve al escanear un QR en una emergencia: solo\
-    \ lectura, sin sesi├│n y con datos m├¡nimos."
-- name: C├│digos QR
-  description: ADR-003. QR generados a partir del UUID del elemento. Solo contienen
-    el enlace a la pantalla p├║blica del frontend.
-- name: Im├ígenes
-  description: Almacenamiento y consulta de fotograf├¡as de elementos del campus.
-- name: Rutas de evacuaci├│n
-  description: "RF-05. Gesti├│n de rutas: cada espacio tiene como m├íximo una ruta hacia\
-    \ una zona segura."
-- name: Consulta de rutas
-  description: RF-06. Ruta recomendada para el usuario seg├║n el edificio o el espacio
-    donde est├í.
-- name: Edificios
-  description: RF-01. Gesti├│n de edificios del campus.
-- name: Salidas
-  description: "ADR-003. Salidas del edificio al exterior, con el piso desde el que\
-    \ se sale y sus coordenadas."
-- name: Zonas abiertas
-  description: "ADR-003. Espacios exteriores del campus (zonas verdes, plazoletas...)."
-- name: Zonas seguras
-  description: RF-04. Zonas seguras o puntos de encuentro a los que se evac├║a.
-- name: Espacios
-  description: "RF-03. Salones, laboratorios, auditorios, oficinas y espacios comunes\
-    \ de un piso."
 - name: Pisos
-  description: "RF-02. Pisos de un edificio, identificados por n├║mero (negativo para\
-    \ s├│tanos)."
+  description: "RF-MS02-02. Pisos de un edificio, identificados por número (negativo\
+    \ para sótanos)."
 - name: Campus
-  description: ADR-003. Gesti├│n de campus; agrupa edificios y zonas abiertas.
-- name: Rutas exteriores
-  description: ADR-003. Recorrido peatonal desde una salida del edificio hasta una
-    zona segura.
+  description: RF-MS02-10. Gestión de campus; agrupa edificios y zonas abiertas.
+- name: Códigos QR
+  description: RF-MS02-15. QR generados a partir del UUID del elemento. Solo contienen
+    el enlace a la pantalla pública del frontend.
+- name: Edificios
+  description: RF-MS02-01. Gestión de edificios del campus.
+- name: Recomendaciones preventivas
+  description: RF-MS02-08. Información preventiva para edificios y tipos de espacio.
+- name: Consulta pública
+  description: "RF-MS02-16. Lo que se ve al escanear un QR en una emergencia: solo\
+    \ lectura, sin sesión y con datos mínimos."
+- name: Consulta de rutas
+  description: RF-MS02-06. Ruta recomendada para el usuario según el edificio o el
+    espacio donde está.
 - name: Escaleras
-  description: RF-04. Escaleras y pisos que conectan dentro de un edificio.
+  description: RF-MS02-12. Escaleras y pisos que conectan dentro de un edificio.
+- name: Imágenes
+  description: RF-MS02-14. Almacenamiento y consulta de fotografías de elementos del
+    campus.
+- name: Salidas
+  description: "RF-MS02-11. Salidas del edificio al exterior, con el piso desde el\
+    \ que se sale y sus coordenadas."
+- name: Rutas exteriores
+  description: RF-MS02-13. Recorrido peatonal desde una salida del edificio hasta
+    una zona segura.
+- name: Rutas de evacuación
+  description: "RF-MS02-05. Gestión de rutas: cada espacio tiene como máximo una ruta\
+    \ hacia una zona segura."
+- name: Espacios
+  description: "RF-MS02-03. Salones, laboratorios, auditorios, oficinas y espacios\
+    \ comunes de un piso."
+- name: Zonas seguras
+  description: RF-MS02-04. Zonas seguras o puntos de encuentro a los que se evacúa.
+- name: Zonas abiertas
+  description: "RF-MS02-10. Espacios exteriores del campus (zonas verdes, plazoletas...)."
 paths:
   /api/v1/spaces/{id}:
     get:
@@ -61,6 +62,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -89,15 +91,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Espacios
@@ -107,6 +100,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -140,9 +134,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:space:write
   /api/v1/safe-zones/{id}:
     get:
       tags:
@@ -153,6 +145,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -181,26 +174,18 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Zonas seguras
       summary: Modificar zona segura
-      description: "Solo ADMIN. Cambia nombre, ubicaci├│n, descripci├│n y capacidad.\
-        \ El c├│digo no se puede modificar. Las coordenadas, la zona abierta y puntoEncuentro\
-        \ solo cambian si se env├¡an."
+      description: "Solo ADMIN. Cambia nombre, ubicación, descripción y capacidad.\
+        \ El código no se puede modificar. Las coordenadas, la zona abierta y puntoEncuentro\
+        \ solo cambian si se envían."
       operationId: modificar_1
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -235,18 +220,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:safe_zone:write
-      x-roles:
-      - ADMIN
   /api/v1/preventive-recommendations/{id}:
     put:
       tags:
       - Recomendaciones preventivas
-      summary: Modificar recomendaci├│n preventiva
+      summary: Modificar recomendación preventiva
       description: Solo ADMIN.
       operationId: modificar_2
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -280,9 +264,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:preventive_recommendation:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:building:write
   /api/v1/open-zones/{id}:
     get:
       tags:
@@ -293,6 +275,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -321,25 +304,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Zonas abiertas
       summary: Modificar zona abierta
       description: "Solo ADMIN. Cambia nombre, tipo y coordenadas. Latitud y longitud\
-        \ se env├¡an juntas."
+        \ se envían juntas."
       operationId: modificar_3
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -374,8 +349,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/floors/{id}:
     get:
       tags:
@@ -386,6 +359,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -414,25 +388,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Pisos
       summary: Modificar piso
-      description: Solo ADMIN. Cambia n├║mero y nombre; el n├║mero no se puede repetir
+      description: Solo ADMIN. Cambia número y nombre; el número no se puede repetir
         en el edificio.
       operationId: modificar_4
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -467,8 +433,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/exits/{id}:
     get:
       tags:
@@ -479,6 +443,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -507,15 +472,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Salidas
@@ -525,6 +481,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -559,18 +516,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/evacuation-routes/{id}:
     get:
       tags:
-      - Rutas de evacuaci├│n
+      - Rutas de evacuación
       summary: Consultar ruta
       description: Cualquier rol.
       operationId: obtener_5
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -600,25 +556,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
-      - Rutas de evacuaci├│n
+      - Rutas de evacuación
       summary: Actualizar ruta
-      description: Actualiza la descripci├│n y la zona segura de destino. La nueva
+      description: Actualiza la descripción y la zona segura de destino. La nueva
         zona debe existir y estar activa.
       operationId: actualizar
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -663,8 +611,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:write
-      x-roles:
-      - ADMIN
   /api/v1/campuses/{id}:
     get:
       tags:
@@ -675,6 +621,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -703,24 +650,16 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Campus
       summary: Modificar campus
-      description: Solo ADMIN. Cambia nombre y descripci├│n.
+      description: Solo ADMIN. Cambia nombre y descripción.
       operationId: modificar_6
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -755,8 +694,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{id}:
     get:
       tags:
@@ -767,6 +704,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -795,24 +733,16 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     put:
       tags:
       - Edificios
       summary: Modificar edificio
-      description: "Solo ADMIN. Cambia nombre, descripci├│n y campus."
+      description: "Solo ADMIN. Cambia nombre, descripción y campus."
       operationId: modificar_7
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -847,8 +777,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/safe-zones:
     get:
       tags:
@@ -856,11 +784,12 @@ paths:
       summary: Listar zonas seguras
       description: Cualquier rol. Por defecto solo las activas; incluirInactivos=true
         devuelve todas. puntoEncuentro=true|false filtra por esa marca; sinCoordenadas=true
-        lista las que a├║n no tienen coordenadas.
+        lista las que aún no tienen coordenadas.
       operationId: listar
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: incluirInactivos
         in: query
@@ -900,26 +829,18 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Zonas seguras
       summary: Registrar zona segura
-      description: Solo ADMIN. El c├│digo (por ejemplo MP-H-01) es ├║nico. La capacidad
+      description: Solo ADMIN. El código (por ejemplo MP-H-01) es único. La capacidad
         debe ser mayor que cero. La zona queda activa. Latitud y longitud son opcionales
         pero van juntas; zonaAbiertaId es opcional; puntoEncuentro es true por defecto.
       operationId: crear
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -946,8 +867,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:safe_zone:write
-      x-roles:
-      - ADMIN
   /api/v1/preventive-recommendations:
     get:
       tags:
@@ -958,6 +877,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       responses:
         "200":
@@ -977,25 +897,17 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
+      x-permiso: ms02:preventive_info:read
     post:
       tags:
       - Recomendaciones preventivas
-      summary: Crear recomendaci├│n preventiva
+      summary: Crear recomendación preventiva
       description: Solo ADMIN.
       operationId: crear_1
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -1021,18 +933,17 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:preventive_recommendation:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:building:write
   /api/v1/images:
     get:
       tags:
-      - Im├ígenes
-      summary: Listar im├ígenes asociadas a un elemento del campus
+      - Imágenes
+      summary: Listar imágenes asociadas a un elemento del campus
       operationId: listar_2
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: tipoElemento
         in: query
@@ -1071,23 +982,15 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
-      - Im├ígenes
+      - Imágenes
       summary: Registrar imagen de un elemento del campus
       operationId: registrar
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: tipoElemento
         in: query
@@ -1135,8 +1038,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/floors/{pisoId}/spaces:
     get:
       tags:
@@ -1148,6 +1049,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: pisoId
         in: path
@@ -1184,15 +1086,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Espacios
@@ -1202,6 +1095,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: pisoId
         in: path
@@ -1235,19 +1129,18 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:space:write
   /api/v1/evacuation-routes:
     get:
       tags:
-      - Rutas de evacuaci├│n
+      - Rutas de evacuación
       summary: Listar rutas
       description: Cualquier rol.
       operationId: listar_3
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       responses:
         "200":
@@ -1268,18 +1161,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
-      - Rutas de evacuaci├│n
+      - Rutas de evacuación
       summary: Crear ruta
       description: "Solo ADMIN. El espacio debe estar disponible y la zona activa;\
         \ responde 409 si el espacio ya tiene ruta. Si el estado no es DISPONIBLE,\
@@ -1288,6 +1172,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -1324,21 +1209,20 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:write
-      x-roles:
-      - ADMIN
   /api/v1/evacuation-routes/exterior:
     post:
       tags:
       - Rutas exteriores
       summary: Calcular ruta exterior
       description: "Solo ADMIN. Calcula el recorrido peatonal salida -> zona segura\
-        \ con el proveedor de navegaci├│n y guarda el ├║ltimo resultado. Si el par ya\
-        \ ten├¡a ruta, la recalcula. La salida y la zona deben estar activas y con\
+        \ con el proveedor de navegación y guarda el último resultado. Si el par ya\
+        \ tenía ruta, la recalcula. La salida y la zona deben estar activas y con\
         \ coordenadas."
       operationId: calcular
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -1382,7 +1266,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "503":
-          description: El proveedor de navegaci├│n no est├í disponible.
+          description: El proveedor de navegación no está disponible.
           headers:
             X-Correlation-ID:
               $ref: "#/components/headers/XCorrelationID"
@@ -1393,25 +1277,24 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:write
-      x-roles:
-      - ADMIN
   /api/v1/evacuation-routes/exterior/generate:
     post:
       tags:
       - Rutas exteriores
       summary: Generar rutas exteriores del campus
       description: "Solo ADMIN. Conecta cada salida disponible con sus zonas seguras\
-        \ m├ís cercanas. Por defecto solo crea las rutas que faltan; con recalcular=true\
-        \ rehace tambi├®n las existentes. Normalmente no hace falta: las rutas se generan\
+        \ más cercanas. Por defecto solo crea las rutas que faltan; con recalcular=true\
+        \ rehace también las existentes. Normalmente no hace falta: las rutas se generan\
         \ solas al crear o mover salidas y zonas."
       operationId: generar
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: recalcular
         in: query
-        description: "Si es true, recalcula tambi├®n las rutas que ya existen"
+        description: "Si es true, recalcula también las rutas que ya existen"
         required: false
         schema:
           type: boolean
@@ -1435,8 +1318,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:write
-      x-roles:
-      - ADMIN
   /api/v1/campuses:
     get:
       tags:
@@ -1448,6 +1329,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: incluirInactivos
         in: query
@@ -1476,15 +1358,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Campus
@@ -1494,6 +1367,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -1520,8 +1394,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/campuses/{campusId}/open-zones:
     get:
       tags:
@@ -1533,6 +1405,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: campusId
         in: path
@@ -1569,25 +1442,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Zonas abiertas
       summary: Registrar zona abierta
       description: "Solo ADMIN. El campus debe estar activo. Latitud y longitud son\
-        \ opcionales, pero se env├¡an juntas."
+        \ opcionales, pero se envían juntas."
       operationId: crear_5
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: campusId
         in: path
@@ -1622,8 +1487,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings:
     get:
       tags:
@@ -1635,6 +1498,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: incluirInactivos
         in: query
@@ -1663,15 +1527,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Edificios
@@ -1682,6 +1537,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       requestBody:
         content:
@@ -1708,8 +1564,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{edificioId}/stairs:
     get:
       tags:
@@ -1719,6 +1573,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -1755,25 +1610,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Escaleras
       summary: Registrar escalera
       description: Registra una escalera conectando al menos dos pisos activos del
-        edificio. El c├│digo se genera autom├íticamente.
+        edificio. El código se genera automáticamente.
       operationId: crear_7
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -1808,19 +1655,18 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{edificioId}/floors:
     get:
       tags:
       - Pisos
       summary: Listar pisos de un edificio
-      description: Cualquier rol. Ordenados por n├║mero. Por defecto solo los activos;
+      description: Cualquier rol. Ordenados por número. Por defecto solo los activos;
         incluirInactivos=true devuelve todos.
       operationId: listarPorEdificio_1
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -1857,25 +1703,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Pisos
       summary: Registrar piso
-      description: Solo ADMIN. El edificio debe estar activo y el n├║mero no se puede
+      description: Solo ADMIN. El edificio debe estar activo y el número no se puede
         repetir en el edificio.
       operationId: crear_8
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -1910,8 +1748,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{edificioId}/exits:
     get:
       tags:
@@ -1923,6 +1759,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -1959,15 +1796,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     post:
       tags:
       - Salidas
@@ -1978,6 +1806,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -2012,19 +1841,18 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/stairs/{id}/status:
     patch:
       tags:
       - Escaleras
       summary: Cambiar disponibilidad de una escalera
-      description: "Coordinaci├│n puede bloquear o habilitar una escalera. Para estados\
+      description: "Coordinación puede bloquear o habilitar una escalera. Para estados\
         \ no disponibles, el motivo es obligatorio."
       operationId: cambiarDisponibilidad
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2058,10 +1886,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:stair_status:write
-      x-roles:
-      - COORDINADOR
-      - ADMIN
+      x-permiso: ms02:route_status:write
   /api/v1/stairs/{id}/reactivate:
     patch:
       tags:
@@ -2071,6 +1896,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2099,8 +1925,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/stairs/{id}/priority:
     patch:
       tags:
@@ -2112,6 +1936,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2146,8 +1971,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/stairs/{id}/deactivate:
     patch:
       tags:
@@ -2157,6 +1980,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2185,8 +2009,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/spaces/{id}/reactivate:
     patch:
       tags:
@@ -2197,6 +2019,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2224,9 +2047,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:space:write
   /api/v1/spaces/{id}/deactivate:
     patch:
       tags:
@@ -2238,6 +2059,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2265,20 +2087,19 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:space:write
   /api/v1/safe-zones/{id}/reactivate:
     patch:
       tags:
       - Zonas seguras
       summary: Reactivar zona segura
-      description: Solo ADMIN. Se rechaza con 422 si la zona ya est├í activa o si su
-        zona abierta est├í inactiva.
+      description: Solo ADMIN. Se rechaza con 422 si la zona ya está activa o si su
+        zona abierta está inactiva.
       operationId: reactivar_2
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2307,8 +2128,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:safe_zone:write
-      x-roles:
-      - ADMIN
   /api/v1/safe-zones/{id}/deactivate:
     patch:
       tags:
@@ -2320,6 +2139,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2348,18 +2168,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:safe_zone:write
-      x-roles:
-      - ADMIN
   /api/v1/preventive-recommendations/{id}/deactivate:
     patch:
       tags:
       - Recomendaciones preventivas
-      summary: Inactivar recomendaci├│n preventiva
+      summary: Inactivar recomendación preventiva
       description: Solo ADMIN.
       operationId: inactivar_3
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2387,19 +2206,18 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:preventive_recommendation:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:building:write
   /api/v1/open-zones/{id}/reactivate:
     patch:
       tags:
       - Zonas abiertas
       summary: Reactivar zona abierta
-      description: Solo ADMIN. Se rechaza con 422 si el campus est├í inactivo.
+      description: Solo ADMIN. Se rechaza con 422 si el campus está inactivo.
       operationId: reactivar_3
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2428,8 +2246,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/open-zones/{id}/deactivate:
     patch:
       tags:
@@ -2440,6 +2256,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2468,8 +2285,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/floors/{id}/reactivate:
     patch:
       tags:
@@ -2481,6 +2296,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2509,8 +2325,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/floors/{id}/deactivate:
     patch:
       tags:
@@ -2521,6 +2335,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2549,8 +2364,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/exits/{id}/reactivate:
     patch:
       tags:
@@ -2561,6 +2374,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2589,8 +2403,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/exits/{id}/deactivate:
     patch:
       tags:
@@ -2602,6 +2414,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2630,12 +2443,10 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/evacuation-routes/{id}/status:
     patch:
       tags:
-      - Rutas de evacuaci├│n
+      - Rutas de evacuación
       summary: Cambiar estado de una ruta
       description: ADMIN o COORDINADOR. BLOQUEADA y RESTRINGIDA exigen motivo; al
         pasar a DISPONIBLE el motivo se borra. DISPONIBLE y RESTRINGIDA exigen espacio
@@ -2644,6 +2455,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2677,7 +2489,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
-          description: El espacio de origen o la zona segura de destino no est├í habilitado
+          description: El espacio de origen o la zona segura de destino no está habilitado
             para el estado solicitado.
           headers:
             X-Correlation-ID:
@@ -2689,9 +2501,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route_status:write
-      x-roles:
-      - COORDINADOR
-      - ADMIN
   /api/v1/campuses/{id}/reactivate:
     patch:
       tags:
@@ -2703,6 +2512,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2731,8 +2541,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/campuses/{id}/deactivate:
     patch:
       tags:
@@ -2744,6 +2552,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2772,8 +2581,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{id}/reactivate:
     patch:
       tags:
@@ -2785,6 +2592,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2813,8 +2621,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/buildings/{id}/deactivate:
     patch:
       tags:
@@ -2826,6 +2632,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2854,8 +2661,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/stairs/{id}:
     get:
       tags:
@@ -2865,6 +2670,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -2893,27 +2699,19 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
   /api/v1/spaces/{spaceId}/evacuation-route:
     get:
       tags:
       - Consulta de rutas
       summary: Ruta de un espacio
       description: "Cualquier rol. Devuelve la ruta con su estado y motivo, o el aviso\
-        \ de que el espacio no tiene ruta. 422 si el espacio est├í inactivo o no est├í\
-        \ disponible, o si su edificio est├í inactivo."
+        \ de que el espacio no tiene ruta. 422 si el espacio está inactivo o no está\
+        \ disponible, o si su edificio está inactivo."
       operationId: porEspacio
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: spaceId
         in: path
@@ -2941,7 +2739,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
-          description: "El espacio est├í inactivo o no disponible, o el edificio est├í\
+          description: "El espacio está inactivo o no disponible, o el edificio está\
             \ inactivo."
           headers:
             X-Correlation-ID:
@@ -2953,25 +2751,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
   /api/v1/spaces/{id}/qr:
     get:
       tags:
-      - C├│digos QR
+      - Códigos QR
       summary: QR de un espacio
-      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/espacios/{id}."
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla pública #/qr/espacios/{id}."
       operationId: espacio
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -3000,19 +2790,18 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:qr:manage
   /api/v1/safe-zones/{id}/qr:
     get:
       tags:
-      - C├│digos QR
+      - Códigos QR
       summary: QR de una zona segura
-      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/zonas/{id}."
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla pública #/qr/zonas/{id}."
       operationId: zonaSegura
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -3041,16 +2830,14 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:safe_zone:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:qr:manage
   /api/v1/public/spaces:
     get:
       tags:
-      - Consulta p├║blica
+      - Consulta pública
       summary: Consultar un espacio por su QR
-      description: "Sin sesi├│n. Edificio, piso y la evacuaci├│n recomendada; si el\
-        \ espacio no est├í disponible devuelve un aviso."
+      description: "Sin sesión. Edificio, piso y la evacuación recomendada; si el\
+        \ espacio no está disponible devuelve un aviso."
       operationId: espacio_1
       parameters:
       - $ref: "#/components/parameters/XCorrelationId"
@@ -3077,9 +2864,9 @@ paths:
   /api/v1/public/safe-zones:
     get:
       tags:
-      - Consulta p├║blica
+      - Consulta pública
       summary: Consultar una zona segura por su QR
-      description: "Sin sesi├│n. Ubicaci├│n, coordenadas y si es punto de encuentro."
+      description: "Sin sesión. Ubicación, coordenadas y si es punto de encuentro."
       operationId: zonaSegura_1
       parameters:
       - $ref: "#/components/parameters/XCorrelationId"
@@ -3106,9 +2893,9 @@ paths:
   /api/v1/public/exits:
     get:
       tags:
-      - Consulta p├║blica
+      - Consulta pública
       summary: Consultar una salida por su QR
-      description: "Sin sesi├│n. Edificio, piso y coordenadas de la salida."
+      description: "Sin sesión. Edificio, piso y coordenadas de la salida."
       operationId: salida
       parameters:
       - $ref: "#/components/parameters/XCorrelationId"
@@ -3142,6 +2929,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: type
         in: path
@@ -3176,16 +2964,7 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
+      x-permiso: ms02:preventive_info:read
   /api/v1/preventive-recommendations/building/{buildingId}:
     get:
       tags:
@@ -3196,6 +2975,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: buildingId
         in: path
@@ -3225,25 +3005,17 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
+      x-permiso: ms02:preventive_info:read
   /api/v1/images/{id}:
     get:
       tags:
-      - Im├ígenes
+      - Imágenes
       summary: Consultar archivo de imagen
       operationId: obtener_9
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -3273,23 +3045,15 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
     delete:
       tags:
-      - Im├ígenes
+      - Imágenes
       summary: Eliminar imagen
       operationId: eliminar
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -3318,18 +3082,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
   /api/v1/exits/{id}/qr:
     get:
       tags:
-      - C├│digos QR
+      - Códigos QR
       summary: QR de una salida
-      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla p├║blica #/qr/salidas/{id}."
+      description: "Solo ADMIN. Imagen PNG con el enlace a la pantalla pública #/qr/salidas/{id}."
       operationId: salida_1
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: id
         in: path
@@ -3358,20 +3121,19 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
-      x-permiso: ms02:building:write
-      x-roles:
-      - ADMIN
+      x-permiso: ms02:qr:manage
   /api/v1/exits/{exitId}/evacuation-route:
     get:
       tags:
       - Rutas exteriores
       summary: Rutas exteriores de una salida
-      description: "Cualquier rol. Devuelve los ├║ltimos recorridos guardados desde\
+      description: "Cualquier rol. Devuelve los últimos recorridos guardados desde\
         \ la salida, sin llamar al proveedor."
       operationId: porSalida
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: exitId
         in: path
@@ -3403,15 +3165,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
   /api/v1/buildings/{edificioId}/spaces:
     get:
       tags:
@@ -3423,6 +3176,7 @@ paths:
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: edificioId
         in: path
@@ -3459,27 +3213,19 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:campus:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
   /api/v1/buildings/{buildingId}/evacuation-routes:
     get:
       tags:
       - Consulta de rutas
       summary: Rutas de un edificio
       description: "Cualquier rol. Lista los espacios activos y disponibles del edificio,\
-        \ cada uno con su ruta o el aviso de que no tiene. 422 si el edificio est├í\
+        \ cada uno con su ruta o el aviso de que no tiene. 422 si el edificio está\
         \ inactivo."
       operationId: porEdificio_1
       parameters:
       - $ref: "#/components/parameters/XUserId"
       - $ref: "#/components/parameters/XUserRole"
+      - $ref: "#/components/parameters/XUserPermission"
       - $ref: "#/components/parameters/XCorrelationId"
       - name: buildingId
         in: path
@@ -3509,7 +3255,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
         "422":
-          description: El edificio consultado est├í inactivo.
+          description: El edificio consultado está inactivo.
           headers:
             X-Correlation-ID:
               $ref: "#/components/headers/XCorrelationID"
@@ -3520,15 +3266,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       x-permiso: ms02:route:read
-      x-roles:
-      - ESTUDIANTE
-      - PROFESOR
-      - ADMINISTRATIVO
-      - BRIGADISTA
-      - COORDINADOR
-      - ORGANIZADOR
-      - ADMIN
-      - AUDITOR
 components:
   schemas:
     CampoError:
@@ -4546,7 +4283,7 @@ components:
           type: boolean
   responses:
     BadRequest:
-      description: "Validaci├│n fallida: indica el campo y la regla."
+      description: "Validación fallida: indica el campo y la regla."
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/XCorrelationID"
@@ -4557,13 +4294,13 @@ components:
           example:
             status: 400
             codigo: VALIDACION
-            mensaje: Datos inv├ílidos.
+            mensaje: Datos inválidos.
             errores:
             - campo: nombre
               mensaje: El nombre es obligatorio.
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     Unauthorized:
-      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role / X-User-Permission).
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/XCorrelationID"
@@ -4578,7 +4315,8 @@ components:
             errores: []
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     Forbidden:
-      description: X-User-Role no incluye ning├║n rol de x-roles.
+      description: X-User-Permission no incluye el permiso que exige la operación
+        (x-permiso).
       headers:
         X-Correlation-ID:
           $ref: "#/components/headers/XCorrelationID"
@@ -4589,7 +4327,7 @@ components:
           example:
             status: 403
             codigo: PROHIBIDO
-            mensaje: No tiene permiso para realizar esta acci├│n.
+            mensaje: No tiene permiso para realizar esta acción.
             errores: []
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
     NotFound:
@@ -4619,7 +4357,7 @@ components:
           example:
             status: 500
             codigo: ERROR_INTERNO
-            mensaje: Ocurri├│ un error inesperado. Intente de nuevo m├ís tarde.
+            mensaje: Ocurrió un error inesperado. Intente de nuevo más tarde.
             errores: []
             correlation_id: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
   parameters:
@@ -4634,23 +4372,33 @@ components:
     XUserRole:
       name: X-User-Role
       in: header
-      description: Roles del usuario autenticado separados por coma. Lo pone el API
-        Gateway.
+      description: "Roles del usuario autenticado separados por coma. Es informativa:\
+        \ para autorizar se usa `X-User-Permission`."
       required: true
       schema:
         type: string
         example: "ESTUDIANTE,BRIGADISTA"
+    XUserPermission:
+      name: X-User-Permission
+      in: header
+      description: "Permisos efectivos del usuario separados por coma y sin espacios:\
+        \ la union de los permisos de todos sus roles. Lo pone el API Gateway y MS02\
+        \ autoriza con esta cabecera (ver `x-permiso`)."
+      required: true
+      schema:
+        type: string
+        example: "ms02:campus:read,ms02:route:read"
     XCorrelationId:
       name: X-Correlation-ID
       in: header
-      description: Identificador de trazabilidad de la petici├│n (UUID v4).
+      description: Identificador de trazabilidad de la petición (UUID v4).
       required: false
       schema:
         type: string
         example: 7b0c8f2e-3c1d-4f5a-9e6b-1a2b3c4d5e6f
   headers:
     XCorrelationID:
-      description: "UUID v4 que enlaza logs y eventos de auditor├¡a. Si no llega, MS02\
+      description: "UUID v4 que enlaza logs y eventos de auditoría. Si no llega, MS02\
         \ lo genera."
       schema:
         type: string

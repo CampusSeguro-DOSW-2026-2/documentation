@@ -1,0 +1,54 @@
+@startuml ms02_c4_3_componentes
+title MS02 Campus y seguridad · C4 nivel 3 · Componentes
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+left to right direction
+
+actor "Usuario\n(cualquier rol)" as usuario
+actor "Persona que\nescanea un QR" as publico
+rectangle "Frontend React" as front
+rectangle "API Gateway\n(valida el JWT de MS01)" as gw
+rectangle "MS04 · MS06\n(consultan el catálogo)" as otros
+
+rectangle "MS02 · ms02-campus-and-security (Spring Boot)" as ms02 {
+  component "CorrelationIdFilter\nX-Correlation-ID en cada log" as corr
+  component "HeaderAuthenticationFilter + SecurityConfig\nX-User-Id, X-User-Role, X-User-Permission\n/api/v1/public/** sin sesión (solo GET)" as seg
+  component "Controladores REST\nCampus, Edificios, Pisos, Espacios, Salidas,\nEscaleras, Zonas seguras, Recomendaciones,\nImágenes, QR, Consulta pública" as ctrl
+  component "Controladores de rutas\nRutas, Rutas exteriores, Consulta de rutas" as ctrlRuta
+  component "Servicios del campus\n(reglas de estado, validaciones,\ndisponibilidad)" as svc
+  component "Módulo de rutas\nRutaService, ConsultaRutaService (guía),\nRutaExteriorService, GeneradorRutasExteriores\n+ RutasAutoListener (asíncrono)" as ruta
+  component "Puertos del módulo de rutas\nEdificioGateway, EspacioGateway, SalidaGateway,\nEscaleraGateway, ZonaSeguraGateway, VerificadorRutas" as puertos
+  component "ProveedorNavegacion\n(OsmProveedorNavegacion)" as nav
+  component "CodigoQrService\n(PNG con el enlace del front)" as qr
+  component "AlmacenamientoImagenLocal" as storage
+  component "Repositorios Spring Data JPA" as repo
+  component "ManejadorGlobalErrores\n(ErrorResponse de los Estándares)" as err
+}
+
+database "PostgreSQL\n(esquema Flyway V1–V17)" as db
+storage "Volumen de imágenes" as vol
+cloud "OSRM peatonal\n(OpenStreetMap)" as osrm
+
+usuario --> front
+publico --> front : abre #/qr/{tipo}/{id}
+front --> gw : HTTPS
+otros --> gw
+gw --> corr : HTTPS + mTLS\ncabeceras de identidad
+corr --> seg
+seg --> ctrl
+seg --> ctrlRuta
+ctrl --> svc
+ctrl --> qr
+ctrlRuta --> ruta
+svc --> repo
+svc --> storage
+svc ..> ruta : eventos de cambio\nde salida o zona
+ruta --> puertos
+puertos --> repo
+ruta --> nav
+nav --> osrm : HTTP
+repo --> db : JDBC
+storage --> vol
+ctrl ..> err
+ctrlRuta ..> err
+@enduml
