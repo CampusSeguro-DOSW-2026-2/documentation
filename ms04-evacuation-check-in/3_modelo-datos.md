@@ -42,7 +42,7 @@ Base de datos PostgreSQL propia de MS04 ([RNF-MS04-08](1_requirements.md#requeri
 * `eventos.id` es el `eventoId` (UUID) que asigna MS06 ([RN-MS04-01](1_requirements.md#rn-ms04-01)): MS04 no lo genera. Dentro de esta base sí es llave foránea de `checkins` y `solicitudes_asistencia`.
 * Identificadores externos, que no son llaves foráneas porque viven en otro microservicio:
   * `usuario_id`: UUID del usuario en MS01 (`X-User-Id`).
-  * `punto_encuentro_id`, `ubicacion_id`: `BIGINT`, id de MS02.
+  * `punto_encuentro_id`, `ubicacion_id`: `UUID`, id de MS02.
   * `solicitud_ms05_id`: id devuelto por MS05.
 * Los roles convocados y el escenario son listas de texto (`VARCHAR[]` de PostgreSQL), porque MS04 solo los guarda y los devuelve completos; nunca se filtra por un elemento de ellas, salvo los roles convocados al calcular a quién le aplica un evento.
 * Los estados del evento, los estados del check-in, el tipo de ubicación y el estado de envío se guardan como texto con `@Enumerated(EnumType.STRING)` (nunca `ORDINAL`) y la base de datos los valida con un `CHECK`. Cambiar un catálogo exige actualizar el enum y el `CHECK` en la misma migración y Pull Request.
@@ -85,9 +85,9 @@ Una fila por cada estado reportado por un usuario en un evento. Solo admite INSE
 | `evento_id` | UUID | No | — | FK → `eventos.id` | Evento al que pertenece el reporte. |
 | `usuario_id` | UUID | No | — | — | Usuario que reporta (`X-User-Id`). No es única: un usuario puede tener varios check-ins en el mismo evento. |
 | `estado` | VARCHAR(20) | No | — | CHECK IN (`SAFE`, `EVACUATING`, `NEEDS_ASSISTANCE`, `OFF_CAMPUS`) | Estado reportado ([RN-MS04-03](1_requirements.md#rn-ms04-03)). |
-| `punto_encuentro_id` | BIGINT | Sí | NULL | CHECK: no nulo si y solo si `estado = 'SAFE'` | Punto de encuentro de MS02 ([RN-MS04-04](1_requirements.md#rn-ms04-04)). |
+| `punto_encuentro_id` | UUID | Sí | NULL | CHECK: no nulo si y solo si `estado = 'SAFE'` | Punto de encuentro de MS02 ([RN-MS04-04](1_requirements.md#rn-ms04-04)). |
 | `ubicacion_tipo` | VARCHAR(20) | Sí | NULL | CHECK IN (`EDIFICIO`, `ESPACIO`, `PUNTO_ENCUENTRO`); no nulo si y solo si `estado = 'NEEDS_ASSISTANCE'` | [RN-MS04-09](1_requirements.md#rn-ms04-09). |
-| `ubicacion_id` | BIGINT | Sí | NULL | No nulo si y solo si `ubicacion_tipo` no es nulo | Id de MS02 del tipo indicado. |
+| `ubicacion_id` | UUID | Sí | NULL | No nulo si y solo si `ubicacion_tipo` no es nulo | Id de MS02 del tipo indicado. |
 | `registrado_en` | TIMESTAMPTZ | No | `clock_timestamp()` | — | Fecha/hora real del reporte. Se usa `clock_timestamp()` y no `now()`, que devuelve la hora de inicio de la transacción. |
 
 **Índices:** PK `id`; único `numero`; `idx_checkins_vigente (evento_id, usuario_id, registrado_en DESC, numero DESC)` para obtener el check-in más reciente de cada usuario; `idx_checkins_evento_fecha (evento_id, registrado_en)` para el histórico y la lista de asistencia.
@@ -116,7 +116,7 @@ Solicitudes de asistencia generadas desde el check-in y su estado de envío a MS
 | `evento_id` | UUID | No | — | FK → `eventos.id`; UNIQUE (con `usuario_id`, `uq_solicitudes_evento_usuario`) | |
 | `usuario_id` | UUID | No | — | UNIQUE (con `evento_id`) | |
 | `ubicacion_tipo` | VARCHAR(20) | No | — | CHECK IN (`EDIFICIO`, `ESPACIO`, `PUNTO_ENCUENTRO`) | Ubicación enviada a MS05. |
-| `ubicacion_id` | BIGINT | No | — | — | |
+| `ubicacion_id` | UUID | No | — | — | |
 | `solicitud_ms05_id` | VARCHAR(64) | Sí | NULL | Obligatorio si `estado_envio = 'ENVIADA'` | Id devuelto por MS05 ([RN-MS04-10](1_requirements.md#rn-ms04-10)). |
 | `estado_envio` | VARCHAR(16) | No | `'PENDIENTE_ENVIO'` | CHECK IN (`ENVIADA`, `PENDIENTE_ENVIO`, `RECHAZADA`) | [RN-MS04-10](1_requirements.md#rn-ms04-10). |
 | `intentos` | INTEGER | No | `0` | ≥ 0 | Intentos de envío a MS05. |

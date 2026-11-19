@@ -24,7 +24,7 @@
 * **RG-05**: Se rechazan (HTTP 400) los campos que no corresponden al estado reportado: el punto de encuentro solo se envía con Estoy a salvo y la ubicación solo con Requiero asistencia (ver [Estados del check-in](1_requirements.md#estados-del-check-in)).
 * **RG-06**: Los errores de validación son HTTP 400 `VALIDACION`, siempre con el `ErrorResponse` de los Estándares; el campo y su mensaje van en `errores`.
 * **RG-07**: La identidad del solicitante (id y roles) nunca viaja en el cuerpo: llega en las cabeceras X-User-Id y X-User-Role (**RN-MS04-06**). En las rutas internas (F-05 y F-06) no hay usuario: llega el servicio en X-Service-Name (**RN-MS04-23**).
-* **RG-08**: Los ids de MS02 (punto de encuentro, edificio, espacio) son enteros positivos, igual que en el contrato de MS02.
+* **RG-08**: Los ids de MS02 (punto de encuentro, edificio, espacio) son UUID, igual que en el contrato de MS02.
 * **RG-09**: MS04 no tiene formularios de auditoría: su consulta pertenece a MS08 (**RNF-MS04-17**).
 * **RG-10**: F-05 y F-06 no son pantallas: son el contrato de entrada de las rutas internas que usa MS06. Sus mensajes de error son para quien integra, no para el usuario final, y se entregan en el `ErrorResponse` de los Estándares.
 
@@ -42,9 +42,9 @@ El mismo formulario registra el primer check-in y lo actualiza. Solo se puede en
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Estado | Selección única | Sí | `SAFE` / `EVACUATING` / `NEEDS_ASSISTANCE` / `OFF_CAMPUS` | Se muestran siempre las 4 opciones con su texto: Estoy a salvo, Me estoy evacuando, Requiero asistencia, No estoy en el campus. Se envía el código (**RN-MS04-03**). | "Seleccione un estado válido." | SAFE |
-| Punto de encuentro | Selección (puntos de encuentro de MS02) | Solo si el estado es Estoy a salvo | Entero positivo | Debe existir y estar ACTIVO en MS02 (**RN-MS04-04**). No se envía con otros estados (RG-05). | Falta (400): "Seleccione el punto de encuentro donde está." Inexistente (404): "Punto de encuentro no encontrado." Inactivo (422): "El punto de encuentro no está activo." Con otro estado (400): "El punto de encuentro solo aplica a Estoy a salvo." | 3 |
+| Punto de encuentro | Selección (puntos de encuentro de MS02) | Solo si el estado es Estoy a salvo | UUID | Debe existir y estar ACTIVO en MS02 (**RN-MS04-04**). No se envía con otros estados (RG-05). | Falta (400): "Seleccione el punto de encuentro donde está." Inexistente (404): "Punto de encuentro no encontrado." Inactivo (422): "El punto de encuentro no está activo." Con otro estado (400): "El punto de encuentro solo aplica a Estoy a salvo." | 3fa85f64-5717-4562-b3fc-2c963f66afa6 |
 | Tipo de ubicación | Selección única | Solo si el estado es Requiero asistencia | `EDIFICIO` / `ESPACIO` / `PUNTO_ENCUENTRO` | Solo valores del catálogo (**RN-MS04-09**). No se envía con otros estados (RG-05). | Falta (400): "Indique dónde necesita la asistencia." Con otro estado (400): "La ubicación solo aplica a Requiero asistencia." | EDIFICIO |
-| Ubicación | Selección (elementos de MS02 del tipo elegido) | Solo si el estado es Requiero asistencia | Entero positivo | Debe corresponder al tipo elegido. Su existencia la valida MS05 al crear la solicitud (**RF-MS04-04**, A4). | Falta (400): "Seleccione el lugar donde necesita la asistencia." | 12 |
+| Ubicación | Selección (elementos de MS02 del tipo elegido) | Solo si el estado es Requiero asistencia | UUID | Debe corresponder al tipo elegido. Su existencia la valida MS05 al crear la solicitud (**RF-MS04-04**, A4). | Falta (400): "Seleccione el lugar donde necesita la asistencia." | 9b2e4c71-0d3a-4f6e-8c15-7a1b2d3e4f50 |
 
 **Mensajes globales de formulario:**
 * Evento que no está en ejecución, ya sea programado, en borrador o finalizado (409): "El check-in de este evento no está habilitado."
@@ -66,7 +66,7 @@ Referencia: **RF-MS04-06** (`GET /{eventoId}/personas`)
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|
 | Estado | Lista | No | Uno de los 4 estados / Todos | Solo valores del catálogo (**RN-MS04-03**). Omitir equivale a Todos. | "Estado no válido." | SAFE |
-| Punto de encuentro | Lista (puntos de encuentro de MS02) | No | Entero positivo | Solo con el estado Estoy a salvo o sin estado (en ese caso se aplica Estoy a salvo). | Formato: "Punto de encuentro no válido." Con otro estado (400): "El punto de encuentro solo aplica a Estoy a salvo." | 3 |
+| Punto de encuentro | Lista (puntos de encuentro de MS02) | No | UUID | Solo con el estado Estoy a salvo o sin estado (en ese caso se aplica Estoy a salvo). | Formato: "Punto de encuentro no válido." Con otro estado (400): "El punto de encuentro solo aplica a Estoy a salvo." | 3fa85f64-5717-4562-b3fc-2c963f66afa6 |
 | Página | Número entero | No | ≥ 0 (por defecto 0) | Entero no negativo. | "Página no válida." | 0 |
 | Tamaño de página | Número entero | No | 1 a 100 (por defecto 20) | Entero en el rango. | "Tamaño de página no válido (1 a 100)." | 20 |
 
@@ -88,7 +88,7 @@ Referencia: **RF-MS04-07**, **RF-MS04-08**
 * Lista de asistencia vacía: "Nadie ha reportado Requiero asistencia en este evento."
 * Solicitud PENDIENTE_ENVIO o RECHAZADA (solo COORDINADOR): "Esta solicitud no llegó a Brigadistas e Incidentes. Regístrela manualmente."
 * Pendientes para un BRIGADISTA: la lista llega siempre vacía, porque los pendientes no tienen ubicación conocida (**RN-MS04-14**).
-* Persona sin nombre porque MS01 no respondió: se muestra solo su id de usuario (**RN-MS04-25**).
+* Persona sin nombre ni correo porque MS01 no respondió: se muestra solo su id de usuario (**RN-MS04-25**).
 
 *Mockup F-03: (espacio reservado para insertar imagen de los listados)*
 
