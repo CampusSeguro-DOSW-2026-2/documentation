@@ -82,9 +82,9 @@ JWT (RFC 7519) firmado con RS256 y una llave RSA de al menos 2048 bits.
 
 Como todo rol tiene siempre `ms01:profile:read` y `ms01:session:logout` ([RN-MS01-41](1_requirements.md#rf-ms01-10-administración-de-roles-y-catálogo-de-permisos)), todo token los incluye.
 
-Ejemplo: un usuario con `PROFESOR` (19 permisos: los 18 de `ESTUDIANTE` más `ms03:alert:manage`) y `AUDITOR` (20 permisos, 10 de ellos compartidos con `ESTUDIANTE`) recibe 29 permisos: los 19 de `PROFESOR` más los 10 propios de `AUDITOR` (`ms01:user:read`, `ms04:dashboard:read`, `ms04:history:read`, `ms05:incident:read`, `ms06:drill:read`, `ms06:drill:compare_report`, `ms06:real_event:read`, `ms06:real_event:compare_report`, `ms08:indicators:read` y `ms08:audit:read`).
+Ejemplo: un usuario con `PROFESOR` (19 permisos: los 18 de `ESTUDIANTE` más `ms03:alert:manage`) y `AUDITOR` (22 permisos, 10 de ellos compartidos con `ESTUDIANTE`) recibe 31 permisos: los 19 de `PROFESOR` más los 12 propios de `AUDITOR` (`ms01:user:read`, `ms04:dashboard:read`, `ms04:history:read`, `ms05:incident:read`, `ms06:drill:compare_report`, `ms06:drill:read`, `ms06:real_event:compare_report`, `ms06:real_event:read`, `ms08:audit_drill:read`, `ms08:audit_real_event:read`, `ms08:indicators_drill:read` y `ms08:indicators_real_event:read`).
 
-**Tamaño:** cada código pesa en promedio unos 21 bytes con su coma. El catálogo completo (56 permisos) ocupa cerca de 1,2 KB en la cabecera `X-User-Permission` y alrededor de 1,7 KB más en el JWT. Los límites habituales de cabeceras (8 KB) no se alcanzan con esos valores (aproximación, no medida).
+**Tamaño:** cada código pesa en promedio unos 21 bytes con su coma. El catálogo completo (58 permisos) ocupa cerca de 1,2 KB en la cabecera `X-User-Permission` y alrededor de 1,8 KB más en el JWT. Los límites habituales de cabeceras (8 KB) no se alcanzan con esos valores (aproximación, no medida).
 
 ---
 
