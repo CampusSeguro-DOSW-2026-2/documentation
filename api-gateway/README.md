@@ -10,7 +10,10 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 | [contracts.md](contracts.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios, configuración y aislamiento en la nube. |
 | [quality-and-tests.md](quality-and-tests.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…19. |
 | [api/openapi.yml](api/openapi.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. Estándar para que el frontend y los MS llamen al GW. |
-| [diagrams/gw-c4-3-components.drawio.svg](diagrams/gw-c4-3-components.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, sus componentes de apoyo y los puertos `:8080`, `:9090` y `MSnn_URI`. Se edita abriendo el `.drawio.svg` en draw.io. |
+| [diagrams/gw-c4-3-components.drawio.svg](diagrams/gw-c4-3-components.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, los componentes que requiere cada filtro, la consulta periódica de los cortes de sesión a MS01 y la salida con mTLS a MS01…MS08. |
+| [diagrams/gw-deployment-azure.drawio.svg](diagrams/gw-deployment-azure.drawio.svg) | Despliegue: VM del GW en Azure con NSG, Caddy de borde con Let's Encrypt, stacks `gw-prod` y `gw-test` con su certificado de cliente, y la salida con mTLS a la VM de cada MS. |
+| [diagrams/gw-classes.puml](diagrams/gw-classes.puml) · [SVG](diagrams/gw-classes.svg) | Clases (UML): tabla de rutas, políticas de acceso, identidad del usuario y del servicio llamante, cortes de sesión y errores propios. |
+| Edición de los diagramas | Los `.drawio.svg` se abren y se editan en [draw.io](https://app.diagrams.net/); el `.svg` de clases se genera desde su `.puml` con PlantUML. |
 | [Estándares de integración](../integration/standards.md) | Valores y contratos compartidos con todos los squads. Es la fuente de verdad. |
 | [Matriz de roles y permisos](../integration/permissions-matrix.md) | Asignación inicial de permisos por rol. El GW no la aplica: cada MS autoriza con `X-User-Permission`. |
 | [Conexión al API Gateway](../integration/gateway-connection.md) | Guía para que un squad conecte su microservicio en la nube. |
