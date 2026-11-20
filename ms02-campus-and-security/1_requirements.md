@@ -1,6 +1,6 @@
 # Requerimientos — MS02 Campus y seguridad
 
-Los valores transversales (cabeceras, errores, correlación, llamadas internas) se rigen por los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales) y los permisos por la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). Este documento solo define el comportamiento de MS02.
+Los valores transversales (cabeceras, errores, correlación, llamadas internas) se rigen por los [Estándares de Integración](../integration/standards.md) y los permisos por la [matriz de roles y permisos](../integration/permissions-matrix.md). Este documento solo define el comportamiento de MS02. Los endpoints, con el permiso de cada uno, están en [`api/openapi.yml`](api/openapi.yml).
 
 ## Índice de Contenido
 1. [Alcance](#alcance)
@@ -23,9 +23,6 @@ Los valores transversales (cabeceras, errores, correlación, llamadas internas) 
    - [RF-MS02-15 Generar códigos QR](#rf-ms02-15)
    - [RF-MS02-16 Consultar información por QR sin sesión](#rf-ms02-16)
 4. [Requerimientos No Funcionales (RNF)](#requerimientos-no-funcionales-rnf)
-5. [Dependencias y decisiones abiertas](#dependencias-y-decisiones-abiertas)
-6. [API: ms02-campus-and-security](#api-ms02-campus-and-security)
-7. [Historial](#historial)
 
 ---
 
@@ -40,6 +37,8 @@ La evacuación tiene dos partes independientes:
 2. **Fuera del edificio:** desde la salida hasta una zona segura, a pie, calculada con OpenStreetMap ([RF-MS02-13](#rf-ms02-13)).
 
 **Fuera del alcance:** el reporte del estado de las personas y la consolidación por punto de encuentro (MS04), las alertas (MS03), las brigadas e incidentes (MS05), los simulacros (MS06), los contenidos de capacitación (MS07) y la auditoría (MS08).
+
+**Dependencias:** MS02 no llama a otros microservicios del proyecto. Su única dependencia externa es el servicio de ruteo peatonal de OpenStreetMap (OSRM), que solo se usa al generar rutas exteriores ([RNF-MS02-06](#requerimientos-no-funcionales-rnf)).
 
 ---
 
@@ -135,9 +134,9 @@ La evacuación tiene dos partes independientes:
 | **Nombre** | Gestionar zonas seguras y puntos de encuentro |
 | **Épica / Grupo funcional** | MS02 - Evacuación |
 | **Descripción** | Permitir al administrador registrar, modificar e inactivar zonas seguras, con código, nombre, ubicación, descripción, capacidad aproximada y, opcionalmente, coordenadas y zona abierta. Una zona segura puede marcarse como punto de encuentro. |
-| **Actor(es)** | ADMIN (`ms02:safe_zone:write`) |
+| **Actor(es)** | ADMIN para gestionar (`ms02:safe_zone:write`); todos los roles para consultar (`ms02:campus:read`) |
 | **Precondiciones** | Para modificar o inactivar, la zona existe. |
-| **Flujo base** | **Registrar:** el administrador envía los datos ([F-08](2_forms-inputs.md#f-08)). El sistema valida que el código sea único, que la capacidad sea mayor que cero y, si se indica, que la zona abierta esté activa. Guarda la zona `ACTIVO` con `puntoEncuentro = true` si no se envía.<br>**Modificar:** cambia todo menos el código. Coordenadas, zona abierta y `puntoEncuentro` solo cambian si se envían. Si cambian las coordenadas se recalculan sus rutas exteriores ([RF-MS02-13](#rf-ms02-13)).<br>**Inactivar:** el sistema verifica que la zona no sea destino de rutas activas y la inactiva. |
+| **Flujo base** | **Registrar:** el administrador envía los datos ([F-08](2_forms-inputs.md#f-08)). El sistema valida que el código sea único, que la capacidad sea mayor que cero y, si se indica, que la zona abierta esté activa. Guarda la zona `ACTIVO` con `puntoEncuentro = true` si no se envía.<br>**Modificar:** cambia todo menos el código. Coordenadas, zona abierta y `puntoEncuentro` solo cambian si se envían. Si cambian las coordenadas se recalculan sus rutas exteriores ([RF-MS02-13](#rf-ms02-13)).<br>**Inactivar:** el sistema verifica que la zona no sea destino de rutas activas y la inactiva.<br>**Consultar:** los usuarios con `ms02:campus:read` ven las zonas seguras activas, con los puntos de encuentro primero, y de cada una su ubicación, capacidad, fotografías y un enlace al mapa cuando tiene coordenadas (pantalla `#/zonas-seguras`). Las zonas inactivas no se muestran. |
 | **Flujos alternos / excepciones** | <ul><li>**A1, código repetido:** 409 `CONFLICTO` con el campo `codigo`.</li><li>**A2, solo latitud o solo longitud:** 422 («La latitud y la longitud deben enviarse juntas»).</li><li>**A3, zona abierta inactiva:** 422.</li><li>**A4, la zona es destino de rutas activas:** 422; deben bloquearse o cambiar de destino antes.</li></ul> |
 | **Reglas De Negocio** | <ul><li><a id="rn-ms02-09"></a>**RN-MS02-09:** El código de una zona segura es único, incluso entre zonas inactivas, y no cambia después de creado. MS04 lo muestra como identificador del punto de encuentro.</li><li><a id="rn-ms02-10"></a>**RN-MS02-10:** Una zona segura que es destino de una ruta activa no se inactiva.</li><li><a id="rn-ms02-11"></a>**RN-MS02-11:** Latitud y longitud se envían juntas o no se envían. Una zona sin coordenadas no puede ser destino de una ruta exterior.</li><li><a id="rn-ms02-12"></a>**RN-MS02-12:** No existe la entidad punto de encuentro: es una zona segura con `puntoEncuentro = true`. Una zona abierta no es zona segura salvo que el administrador la registre como tal.</li></ul> |
 | **Postcondiciones** | La zona queda registrada, modificada o inactiva. |
@@ -225,7 +224,7 @@ La evacuación tiene dos partes independientes:
 | **Descripción** | Permitir al administrador registrar, modificar e inactivar recomendaciones preventivas asociadas a un edificio o a un tipo de espacio, y a los usuarios consultarlas. |
 | **Actor(es)** | ADMIN para gestionar (`ms02:building:write`); todos los roles para consultar (`ms02:preventive_info:read`) |
 | **Precondiciones** | Para el ámbito `EDIFICIO`, el edificio existe. |
-| **Flujo base** | <ol><li>El administrador envía ámbito, edificio o tipo de espacio, título y recomendación.</li><li>El sistema valida que el ámbito tenga su dato y solo ese.</li><li>Guarda la recomendación `ACTIVO`.</li><li>El usuario las consulta por edificio o por tipo de espacio; también llegan con la consulta de rutas ([RF-MS02-06](#rf-ms02-06)).</li></ol> |
+| **Flujo base** | <ol><li>El administrador envía ámbito, edificio o tipo de espacio, título y recomendación.</li><li>El sistema valida que el ámbito tenga su dato y solo ese.</li><li>Guarda la recomendación `ACTIVO`.</li><li>El usuario las consulta por edificio o por tipo de espacio (pantalla `#/preventiva`, con `ms02:preventive_info:read`); también llegan con la consulta de rutas ([RF-MS02-06](#rf-ms02-06)).</li></ol> |
 | **Flujos alternos / excepciones** | <ul><li>**A1, ámbito `EDIFICIO` sin edificio o con tipo de espacio (o al revés):** 400.</li><li>**A2, recomendación inexistente:** 404.</li></ul> |
 | **Reglas De Negocio** | <ul><li><a id="rn-ms02-23"></a>**RN-MS02-23:** Cada recomendación aplica a un edificio o a un tipo de espacio, nunca a ambos.</li><li><a id="rn-ms02-24"></a>**RN-MS02-24:** Las recomendaciones no se eliminan, solo se inactivan. Una inactiva no se muestra.</li></ul> |
 | **Postcondiciones** | La recomendación queda registrada, modificada o inactiva. |
@@ -357,12 +356,12 @@ La evacuación tiene dos partes independientes:
 | **Descripción** | Permitir al administrador subir y eliminar fotografías de edificios, espacios, salidas y zonas seguras, y a los usuarios verlas. |
 | **Actor(es)** | ADMIN (`ms02:building:write`); todos los roles para ver (`ms02:campus:read`) |
 | **Precondiciones** | El elemento existe y está activo. |
-| **Flujo base** | <ol><li>El administrador sube el archivo con el tipo y el id del elemento.</li><li>El sistema valida el formato y el tamaño y que el elemento esté activo.</li><li>Guarda el archivo en disco y sus datos en la base de datos.</li></ol> |
-| **Flujos alternos / excepciones** | <ul><li>**A1, formato distinto de JPEG, PNG o WEBP o archivo vacío:** 422 `REGLA_NEGOCIO`. Si se supera el límite de carga multipart de 5 MB, Spring puede rechazar la solicitud antes de llegar al controlador y responder 500 `ERROR_INTERNO`.</li><li>**A2, faltan `tipoElemento` o `elementoId`:** 400 `VALIDACION`.</li><li>**A3, elemento inexistente:** 404 `NO_ENCONTRADO`.</li><li>**A4, elemento inactivo:** 422 `REGLA_NEGOCIO`.</li><li>**A5, imagen inexistente:** 404.</li></ul> |
-| **Reglas De Negocio** | <ul><li><a id="rn-ms02-35"></a>**RN-MS02-35:** Los archivos se guardan fuera de PostgreSQL, en un volumen; la base guarda nombre, tipo, tamaño, ruta y elemento.</li><li><a id="rn-ms02-36"></a>**RN-MS02-36:** Las imágenes sí se eliminan (archivo y registro).</li></ul> |
+| **Flujo base** | <ol><li>El administrador sube el archivo con el tipo y el id del elemento.</li><li>El sistema valida el formato y el tamaño y que el elemento esté activo.</li><li>Guarda el archivo en el almacenamiento configurado ([RN-MS02-35](#rn-ms02-35)) y sus datos en la base de datos.</li></ol> |
+| **Flujos alternos / excepciones** | <ul><li>**A1, formato distinto de JPEG, PNG o WEBP o archivo vacío:** 422 `REGLA_NEGOCIO`. Si se supera el límite de carga multipart de 5 MB, Spring puede rechazar la solicitud antes de llegar al controlador y responder 500 `ERROR_INTERNO`.</li><li>**A2, faltan `tipoElemento` o `elementoId`:** 400 `VALIDACION`.</li><li>**A3, elemento inexistente:** 404 `NO_ENCONTRADO`.</li><li>**A4, elemento inactivo:** 422 `REGLA_NEGOCIO`.</li><li>**A5, imagen inexistente:** 404.</li><li>**A6, falla el almacenamiento de archivos:** 500. Al subir, no se crea el registro de la imagen.</li></ul> |
+| **Reglas De Negocio** | <ul><li><a id="rn-ms02-35"></a>**RN-MS02-35:** Los archivos se guardan fuera de PostgreSQL, en un volumen del contenedor o en Azure Blob Storage según la configuración; la base guarda nombre, tipo, tamaño, ruta y elemento.</li><li><a id="rn-ms02-36"></a>**RN-MS02-36:** Las imágenes sí se eliminan (archivo y registro).</li><li><a id="rn-ms02-41"></a>**RN-MS02-41:** El almacenamiento se elige con `IMAGEN_STORAGE_TYPE`: `local` (por defecto) o `azure`. Con `azure`, cada entorno usa su propio contenedor (`AZURE_STORAGE_CONTAINER`) y la cadena de conexión es un secreto del despliegue. La ruta guardada en la base (`imagenes/{uuid}.{ext}`) es también el nombre del blob, y `GET /images/{id}` no cambia.</li></ul> |
 | **Postcondiciones** | La imagen queda asociada al elemento, o eliminada. |
 | **Requerimientos asociados** | [RF-MS02-09](#rf-ms02-09) |
-| **Criterios de aceptación** | <ul><li>Subir un PDF devuelve 422.</li><li>Tras subir una foto de un espacio, el espacio responde `tieneFotografia: true`.</li></ul> |
+| **Criterios de aceptación** | <ul><li>Subir un PDF devuelve 422.</li><li>Tras subir una foto de un espacio, el espacio responde `tieneFotografia: true`.</li><li>Con `IMAGEN_STORAGE_TYPE=azure`, la foto subida queda como blob del contenedor del entorno y `GET /images/{id}` la devuelve igual que con `local`.</li></ul> |
 | **Prioridad** | Media |
 | **Estado / Squad responsable** | Implementado / Gaia |
 
@@ -418,98 +417,12 @@ La evacuación tiene dos partes independientes:
 | ID | Requerimiento |
 |---|---|
 | **RNF-MS02-01** | Aplicación Spring Boot independiente (Java 21, Maven) con Spring Data JPA y base de datos PostgreSQL propia. El esquema se versiona con Flyway (`ddl-auto=validate`). Ningún otro servicio accede a la base. |
-| **RNF-MS02-02** | Todos los endpoints están bajo `/api/v1/` y documentados con OpenAPI 3 (`/v3/api-docs`, publicado en [`api/swagger.yml`](api/swagger.yml)). Cada operación protegida declara `x-permiso` igual a la Matriz Rol‐Permiso; una prueba automática (`ContratoPermisosTest`) lo verifica. |
+| **RNF-MS02-02** | Todos los endpoints están bajo `/api/v1/` y documentados con OpenAPI 3 (`/v3/api-docs`, publicado en [`api/openapi.yml`](api/openapi.yml)). Cada operación protegida declara `x-permiso` igual a la matriz de roles y permisos; una prueba automática (`ContratoPermisosTest`) lo verifica. |
 | **RNF-MS02-03** | Todo acceso llega por el API Gateway. En las rutas protegidas MS02 recibe `X-User-Id`, `X-User-Role` y `X-User-Permission` y autoriza con `X-User-Permission`; si faltan responde 401 `NO_AUTENTICADO` y si falta el permiso, 403 `PROHIBIDO`. Las tres rutas de `/api/v1/public` no exigen identidad. |
 | **RNF-MS02-04** | Todo error, incluidos los del framework (404, 405 y 400 para tipos de contenido no compatibles), responde con el `ErrorResponse` de los Estándares, sin trazas internas. |
 | **RNF-MS02-05** | Cada línea de log lleva el `X-Correlation-ID`. Las operaciones de escritura quedan en el log, sin tokens ni datos personales. Actuator expone `health`. |
-| **RNF-MS02-06** | La consulta de rutas en una emergencia no depende de servicios externos: usa las rutas exteriores guardadas ([RN-MS02-19](#rn-ms02-19)). El proveedor de navegación tiene timeouts configurables (3 s de conexión y 10 s de lectura por defecto). |
-| **RNF-MS02-07** | Las imágenes se guardan en un volumen fuera de la base de datos, con un máximo de 5 MB por archivo y solo JPEG, PNG o WEBP. |
-| **RNF-MS02-08** | Secretos y configuración (base de datos, URL del frontend para los QR, proveedor de navegación) fuera del repositorio, en variables de entorno. |
+| **RNF-MS02-06** | La consulta de rutas en una emergencia no depende de servicios externos: usa las rutas exteriores guardadas ([RN-MS02-19](#rn-ms02-19)). El proveedor de navegación es el servicio público de OpenStreetMap con perfil a pie, configurable con `NAVIGATION_BASE_URL`, y tiene timeouts configurables (3 s de conexión y 10 s de lectura por defecto). |
+| **RNF-MS02-07** | Las imágenes se guardan fuera de la base de datos, en un volumen del contenedor o en Azure Blob Storage según la configuración, con un máximo de 5 MB por archivo y solo JPEG, PNG o WEBP. |
+| **RNF-MS02-08** | Secretos y configuración (base de datos, URL del frontend para los QR, proveedor de navegación, almacenamiento de imágenes) fuera del repositorio, en variables de entorno. |
 | **RNF-MS02-09** | Pruebas unitarias y de integración de los servicios, controladores, seguridad y contrato OpenAPI, ejecutadas en GitHub Actions en cada Pull Request. |
-| **RNF-MS02-10** | Ejecución en contenedor Docker. La imagen se publica en GHCR y se despliega en una VM de Azure detrás del Gateway, con firewall que solo acepta la IP del Gateway y mTLS en un Caddy de borde, con stacks separados de prueba y producción ([despliegue](diagramas/ms02_despliegue_azure.puml)). |
-
----
-
-<a id="dependencias-y-decisiones-abiertas"></a>
-## Dependencias y decisiones abiertas
-
-MS02 no llama a otros microservicios del proyecto. Su única dependencia externa es el servicio de ruteo peatonal de OpenStreetMap (OSRM).
-
-| # | Tema | Responsables | Estado |
-|---|---|---|---|
-| 1 | Actualizar la fila de MS02 en la tabla de rutas del Gateway: ya está publicado todo el contrato y falta el prefijo `/api/v1/images/**`. | MS02 + GW | Pendiente |
-| 2 | Límite de peticiones por IP para las rutas públicas de QR. Hoy no lo tiene ni MS02 ni el Gateway; el riesgo es bajo porque son de solo lectura y los UUID no se pueden adivinar. | MS02 + GW | Pendiente |
-| 3 | Registrar en los Estándares la llamada MS04 → MS02 para validar puntos de encuentro (`ms02:campus:read`, identidad propagada). | MS02 + MS04 | Pendiente |
-| 4 | Servidor OSRM propio para producción. El servidor público con perfil a pie es de uso compartido y solo sirve para demostraciones. | MS02 | Pendiente |
-| 5 | Definir la dirección pública definitiva del frontend (`QR_BASE_URL`) antes de imprimir los QR. | MS02 + Frontend | Pendiente |
-
-**Decisiones tomadas:**
-* Edificios, espacios y salidas se identifican solo por su UUID. Las zonas seguras conservan su código porque MS04 lo usa como identificador del punto de encuentro.
-* Todo edificio pertenece a un campus. La migración V16 asignó «Campus principal» a los edificios que no tenían.
-* Las rutas exteriores se generan solas al registrar o mover salidas y zonas seguras.
-* Las decisiones de diseño están en los ADR del repositorio de MS02 ([`docs/adr`](https://github.com/CampusSeguro-DOSW-2026-2/ms02-campus-and-security/tree/develop/docs/adr)).
-
----
-
-<a id="api-ms02-campus-and-security"></a>
-## API: ms02-campus-and-security
-
-Contrato OpenAPI: [`api/swagger.yml`](api/swagger.yml). La columna *Permiso* coincide con el `x-permiso` del contrato y con la [Matriz Rol‐Permiso](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Matriz-Rol%E2%80%90Permiso). **Todos** = los 8 roles iniciales. Los listados aceptan `incluirInactivos=true`, excepto el listado de escaleras (`GET /stairs`), que utiliza `incluirInactivas=true`.
-
-| Categoría | Método | Ruta (/api/v1) | Acceso | Permiso | RF |
-|---|---|---|---|---|---|
-| **Campus** | GET | `/campuses`, `/campuses/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/campuses` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10) |
-| | PUT | `/campuses/{id}` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10) |
-| | PATCH | `/campuses/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10), [07](#rf-ms02-07) |
-| **Zonas abiertas** | GET | `/campuses/{campusId}/open-zones`, `/open-zones/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/campuses/{campusId}/open-zones` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10) |
-| | PUT | `/open-zones/{id}` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10) |
-| | PATCH | `/open-zones/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [10](#rf-ms02-10), [07](#rf-ms02-07) |
-| **Edificios** | GET | `/buildings`, `/buildings/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/buildings` | ADMIN | `ms02:building:write` | [01](#rf-ms02-01) |
-| | PUT | `/buildings/{id}` | ADMIN | `ms02:building:write` | [01](#rf-ms02-01) |
-| | PATCH | `/buildings/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [01](#rf-ms02-01), [07](#rf-ms02-07) |
-| **Pisos** | GET | `/buildings/{edificioId}/floors`, `/floors/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/buildings/{edificioId}/floors` | ADMIN | `ms02:building:write` | [02](#rf-ms02-02) |
-| | PUT | `/floors/{id}` | ADMIN | `ms02:building:write` | [02](#rf-ms02-02) |
-| | PATCH | `/floors/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [02](#rf-ms02-02), [07](#rf-ms02-07) |
-| **Espacios** | GET | `/floors/{pisoId}/spaces`, `/buildings/{edificioId}/spaces`, `/spaces/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/floors/{pisoId}/spaces` | ADMIN | `ms02:space:write` | [03](#rf-ms02-03) |
-| | PUT | `/spaces/{id}` | ADMIN | `ms02:space:write` | [03](#rf-ms02-03) |
-| | PATCH | `/spaces/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:space:write` | [03](#rf-ms02-03), [07](#rf-ms02-07) |
-| **Salidas** | GET | `/buildings/{edificioId}/exits`, `/exits/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/buildings/{edificioId}/exits` | ADMIN | `ms02:building:write` | [11](#rf-ms02-11) |
-| | PUT | `/exits/{id}` | ADMIN | `ms02:building:write` | [11](#rf-ms02-11) |
-| | PATCH | `/exits/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [11](#rf-ms02-11), [07](#rf-ms02-07) |
-| **Escaleras** | GET | `/buildings/{edificioId}/stairs`, `/stairs/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/buildings/{edificioId}/stairs` | ADMIN | `ms02:building:write` | [12](#rf-ms02-12) |
-| | PATCH | `/stairs/{id}/priority`, `/deactivate`, `/reactivate` | ADMIN | `ms02:building:write` | [12](#rf-ms02-12), [07](#rf-ms02-07) |
-| | PATCH | `/stairs/{id}/status` | ADMIN, COORDINADOR | `ms02:route_status:write` | [12](#rf-ms02-12) |
-| **Zonas seguras** | GET | `/safe-zones`, `/safe-zones/{id}` | Todos | `ms02:campus:read` | [09](#rf-ms02-09) |
-| | POST | `/safe-zones` | ADMIN | `ms02:safe_zone:write` | [04](#rf-ms02-04) |
-| | PUT | `/safe-zones/{id}` | ADMIN | `ms02:safe_zone:write` | [04](#rf-ms02-04) |
-| | PATCH | `/safe-zones/{id}/deactivate`, `/reactivate` | ADMIN | `ms02:safe_zone:write` | [04](#rf-ms02-04), [07](#rf-ms02-07) |
-| **Rutas de evacuación** | GET | `/evacuation-routes`, `/evacuation-routes/{id}` | Todos | `ms02:route:read` | [05](#rf-ms02-05) |
-| | POST | `/evacuation-routes` | ADMIN | `ms02:route:write` | [05](#rf-ms02-05) |
-| | PUT | `/evacuation-routes/{id}` | ADMIN | `ms02:route:write` | [05](#rf-ms02-05) |
-| | PATCH | `/evacuation-routes/{id}/status` | ADMIN, COORDINADOR | `ms02:route_status:write` | [05](#rf-ms02-05) |
-| **Rutas exteriores** | POST | `/evacuation-routes/exterior`, `/evacuation-routes/exterior/generate` | ADMIN | `ms02:route:write` | [13](#rf-ms02-13) |
-| | GET | `/exits/{exitId}/evacuation-route` | Todos | `ms02:route:read` | [13](#rf-ms02-13) |
-| **Consulta de rutas** | GET | `/spaces/{spaceId}/evacuation-route`, `/buildings/{buildingId}/evacuation-routes` | Todos | `ms02:route:read` | [06](#rf-ms02-06) |
-| **Información preventiva** | GET | `/preventive-recommendations`, `/preventive-recommendations/building/{buildingId}`, `/preventive-recommendations/space-type/{type}` | Todos | `ms02:preventive_info:read` | [08](#rf-ms02-08) |
-| | POST, PUT, PATCH | `/preventive-recommendations`, `/preventive-recommendations/{id}`, `/preventive-recommendations/{id}/deactivate` | ADMIN | `ms02:building:write` | [08](#rf-ms02-08) |
-| **Imágenes** | GET | `/images?tipoElemento=&elementoId=`, `/images/{id}` | Todos | `ms02:campus:read` | [14](#rf-ms02-14) |
-| | POST, DELETE | `/images`, `/images/{id}` | ADMIN | `ms02:building:write` | [14](#rf-ms02-14) |
-| **Códigos QR** | GET | `/spaces/{id}/qr`, `/exits/{id}/qr`, `/safe-zones/{id}/qr` | ADMIN | `ms02:qr:manage` | [15](#rf-ms02-15) |
-| **Consulta pública** | GET | `/public/spaces?id=`, `/public/exits?id=`, `/public/safe-zones?id=` | Sin sesión | — | [16](#rf-ms02-16) |
-
----
-
-<a id="historial"></a>
-## Historial
-
-| Fecha | Cambio |
-|---|---|
-| 2026-10-24 | Versión inicial en `Requerimientos-ms02.docx` (RF-01 a RF-09). |
-| 2026-11-17 | El documento pasa a Markdown con el formato de los demás MS. Se agregan campus y zonas abiertas, salidas, escaleras, rutas exteriores, imágenes, QR y consulta pública (RF-MS02-10 a 16), los RNF y la tabla de endpoints. Se quita el código de edificios, espacios y salidas y el campus del edificio pasa a ser obligatorio. Se retiran los requerimientos de contenidos de capacitación del documento anterior, que corresponden a MS07. |
+| **RNF-MS02-10** | Ejecución en contenedor Docker. La imagen se publica en GHCR y se despliega en una VM de Azure detrás del Gateway, con firewall que solo acepta la IP del Gateway y mTLS en un Caddy de borde, con stacks separados de prueba y producción ([despliegue](diagrams/ms02-deployment-azure.puml)). |

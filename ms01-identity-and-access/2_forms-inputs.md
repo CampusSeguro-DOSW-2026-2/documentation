@@ -1,4 +1,4 @@
-# Diccionario de Datos, Formularios y Entradas
+# Formularios y entradas
 
 ## Índice de Contenido
 1. [Reglas generales de entrada](#reglas-generales-de-entrada)
@@ -27,7 +27,7 @@
 * **RG-03**: Se rechazan entradas con etiquetas HTML o scripts (<, >) en campos de texto libre.
 * **RG-04**: Se rechazan (HTTP 400) los campos no definidos en el contrato (en especial roles, estado o id enviados por el usuario en registro y perfil, y `es_sistema` en los formularios de roles, que solo se muestra y nunca se envía).
 * **RG-05**: Los mensajes de error indican el campo y la regla incumplida, salvo en login, recuperación y verificación del registro ([RN-MS01-05](1_requirements.md#rf-ms01-02-autenticar-usuario-login), [RN-MS01-20](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-contraseña), [F-14](#f-14-verificación-del-registro)).
-* **RG-06**: Los errores de validación responden 400 `VALIDACION`, y un correo duplicado 409 `CONFLICTO`, con el `ErrorResponse` de los [Estándares](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki/Est%C3%A1ndares-de-Integraci%C3%B3n-y-Contratos-Transversales). Cada campo y su mensaje van en `errores`.
+* **RG-06**: Los errores de validación responden 400 `VALIDACION`, y un correo duplicado 409 `CONFLICTO`, con el `ErrorResponse` de los [Estándares](../integration/standards.md). Cada campo y su mensaje van en `errores`.
 * **RG-07**: Ningún formulario incluye la identidad del solicitante ([RN-MS01-23](1_requirements.md#rf-ms01-03-gestión-de-sesión)) ni datos de auditoría ([RNF-MS01-10](1_requirements.md#requerimientos-no-funcionales-rnf)).
 * **RG-08**: El nombre de un rol se normaliza antes de validarlo: se recortan los espacios y se pasa a mayúsculas (`monitor_evacuacion` queda `MONITOR_EVACUACION`). Se guarda y se devuelve ya normalizado, así que dos nombres que solo difieren en mayúsculas o minúsculas son el mismo rol. El nombre `DETAILS` está reservado (es el segmento fijo de la ruta `GET /roles/details`) y ningún rol puede llamarse así: se rechaza con 400 `VALIDACION` al crear o renombrar, y la base de datos también lo impide. Aplica al nombre que llega en el cuerpo de [F-10](#f-10-crear-rol) y [F-11](#f-11-editar-rol) y al `{rol}` de las rutas de gestión de roles ([F-11](#f-11-editar-rol), [F-12](#f-12-permisos-de-un-rol), [F-13](#f-13-borrar-rol) y la consulta de un rol). Los filtros y las listas de roles de las rutas que ya existían ([F-07](#f-07-búsqueda-y-filtros-de-usuarios) y [F-09](#f-09-asignación-de-roles)) no cambian: siguen exigiendo el nombre exacto. Los códigos de permiso no se normalizan: solo se recortan los espacios y las mayúsculas no se cambian, así que un código con mayúsculas no existe en el catálogo y se rechaza con 400 `VALIDACION` ("Permiso no válido"). Se escriben exactamente como aparecen en `GET /api/v1/permissions`.
 
@@ -51,8 +51,6 @@ Referencia: [RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-instituc
 **Mensajes globales de formulario:**
 * Envío aceptado (202): "Enviamos un código de verificación a su correo. Ingréselo para crear la cuenta.", con el token de registro que exige [F-14](#f-14-verificación-del-registro). La cuenta todavía no existe: se crea al confirmar el código.
 
-*Mockup F-01: (espacio reservado para insertar imagen del formulario de registro)*
-
 ---
 
 ### F-02: Inicio de sesión
@@ -66,8 +64,6 @@ Referencia: [RF-MS01-02](1_requirements.md#rf-ms01-02-autenticar-usuario-login)
 **Mensajes globales de formulario:**
 * Errores de autenticación: credenciales incorrectas o cuenta inexistente (401): "Credenciales incorrectas."
 * Cuenta inactiva (403): "Cuenta inactiva. Contacte al administrador."
-
-*Mockup F-02: (espacio reservado para insertar imagen del formulario de login)*
 
 ---
 
@@ -84,8 +80,6 @@ Referencia: [RF-MS01-06](1_requirements.md#rf-ms01-06-gestión-del-perfil)
 | Roles | Lista | — | No (solo lectura) | — | Se modifican solo por el administrador ([F-09](#f-09-asignación-de-roles)). | "Los roles no se pueden modificar desde el perfil." |
 | Estado | Etiqueta | — | No (solo lectura) | ACTIVO / INACTIVO | Se modifica solo por el administrador ([F-08](#f-08-cambio-de-estado-de-usuario)). | "El estado no se puede modificar desde el perfil." |
 
-*Mockup F-03: (espacio reservado — insertar imagen de la pantalla de perfil)*
-
 ---
 
 ### F-04: Solicitud de recuperación de contraseña
@@ -97,8 +91,6 @@ Referencia: [RF-MS01-08](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-
 
 **Mensaje global de formulario:**
 Respuesta única (exista o no el correo): "Si el correo está registrado, enviamos un código de recuperación."
-
-*Mockup F-04: (espacio reservado para insertar imagen)*
 
 ---
 
@@ -112,8 +104,6 @@ Referencia: [RF-MS01-08](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-
 | Nueva contraseña | Texto oculto | Sí | 8 a 64 caracteres | Misma política que [F-01](#f-01-registro-de-usuario). | "La contraseña debe tener 8 a 64 caracteres, con mayúscula, minúscula, número y carácter especial." | Nueva#2026 |
 | Confirmar nueva contraseña | Texto oculto | Sí | Igual a Nueva contraseña | Debe ser idéntica. | "Las contraseñas no coinciden." | Nueva#2026 |
 
-*Mockup F-05: (espacio reservado para insertar imagen)*
-
 ---
 
 ### F-06: Cambio de contraseña autenticado
@@ -124,8 +114,6 @@ Referencia: [RF-MS01-08](1_requirements.md#rf-ms01-08-recuperación-y-cambio-de-
 | Contraseña actual | Texto oculto | Sí | 1 a 64 caracteres | Debe coincidir con la almacenada. | "La contraseña actual es incorrecta." | Campus#2026 |
 | Nueva contraseña | Texto oculto | Sí | 8 a 64 caracteres | Misma política que [F-01](#f-01-registro-de-usuario). Distinta de la actual. | "La nueva contraseña no cumple la política o es igual a la actual." | Nueva#2026 |
 | Confirmar nueva contraseña | Texto oculto | Sí | Igual a Nueva contraseña | Debe ser idéntica. | "Las contraseñas no coinciden." | Nueva#2026 |
-
-*Mockup F-06: (espacio reservado para insertar imagen)*
 
 ---
 
@@ -140,8 +128,6 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 | Página | Número entero | No | ≥ 0 (por defecto 0) | Entero no negativo. | "Página no válida." | 0 |
 | Tamaño de página | Número entero | No | 1 a 100 (por defecto 20) | Entero en el rango. | "Tamaño de página no válido (1 a 100)." | 20 |
 
-*Mockup F-07: (espacio reservado para insertar imagen del listado de usuarios)*
-
 ---
 
 ### F-08: Cambio de estado de usuario
@@ -154,8 +140,6 @@ Referencia: [RF-MS01-07](1_requirements.md#rf-ms01-07-administración-de-usuario
 
 **Mensaje global de formulario:**
 * La interfaz permite elegir un estado distinto para cada usuario seleccionado y envía solo los que cambian, una petición por estado.
-
-*Mockup F-08: (espacio reservado para insertar imagen de la confirmación de cambio de estado)*
 
 ---
 
@@ -175,8 +159,6 @@ Referencia: [RF-MS01-05](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permis
 * La interfaz muestra una sola lista de roles con una casilla de tres estados (todos, ninguno o algunos de los seleccionados lo tienen) y la traduce a estas dos listas. Antes de enviar muestra los roles con los que quedaría cada usuario.
 * Algún usuario quedaría con más de 50 roles (422): "Un usuario no puede tener más de 50 roles." Las listas no tienen un límite propio; lo que se verifica es el total de roles que cada usuario tendría después del cambio ([RN-MS01-40](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)).
 
-*Mockup F-09: (espacio reservado para insertar imagen de la edición de roles)*
-
 ---
 
 ### F-10: Crear rol
@@ -194,8 +176,6 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 
 El rol se crea sin ser de sistema y sin cortar la sesión de nadie.
 
-*Mockup F-10: (espacio reservado para insertar imagen del formulario de creación de rol)*
-
 ---
 
 ### F-11: Editar rol
@@ -211,8 +191,6 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 * Los permisos no se editan aquí ([F-12](#f-12-permisos-de-un-rol)). Si se envían (400): "Campo no permitido."
 * Aviso al administrador antes de confirmar, si el nombre cambia: "Se cerrará la sesión de los usuarios que tienen este rol."
 
-*Mockup F-11: (espacio reservado para insertar imagen de la edición de un rol)*
-
 ---
 
 ### F-12: Permisos de un rol
@@ -225,8 +203,6 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 
 **Mensaje global de formulario:**
 * Aviso al administrador antes de confirmar: "Se cerrará la sesión de los usuarios que tienen este rol para aplicar los permisos nuevos."
-
-*Mockup F-12: (espacio reservado para insertar imagen del selector de permisos de un rol)*
 
 ---
 
@@ -241,8 +217,6 @@ Referencia: [RF-MS01-10](1_requirements.md#rf-ms01-10-administración-de-roles-y
 * Confirmación al administrador: "Los usuarios que tengan solo este rol pasarán a ESTUDIANTE y a los demás se les retirará este rol. Se cerrará su sesión."
 * La interfaz deshabilita el borrado de los roles con `es_sistema` verdadero; el servicio lo vuelve a verificar.
 * No lleva cuerpo. Responde 204 sin contenido.
-
-*Mockup F-13: (espacio reservado para insertar imagen de la confirmación de borrado de rol)*
 
 ---
 
@@ -259,5 +233,3 @@ Referencia: [RF-MS01-01](1_requirements.md#rf-ms01-01-registrar-usuario-instituc
 * Confirmar (`POST /auth/register/verify`, correo y código): crea la cuenta y responde 201. Un correo que se registró mientras tanto responde 409: "El correo ya está registrado."
 * Reenviar el código (`POST /auth/register/resend`, correo y token, sin código): responde siempre 200 con "Si hay un registro pendiente para este correo, enviamos un nuevo código de verificación.", exista o no el registro.
 * La interfaz recuerda el correo y el token de [F-01](#f-01-registro-de-usuario) para no pedirlos. Si se recarga la pantalla del código, el token se pierde y hay que registrarse de nuevo.
-
-*Mockup F-14: (espacio reservado para insertar imagen del formulario de verificación del registro)*

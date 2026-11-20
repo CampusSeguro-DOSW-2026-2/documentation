@@ -1,0 +1,85 @@
+# Cómo se escribe y se cambia la documentación
+
+Este documento reúne las convenciones de este repositorio y de su [wiki](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki). Aplican a todos los squads.
+
+## Estructura del repositorio
+
+```text
+README.md                 punto de entrada
+CONTRIBUTING.md           este documento
+integration/              lo que comparten todos los squads
+├── standards.md          reglas transversales
+├── permissions-matrix.md roles y permisos
+├── gateway-connection.md conexión de un microservicio al API Gateway
+├── audit-catalog.md      acciones de auditoría de cada microservicio
+└── architecture/         diagramas C4 de contexto y de contenedores
+api-gateway/              documentación del API Gateway
+ms01-identity-and-access/ una carpeta por microservicio, con el nombre de su repositorio
+...
+ms08-analytics-and-audit/
+```
+
+La carpeta de un microservicio contiene solo lo que ese microservicio necesita:
+
+```text
+<msNN-nombre>/
+├── README.md             índice de la documentación del microservicio
+├── 1_requirements.md     requerimientos funcionales, reglas de negocio y requerimientos no funcionales
+├── 2_forms-inputs.md     formularios y validaciones de entrada (si tiene formularios)
+├── 3_data-model.md       modelo de datos (si tiene base de datos)
+├── api/
+│   └── openapi.yml       contrato OpenAPI 3
+├── diagrams/             diagramas y sus fuentes editables
+└── integration-guide.md  guía para los demás squads (solo si el microservicio ofrece una)
+```
+
+Un microservicio que todavía no tiene documentación conserva su carpeta con un archivo `.gitkeep`. Un documento propio de un microservicio, como `jwt-spec.md` en MS01, se agrega con un nombre que lo describa.
+
+## Un dato, un solo lugar
+
+Cada dato se escribe en un único documento y los demás enlazan a él. Así se evita que dos documentos digan cosas distintas.
+
+| Dato | Único lugar |
+|---|---|
+| Puertos, JWT, cabeceras, llamadas internas, errores, correlación, paginación y auditoría | `integration/standards.md` |
+| Códigos de permiso y su asignación inicial a los roles | `integration/permissions-matrix.md` |
+| Acciones de auditoría de cada microservicio y sus atributos | `integration/audit-catalog.md` |
+| Cómo conectar un microservicio al API Gateway | `integration/gateway-connection.md` |
+| Endpoints, métodos, parámetros, respuestas y el permiso de cada operación | `api/openapi.yml` del microservicio |
+| Comportamiento: requerimientos, reglas de negocio y flujos | `1_requirements.md` del microservicio |
+| Tablas, columnas y restricciones | `3_data-model.md` del microservicio |
+
+El `x-permiso` de cada operación del `openapi.yml` coincide con un código de la matriz de permisos; cuando una operación acepta más de uno, se escriben separados por `|`. El `x-roles` es informativo y no autoriza nada. El Gateway solo enruta las rutas publicadas en los `openapi.yml`.
+
+## Nombres de archivos y carpetas
+
+* En inglés, solo caracteres ASCII, en minúsculas y con guiones: `data-model`, `gateway-connection`. Sin espacios, tildes ni mayúsculas.
+* La numeración se usa únicamente en `1_requirements.md`, `2_forms-inputs.md` y `3_data-model.md`.
+* Las carpetas de los microservicios se llaman como su repositorio (`ms05-brigades-and-incidents`).
+* El contrato es siempre `api/openapi.yml`.
+* Los diagramas van en `diagrams/` y se llaman `<prefijo>-<vista>.<extensión>`, donde el prefijo es `ms<NN>` o `gw`: `ms04-c4-3-components.drawio.svg`, `ms01-classes.puml`, `ms03-er.drawio.svg`. Se conserva siempre la fuente editable: un `.drawio.svg` se abre y se edita con [draw.io](https://app.diagrams.net/), y un `.svg` generado con PlantUML va junto a su `.puml`.
+* Las páginas de la wiki siguen la misma regla de nombres, con la primera letra en mayúscula y guiones entre palabras (`Frontend-cloud-deployment`).
+
+Excepciones:
+
+* El backlog de Jira de un squad se conserva con su nombre original dentro de `requerimientos/` (por ejemplo, `requerimientos/Backlog_MS03_Alertas.docx`).
+* Los diagramas de arquitectura de `integration/architecture/` tienen una carpeta con un `README.md` que describe qué debe mostrar el diagrama. Ese `README.md` se elimina cuando se agrega el diagrama.
+* El archivo `pendiente-llevar-al-README-del-backend.md` de un microservicio reúne el contenido técnico del código que debe vivir en el `README.md` de su repositorio, no aquí. Se elimina cuando el squad lo lleva a ese README.
+
+## Qué se escribe y qué no
+
+* **Español** en el contenido; los nombres de archivos, de rutas y de campos técnicos, como los define el código.
+* **El estado real.** Cada documento describe cómo funciona el sistema hoy. Cuando el código cambia, se cambia el documento en el mismo Pull Request.
+* **Sin encabezados de versión, estado o responsable, y sin historial de cambios:** Git guarda quién cambió qué y cuándo. Tampoco se agregan secciones de pendientes, de decisiones abiertas ni de decisiones de diseño por separado; la decisión se escribe en el documento donde aplica, como un hecho.
+* **Sin datos sensibles.** No se escriben contraseñas, claves, tokens ni direcciones internas de infraestructura. Las variables y los secretos se nombran, nunca se copian sus valores.
+* **Ejemplos:** usar siempre datos ficticios.
+
+## La wiki
+
+La wiki contiene guías paso a paso para hacer una tarea: agregar un microservicio al gateway y desplegar el frontend. Las reglas, los contratos y la documentación de cada microservicio viven en este repositorio, no en la wiki. La `Home` de la wiki enlaza a las guías y al `README.md` de este repositorio.
+
+## Cómo se cambia algo
+
+1. El cambio se hace en una rama y se abre un Pull Request.
+2. Lo revisa el squad dueño del documento. Los cambios en `integration/` afectan a todos los squads: se acuerdan con los squads afectados antes de mezclarlos.
+3. Antes de pedir la revisión se comprueba que los enlaces funcionan y que el `x-permiso` de cada operación nueva o modificada está en la matriz de permisos.
