@@ -499,9 +499,7 @@ paths:
       tags:
         - Roles y permisos
       summary: Consultar roles y permisos (RF-MS01-05)
-      x-permiso: ms01:role:read_own|ms01:role:read_all
-      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
-      description: ADMIN recibe el catálogo completo; los demás usuarios solo sus propios roles (según `X-User-Role`).
+      description: Cualquier usuario autenticado, sin permiso adicional (RF-MS01-05, A1). Quien tiene `ms01:role:read_all` (con la asignación inicial, ADMIN) recibe el catálogo completo; los demás reciben solo sus propios roles (según `X-User-Role`). No exige `ms01:role:read_own`, porque esos roles y permisos ya viajan en el token del propio usuario.
       responses:
         '200':
           description: Roles con sus permisos.
