@@ -1,0 +1,161 @@
+@startuml ms02_clases
+title MS02 Campus y seguridad · Clases del dominio
+hide empty methods
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+enum Estado {
+  ACTIVO
+  INACTIVO
+}
+enum TipoEspacio {
+  SALON
+  LABORATORIO
+  AUDITORIO
+  OFICINA
+  ESPACIO_COMUN
+}
+enum TipoZonaAbierta {
+  ZONA_VERDE
+  PLAZOLETA
+  CANCHA
+  PARQUEADERO
+  OTRA
+}
+enum DisponibilidadEscalera {
+  DISPONIBLE
+  BLOQUEADA
+  FUERA_DE_SERVICIO
+}
+enum EstadoRuta {
+  DISPONIBLE
+  BLOQUEADA
+  RESTRINGIDA
+}
+enum AmbitoRecomendacion {
+  EDIFICIO
+  TIPO_ESPACIO
+}
+enum TipoElementoImagen {
+  EDIFICIO
+  ESPACIO
+  SALIDA
+  ZONA_SEGURA
+}
+
+class Campus {
+  - id : UUID
+  - nombre : String
+  - descripcion : String
+  - estado : Estado
+}
+class ZonaAbierta {
+  - id : UUID
+  - nombre : String
+  - tipo : TipoZonaAbierta
+  - latitud : BigDecimal [0..1]
+  - longitud : BigDecimal [0..1]
+  - estado : Estado
+}
+class Edificio {
+  - id : UUID
+  - nombre : String
+  - descripcion : String
+  - estado : Estado
+}
+class Piso {
+  - id : UUID
+  - numero : int
+  - nombre : String
+  - estado : Estado
+}
+class Espacio {
+  - id : UUID
+  - nombre : String
+  - tipo : TipoEspacio
+  - estado : Estado
+}
+class Salida {
+  - id : UUID
+  - nombre : String
+  - latitud : BigDecimal
+  - longitud : BigDecimal
+  - estado : Estado
+}
+class Escalera {
+  - id : UUID
+  - codigo : String «generado ESC-…»
+  - nombre : String
+  - prioridad : int
+  - disponibilidad : DisponibilidadEscalera
+  - motivo : String
+  - estado : Estado
+}
+class ZonaSegura {
+  - id : UUID
+  - codigo : String «fijo»
+  - nombre : String
+  - ubicacion : String
+  - descripcion : String
+  - capacidad : int
+  - latitud : BigDecimal [0..1]
+  - longitud : BigDecimal [0..1]
+  - puntoEncuentro : boolean
+  - estado : Estado
+}
+class RutaEvacuacion {
+  - id : UUID
+  - descripcion : String
+  - estado : EstadoRuta
+  - motivo : String
+  - distanciaMetros : BigDecimal
+  - duracionSegundos : BigDecimal
+  - geometria : String
+  - pasos : String
+  - calculadaEn : Instant
+}
+class RecomendacionPreventiva {
+  - id : UUID
+  - ambito : AmbitoRecomendacion
+  - tipoEspacio : TipoEspacio [0..1]
+  - titulo : String
+  - recomendacion : String
+  - estado : Estado
+}
+class Imagen {
+  - id : UUID
+  - tipoElemento : TipoElementoImagen
+  - elementoId : UUID
+  - nombreOriginal : String
+  - tipoContenido : String
+  - tamanioBytes : long
+  - rutaArchivo : String
+}
+
+Campus "1" -- "0..*" Edificio : contiene >
+Campus "1" -- "0..*" ZonaAbierta : contiene >
+ZonaAbierta "0..1" -- "0..*" ZonaSegura : ubica >
+Edificio "1" -- "0..*" Piso : tiene >
+Piso "1" -- "0..*" Espacio : contiene >
+Piso "1" -- "0..*" Salida : sale desde <
+Edificio "1" -- "0..*" Escalera : tiene >
+Escalera "0..*" -- "2..*" Piso : conecta >
+Espacio "0..1" -- "0..1" RutaEvacuacion : origen (ruta de texto) <
+Salida "0..1" -- "0..*" RutaEvacuacion : origen (ruta exterior) <
+ZonaSegura "1" -- "0..*" RutaEvacuacion : destino <
+Edificio "0..1" -- "0..*" RecomendacionPreventiva : ámbito EDIFICIO <
+Imagen "0..*" ..> Edificio : foto de
+Imagen "0..*" ..> Espacio : foto de
+Imagen "0..*" ..> Salida : foto de
+Imagen "0..*" ..> ZonaSegura : foto de
+
+note bottom of RutaEvacuacion
+  Exactamente un origen: espacio o salida.
+  Las métricas y la geometría solo existen
+  en las rutas exteriores (salida → zona).
+end note
+note right of ZonaSegura
+  Un punto de encuentro es una
+  zona segura con puntoEncuentro = true.
+end note
+@enduml
