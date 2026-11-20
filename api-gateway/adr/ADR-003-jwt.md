@@ -6,7 +6,7 @@
 MS01 emite el JWT y el GW debe aceptarlo en cada solicitud protegida sin agregar latencia ni depender de MS01 en caliente (Estándares §3). Como el administrador gestiona los roles y sus permisos, un cambio de acceso (roles de un usuario, permisos de un rol o estado de una cuenta) debe alcanzar a las sesiones abiertas antes de que venza su token.
 
 ## Decisión
-* **Política de acceso por método + ruta exacta**, en configuración (`gateway.access`): 7 rutas públicas y 3 internas, sin comodines (se valida al arrancar). Todo lo demás es protegido. La política solo se evalúa en rutas con destino; una ruta inexistente responde `404`.
+* **Política de acceso por método + ruta exacta**, en configuración (`gateway.access`): 7 rutas públicas y 4 internas, sin comodines (se valida al arrancar). Todo lo demás es protegido. La política solo se evalúa en rutas con destino; una ruta inexistente responde `404`.
 * **RS256 con una sola llave pública** (`JWT_PUBLIC_KEY`, RSA ≥ 2048 bits) verificada localmente con Nimbus JOSE + JWT. El algoritmo se exige **antes** de verificar la firma, así que se rechazan `none`, `HS256` y cualquier otro.
 * Se validan `iss`, `aud`, `exp`, `iat`, `nbf` (con tolerancia de reloj), `sub` UUID, `roles` no vacío con formato `^[A-Z][A-Z0-9_]{1,29}$`, `permissions` no vacío con formato `^ms[0-9]{2}:[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$` y `exp − iat ≤ JWT_MAX_LIFETIME_SECONDS`. `kid`, `email` y `jti` se ignoran. Los roles y los permisos son datos de MS01: el GW valida su formato, no su existencia.
 * **Sin JWKS, sin rotación y sin introspección por solicitud.**

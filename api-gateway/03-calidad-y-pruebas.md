@@ -30,8 +30,8 @@ Se ejecutan a través del GW, con MS01 real o con un doble que cumpla su `swagge
 | INT-GW-08 | Sin `X-Correlation-ID` o con un valor que no es UUID v4 | Se genera uno nuevo, se propaga y se devuelve. | `CorrelationIntegrationTest` |
 | INT-GW-09 | El MS tarda más que `GATEWAY_DOWNSTREAM_TIMEOUT_MS` | `504 TIEMPO_AGOTADO`. | `DownstreamFailureIntegrationTest` |
 | INT-GW-10 | Destino inaccesible | `502 SERVICIO_NO_DISPONIBLE` sin detalles internos. | `DownstreamFailureIntegrationTest` |
-| INT-GW-11 | Llamada interna con una clave de servicio válida y las tres `X-User-*` | El destino recibe `X-Service-Name` y la identidad, sin `X-Service-Key`. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest` |
-| INT-GW-12 | Llamada interna con una clave inválida, o ruta interna sin clave | `401 NO_AUTENTICADO`; el destino no recibe nada. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest` |
+| INT-GW-11 | Llamada interna con una clave de servicio válida, con las tres `X-User-*` o sin ninguna | El destino recibe `X-Service-Name` y, si vino, la identidad, sin `X-Service-Key`. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest`, `RoutingIntegrationTest` (`GET /api/v1/tipos-alerta` con la clave de MS03) |
+| INT-GW-12 | Llamada interna con una clave inválida, o ruta interna sin clave | `401 NO_AUTENTICADO`; el destino no recibe nada. | `InternalCallsIntegrationTest`, `Ms01InternalRoutesIntegrationTest`, `RoutingIntegrationTest` |
 | INT-GW-13 | Acceso directo desde fuera al puerto de un MS | Bloqueado por la red/despliegue. | Docker: `docker-compose.yml`; nube: firewall y mTLS (verificación manual del README, paso 10 del despliegue en la nube) |
 | INT-GW-14 | `GET /actuator/health` | `200 {"status":"UP"}` en `≤ 200 ms`; `/actuator/metrics` en `SERVER_PORT` responde `404`. | `HealthIntegrationTest` |
 | INT-GW-15 | Preflight CORS desde un origen permitido, uno no permitido y uno que pide `X-User-Permission`, `X-User-Role` o `X-Service-Key` | `200` con cabeceras CORS / `403` / `403`. | `CorsIntegrationTest` |

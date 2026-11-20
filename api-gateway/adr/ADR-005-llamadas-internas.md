@@ -19,4 +19,4 @@ Algunos MS llaman a otros (p. ej. MS04 → MS05, MS01…MS07 → MS08). Si se ll
 * La consulta de cortes de sesión del GW a MS01 sale del propio GW: no usa una clave de servicio ni pasa por este flujo.
 * Agregar o cambiar una clave exige configuración y reinicio del GW y del MS llamante.
 * Una clave filtrada permite actuar como ese MS hasta rotarla; cada MS la guarda solo en su variable de entorno.
-* Las rutas internas de MS01 (`POST /api/v1/users/batch`, `GET /api/v1/users/by-role`) están activas. `POST /api/v1/audit/events` ya está declarada como interna, pero su ruta a MS08 se agrega cuando se publique su OpenAPI (decisión abierta 1 de los Estándares); la de MS05, con la decisión abierta 3.
+* Las rutas internas activas son las de MS01 (`POST /api/v1/users/batch`, `GET /api/v1/users/by-role`), la de MS06 (`GET /api/v1/tipos-alerta`, para que MS03 replique el catálogo de tipos de alerta) y la de MS08 (`POST /api/v1/audit/events`, con el cuerpo de EST §12; el OpenAPI de MS08 sigue pendiente, decisión abierta 1 de los Estándares). La de MS05 se agrega con la decisión abierta 3.

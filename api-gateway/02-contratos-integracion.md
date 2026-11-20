@@ -27,11 +27,11 @@ Los prefijos los pide cada squad (guía de la wiki, *Conexión al API Gateway*) 
 | `/api/v1/auth/**` | `MS01_URI` | [swagger MS01](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms01-identity-and-access/api/swagger.yml) | Activo |
 | `/api/v1/users`, `/api/v1/users/**` | `MS01_URI` | swagger MS01 | Activo |
 | `/api/v1/roles`, `/api/v1/roles/**`, `/api/v1/permissions` | `MS01_URI` | swagger MS01 | Activo |
-| `/api/v1/buildings`, `/api/v1/buildings/**`, `/api/v1/floors/**`, `/api/v1/spaces/**`, `/api/v1/safe-zones`, `/api/v1/safe-zones/**`, `/api/v1/evacuation-routes`, `/api/v1/evacuation-routes/**`, `/api/v1/preventive-recommendations`, `/api/v1/preventive-recommendations/**`, `/api/v1/campuses`, `/api/v1/campuses/**`, `/api/v1/open-zones/**`, `/api/v1/exits/**`, `/api/v1/stairs/**`, `/api/v1/public/**` | `MS02_URI` | swagger MS02 (parcial: falta publicar pisos, campus, zonas abiertas, salidas, escaleras, recomendaciones y `public`) | Enrutado; MS sin desplegar |
+| `/api/v1/buildings`, `/api/v1/buildings/**`, `/api/v1/floors/**`, `/api/v1/spaces/**`, `/api/v1/safe-zones`, `/api/v1/safe-zones/**`, `/api/v1/evacuation-routes`, `/api/v1/evacuation-routes/**`, `/api/v1/preventive-recommendations`, `/api/v1/preventive-recommendations/**`, `/api/v1/campuses`, `/api/v1/campuses/**`, `/api/v1/open-zones/**`, `/api/v1/exits/**`, `/api/v1/stairs/**`, `/api/v1/public/**`, `/api/v1/images`, `/api/v1/images/**` | `MS02_URI` | swagger MS02 (parcial: falta publicar pisos, campus, zonas abiertas, salidas, escaleras, recomendaciones y `public`) | Enrutado; MS sin desplegar |
 | `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | OpenAPI MS03 | Enrutado; MS sin desplegar |
 | `/api/v1/chi/**` | `MS04_URI` | [swagger MS04](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/ms04-evacuation-check-in/api/swagger.yml) | Enrutado; destino en la nube configurado, MS sin desplegar |
-| `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**` | `MS05_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
-| `/api/v1/eventos`, `/api/v1/eventos/**` | `MS06_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
+| `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**`, `/api/v1/asignaciones/**`, `/api/v1/responsabilidades/**` | `MS05_URI` | Pendiente (sin OpenAPI publicado) | Enrutado; MS sin desplegar |
+| `/api/v1/eventos`, `/api/v1/eventos/**`, `/api/v1/tipos-evento`, `/api/v1/tipos-evento/**`, `/api/v1/tipos-alerta` | `MS06_URI` | `swagger.yml` del repo de MS06 (aún no está en `documentation`) | Enrutado; MS sin desplegar |
 | `/api/v1/training/**`, `/api/v1/tutor/**` | `MS07_URI` | swagger MS07 (rama `ms07-training-docs`) | Enrutado; MS sin desplegar. `/api/v1/tutor/**` espera hasta `GATEWAY_TUTOR_TIMEOUT_MS` |
 | `/api/v1/analitica/**`, `/api/v1/auditoria/**`, `/api/v1/audit/events` | `MS08_URI` | Pendiente (sin OpenAPI publicado); `audit/events` sale de EST §12 | Enrutado; MS sin desplegar |
 
@@ -53,6 +53,7 @@ La política es independiente del prefijo. Se evalúa por **método + ruta exact
 | Interna | `POST` | `/api/v1/audit/events` | Clave de servicio |
 | Interna | `POST` | `/api/v1/users/batch` | Clave de servicio |
 | Interna | `GET` | `/api/v1/users/by-role` | Clave de servicio |
+| Interna | `GET` | `/api/v1/tipos-alerta` | Clave de servicio |
 | Protegida | Todo lo demás (incluido `POST /api/v1/auth/logout`) | | JWT o clave de servicio |
 
 Las rutas públicas deben coincidir con EST. Las rutas internas deben coincidir con las llamadas registradas en EST.
