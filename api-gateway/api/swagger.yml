@@ -51,6 +51,8 @@ tags:
     description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con `X-User-Permission` contra el `x-permiso` de su contrato; el GW no autoriza.
   - name: MS01 · Interno
     description: Rutas internas de `ms01-identity-and-access` (solo MS con clave de servicio). MS01 autoriza por `X-Service-Name`, no por `X-User-Permission`.
+  - name: MS06 · Interno
+    description: Rutas internas de `ms06-drills` (solo MS con clave de servicio). MS06 autoriza por `X-Service-Name`.
   - name: MS08 · Interno
     description: Rutas internas de `ms08-analytics-and-audit` (solo MS con clave de servicio).
 security:
@@ -891,15 +893,53 @@ paths:
           $ref: '#/components/responses/BadGateway'
         '504':
           $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/tipos-alerta:
+    get:
+      tags:
+        - MS06 · Interno
+      summary: Listar los tipos de alerta del catálogo de MS06
+      description: 'Tipos activos que pueden generar alerta (nunca `SIMULACRO`); MS03 los replica en su catálogo. Llamada registrada: MS03 → MS06, sin `X-User-*` (EST §5). MS06 autoriza por `X-Service-Name` y solo acepta `ms03`. Un cliente externo sin clave recibe 401.'
+      x-politica: INTERNA
+      x-destino: MS06_URI
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+      responses:
+        '200':
+          description: Tipos de alerta (MS06).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    code:
+                      type: string
+                      example: SISMO
+                    name:
+                      type: string
+                      example: Sismo
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
   /api/v1/audit/events:
     post:
       tags:
         - MS08 · Interno
       summary: Registrar un evento de auditoría (EST §12)
-      description: '**Pendiente** del OpenAPI de MS08 (decisión abierta 1 de EST); el GW no la enruta hasta que se publique. El cuerpo del evento está definido en EST §12. El MS la invoca de forma asíncrona y no espera el resultado. Mientras no tenga ruta responde `404 NO_ENCONTRADO`; con la ruta, un cliente externo sin clave recibe 401.'
+      description: 'El cuerpo del evento está definido en EST §12; el OpenAPI de MS08 sigue pendiente (decisión abierta 1 de EST). El MS la invoca de forma asíncrona y no espera el resultado. Un cliente externo sin clave recibe 401.'
       x-politica: INTERNA
       x-destino: MS08_URI
-      x-estado: PENDIENTE
       security:
         - serviceKey: []
       parameters:
