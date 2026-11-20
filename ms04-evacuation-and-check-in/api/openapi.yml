@@ -184,7 +184,7 @@ paths:
       tags:
         - Check-in propio
       summary: Registrar o actualizar el propio check-in (RF-MS04-02, RF-MS04-03, RF-MS04-04, F-01)
-      x-permiso: [ms04:checkin:write, ms04:assistance:request]
+      x-permiso: ms04:checkin:write|ms04:assistance:request
       x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
       description: Solo con el evento `EN_EJECUCION` y si el rol del usuario está entre los roles convocados. Si el usuario no tiene check-in en el evento lo crea (201). Si ya tiene uno y cambia el estado (o el punto de encuentro con `SAFE`), agrega un check-in nuevo y ese pasa a ser el vigente (200). Si es igual al vigente, devuelve el vigente sin agregar nada (200). `NEEDS_ASSISTANCE` exige además `ms04:assistance:request` y genera la solicitud en MS05. Un campo que no corresponde al estado o un id de usuario en el cuerpo se rechaza con 400.
       parameters:
@@ -414,7 +414,7 @@ paths:
       summary: Consolidado del evento por estado y punto de encuentro (RF-MS04-06)
       x-permiso: ms04:dashboard:read
       x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
-      description: Se calcula con los estados vigentes. Siempre incluye los cuatro estados (0 si no hay personas). El BRIGADISTA solo recibe las personas en `SAFE` y `NEEDS_ASSISTANCE` de sus zonas asignadas; `EVACUATING` y `OFF_CAMPUS` salen en 0 porque esas personas no tienen ubicación (RN-MS04-14). Funciona con el evento en cualquier estado.
+      description: Se calcula con los estados vigentes. Siempre incluye los cuatro estados (0 si no hay personas). Quien tiene `ms04:dashboard:read` sin `ms04:history:read` (con la asignación inicial, el BRIGADISTA) solo recibe las personas en `SAFE` y `NEEDS_ASSISTANCE` de sus zonas asignadas; `EVACUATING` y `OFF_CAMPUS` salen en 0 porque esas personas no tienen ubicación (RN-MS04-14). Funciona con el evento en cualquier estado.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -440,7 +440,7 @@ paths:
       summary: Listar personas por estado y punto de encuentro (RF-MS04-06, F-02)
       x-permiso: ms04:dashboard:read
       x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
-      description: Estados vigentes del evento, con el nombre de cada persona (nulo si MS01 no respondió). El BRIGADISTA solo recibe los de sus zonas asignadas (RN-MS04-14). `punto_encuentro_id` solo se combina con `estado=SAFE` o sin estado.
+      description: Estados vigentes del evento, con el nombre de cada persona (nulo si MS01 no respondió). Quien tiene `ms04:dashboard:read` sin `ms04:history:read` (con la asignación inicial, el BRIGADISTA) solo recibe los de sus zonas asignadas (RN-MS04-14). `punto_encuentro_id` solo se combina con `estado=SAFE` o sin estado.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -481,7 +481,7 @@ paths:
       summary: Personas pendientes (RF-MS04-07, F-03)
       x-permiso: ms04:dashboard:read
       x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
-      description: Usuarios ACTIVOS de MS01 cuyo rol está entre los roles convocados del evento y que no han reportado ninguno de los cuatro estados, con su nombre (nulo si MS01 no entregó el dato). `total_elementos` es el total de pendientes. El BRIGADISTA siempre recibe una lista vacía, porque los pendientes no tienen ubicación conocida (RN-MS04-14). Si MS01 no entrega la población objetivo responde 503.
+      description: Usuarios ACTIVOS de MS01 cuyo rol está entre los roles convocados del evento y que no han reportado ninguno de los cuatro estados, con su nombre (nulo si MS01 no entregó el dato). `total_elementos` es el total de pendientes. Quien tiene `ms04:dashboard:read` sin `ms04:history:read` (con la asignación inicial, el BRIGADISTA) siempre recibe una lista vacía, porque los pendientes no tienen ubicación conocida (RN-MS04-14). Si MS01 no entrega la población objetivo responde 503.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -513,7 +513,7 @@ paths:
       summary: Personas que requieren asistencia (RF-MS04-08, F-03)
       x-permiso: ms04:dashboard:read
       x-roles: [BRIGADISTA, COORDINADOR, ORGANIZADOR, AUDITOR]
-      description: Personas con estado vigente `NEEDS_ASSISTANCE`, del reporte más antiguo al más reciente, con su nombre, su solicitud en MS05 y su estado de envío. El BRIGADISTA solo recibe las de sus zonas asignadas. La asignación y la atención ocurren en MS05.
+      description: Personas con estado vigente `NEEDS_ASSISTANCE`, del reporte más antiguo al más reciente, con su nombre, su solicitud en MS05 y su estado de envío. Quien tiene `ms04:dashboard:read` sin `ms04:history:read` (con la asignación inicial, el BRIGADISTA) solo recibe las de sus zonas asignadas. La asignación y la atención ocurren en MS05.
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
