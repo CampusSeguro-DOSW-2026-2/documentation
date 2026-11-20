@@ -499,7 +499,7 @@ paths:
       tags:
         - Roles y permisos
       summary: Consultar roles y permisos (RF-MS01-05)
-      x-permiso: [ms01:role:read_own, ms01:role:read_all]
+      x-permiso: ms01:role:read_own|ms01:role:read_all
       x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       description: ADMIN recibe el catálogo completo; los demás usuarios solo sus propios roles (según `X-User-Role`).
       responses:
@@ -670,7 +670,7 @@ paths:
       tags:
         - Roles y permisos
       summary: Listar los roles que reciben alertas (RF-MS01-10)
-      x-permiso: [ms03:alert:manage, ms03:alert:manage_drill]
+      x-permiso: ms03:alert:manage|ms03:alert:manage_drill
       x-roles: [PROFESOR, COORDINADOR, ORGANIZADOR]
       description: Devuelve los roles que tienen `ms03:alert:receive`, ordenados por `rol` ascendente, solo con su nombre y su descripción (sin `permisos` ni `es_sistema`). Es el selector de destinatarios de las alertas de MS03, para quien crea o edita alertas sin `ms01:role:read_all` (RN-MS01-47). Incluye los roles creados o editados por el administrador. Si ningún rol tiene `ms03:alert:receive`, responde 200 con una lista vacía. La ruta literal tiene prioridad sobre `/roles/{rol}`, y ningún rol puede llamarse así porque el nombre no admite guiones.
       parameters:
