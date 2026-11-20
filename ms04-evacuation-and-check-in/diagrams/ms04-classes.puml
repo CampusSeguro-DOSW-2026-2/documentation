@@ -1,6 +1,6 @@
-@startuml ms04_clases
+@startuml ms04-classes
 ' UML · Clases: estructura estática del dominio de MS04 (eventos, check-ins, solicitudes de asistencia, identidad y auditoría).
-' Fuente: entity/*, security/RequesterIdentity, Rol, Permiso, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+' Fuente: ms04-evacuation-and-check-in (develop) entity/*, security/RequesterIdentity, security/Permiso, audit/AuditEvent, AuditContext, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
@@ -32,6 +32,7 @@ class Checkin <<@Entity checkins>> {
     - ubicacionTipo : TipoUbicacion
     - ubicacionId : UUID
     - registradoEn : Instant
+    + Checkin(eventoId : UUID, usuarioId : UUID, estado : EstadoCheckin, puntoEncuentroId : UUID, ubicacionTipo : TipoUbicacion, ubicacionId : UUID)
 }
 
 class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
@@ -45,8 +46,12 @@ class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
     - estadoEnvio : EstadoEnvio
     - intentos : int
     - ultimoIntentoEn : Instant
+    - rolesSolicitante : String
+    - permisosSolicitante : String
     - reportadaEn : Instant
     - actualizadoEn : Instant
+    + setEstadoEnvio(estadoEnvio : EstadoEnvio) : void
+    + setIdentidadSolicitante(roles : String, permisos : String) : void
 }
 
 enum EstadoEvento {
@@ -77,27 +82,11 @@ enum EstadoEnvio {
 
 class RequesterIdentity <<record>> {
     - userId : UUID
-    - roles : Set<Rol>
-    + permisos() : Set<Permiso>
-    + tienePermiso(p : Permiso) : boolean
-    + tieneRol(r : Rol) : boolean
-    + nombresDeRoles() : List<String>
+    - roles : Set<String>
+    - permisos : Set<String>
+    + tienePermiso(permiso : Permiso) : boolean
     + rolesComoCabecera() : String
-}
-
-enum Rol {
-    ESTUDIANTE
-    PROFESOR
-    ADMINISTRATIVO
-    BRIGADISTA
-    COORDINADOR
-    ORGANIZADOR
-    ADMIN
-    AUDITOR
-    --
-    - permisos : Set<Permiso>
-    + getPermisos() : Set<Permiso>
-    + {static} permisosDe(roles : Collection<Rol>) : Set<Permiso>
+    + permisosComoCabecera() : String
 }
 
 enum Permiso {
@@ -112,14 +101,26 @@ enum Permiso {
 }
 
 class AuditEvent <<record>> {
+    - id : UUID
     - accion : AuditAction
     - resultado : AuditResult
     - usuarioId : UUID
     - usuarioRoles : String
+    - usuarioPermisos : String
     - detalle : String
     - correlationId : String
     - fecha : Instant
     - recursoAfectado : String
+    - contexto : AuditContext
+}
+
+class AuditContext <<record>> {
+    - eventoId : UUID
+    - simulacro : Boolean
+    - atributos : Map<String, Object>
+    + {static} de(evento : Evento) : AuditContext
+    + con(clave : String, valor : Object) : AuditContext
+    + tipoEvento() : String
 }
 
 enum AuditAction {
@@ -134,34 +135,35 @@ enum AuditResult {
     FALLO
 }
 
-Evento "1" -- "0..*" Checkin : registra (eventoId) >
+Evento "1" -- "0..*" Checkin : recibe (eventoId) >
 Evento "1" -- "0..*" SolicitudAsistencia : agrupa (eventoId) >
-Checkin "1" -- "0..1" SolicitudAsistencia : origina (checkinId) >
+Checkin "1" -- "0..*" SolicitudAsistencia : origina (checkinId) >
 Evento "0..*" --> "1" EstadoEvento : estado
-Checkin "0..*" -left-> "1" EstadoCheckin : estado
+Checkin "0..*" --> "1" EstadoCheckin : estado
 Checkin "0..*" --> "0..1" TipoUbicacion : ubicacionTipo
 SolicitudAsistencia "0..*" --> "1" TipoUbicacion : ubicacionTipo
 SolicitudAsistencia "0..*" --> "1" EstadoEnvio : estadoEnvio
-RequesterIdentity "0..*" -- "1..*" Rol : actúa con >
-Rol "0..*" -- "0..*" Permiso : otorga >
+RequesterIdentity "0..*" -- "0..*" Permiso : tiene (permisos) >
 RequesterIdentity "1" -- "0..*" Checkin : reporta (usuarioId) >
+AuditEvent "1" *-- "1" AuditContext : contexto
+AuditContext "0..*" -- "0..1" Evento : describe (eventoId) >
 AuditEvent "0..*" --> "1" AuditAction : accion
 AuditEvent "0..*" --> "1" AuditResult : resultado
 
 note right of Checkin
-  Solo se agregan (trigger en BD):
-  el estado vigente es el check-in
-  más reciente del usuario en el
-  evento (v_checkins_vigentes).
+  Solo se agregan (trigger en la BD): el estado
+  vigente de una persona es su check-in más
+  reciente (vista v_checkins_vigentes).
 end note
-note right of SolicitudAsistencia
-  Una por usuario y evento; solo
-  la origina un check-in
-  NEEDS_ASSISTANCE.
+note bottom of SolicitudAsistencia
+  Se crea con el check-in NEEDS_ASSISTANCE y se
+  envía a MS05 después del commit; si MS05 falla
+  queda PENDIENTE_ENVIO y la reenvía la tarea
+  periódica con la identidad guardada.
 end note
-note bottom of RequesterIdentity
+note top of RequesterIdentity
   Identidad del solicitante, construida con
-  X-User-Id y X-User-Role; sus permisos son la
-  unión de los permisos de sus roles.
+  X-User-Id, X-User-Role y X-User-Permission
+  que inyecta el API Gateway (MS04 no ve el JWT).
 end note
 @enduml
