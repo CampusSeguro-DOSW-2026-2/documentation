@@ -19,11 +19,11 @@ Contiene solo lo propio del Gateway: el pipeline, la tabla de rutas, las políti
 
 ## 2. Tabla de enrutamiento
 
-Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../integration/gateway-connection.md) y deben estar publicados en el `api/openapi.yml` de la carpeta de su microservicio. El GW conserva la ruta completa al reenviar. Cada ruta activa se publica también, por operación y con su política, en [api/openapi.yml](api/openapi.yml).
+Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../integration/gateway-connection.md) y deben estar publicados en el `api/openapi.yml` de la carpeta de su microservicio. El GW conserva la ruta completa al reenviar.
 
 | Prefijo | Destino | OpenAPI |
 |---|---|---|
-| `/actuator/health` | GW (propio) | [OpenAPI del GW](api/openapi.yml) |
+| `/actuator/health` | GW (propio) | Sin OpenAPI: lo responde el GW (§3 y [Estándares §11](../integration/standards.md#11-healthcheck-y-actuator)) |
 | `/api/v1/auth/**`, `/api/v1/users`, `/api/v1/users/**`, `/api/v1/roles`, `/api/v1/roles/**`, `/api/v1/permissions` | `MS01_URI` | [MS01](../ms01-identity-and-access/api/openapi.yml) |
 | `/api/v1/buildings`, `/api/v1/buildings/**`, `/api/v1/floors/**`, `/api/v1/spaces/**`, `/api/v1/safe-zones`, `/api/v1/safe-zones/**`, `/api/v1/evacuation-routes`, `/api/v1/evacuation-routes/**`, `/api/v1/preventive-recommendations`, `/api/v1/preventive-recommendations/**`, `/api/v1/campuses`, `/api/v1/campuses/**`, `/api/v1/open-zones/**`, `/api/v1/exits/**`, `/api/v1/stairs/**`, `/api/v1/public/**`, `/api/v1/images`, `/api/v1/images/**` | `MS02_URI` | [MS02](../ms02-campus-and-security/api/openapi.yml) |
 | `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | [MS03](../ms03-alerts-and-emergencies/api/openapi.yml) |

@@ -7,9 +7,8 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 | Documento | Contenido |
 |---|---|
 | [1_requirements.md](1_requirements.md) | RF-GW-01…08 con reglas y criterios de aceptación. |
-| [contracts.md](contracts.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios, configuración y aislamiento en la nube. |
+| [contracts.md](contracts.md) | Pipeline, tabla de rutas (con el contrato OpenAPI de cada MS), políticas de acceso por método y ruta, errores propios, configuración y aislamiento en la nube. El GW no tiene OpenAPI propio: solo enruta lo que cada MS publica en el suyo. |
 | [quality-and-tests.md](quality-and-tests.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…19. |
-| [api/openapi.yml](api/openapi.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. Estándar para que el frontend y los MS llamen al GW. |
 | [diagrams/gw-c4-3-components.drawio.svg](diagrams/gw-c4-3-components.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, los componentes que requiere cada filtro, la consulta periódica de los cortes de sesión a MS01 y la salida con mTLS a MS01…MS08. |
 | [diagrams/gw-deployment-azure.drawio.svg](diagrams/gw-deployment-azure.drawio.svg) | Despliegue: VM del GW en Azure con NSG, Caddy de borde con Let's Encrypt, stacks `gw-prod` y `gw-test` con su certificado de cliente, y la salida con mTLS a la VM de cada MS. |
 | [diagrams/gw-classes.puml](diagrams/gw-classes.puml) · [SVG](diagrams/gw-classes.svg) | Clases (UML): tabla de rutas, políticas de acceso, identidad del usuario y del servicio llamante, cortes de sesión y errores propios. |
