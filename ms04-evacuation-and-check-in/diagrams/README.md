@@ -2,10 +2,10 @@
 
 | Diagrama | Archivo | Responde a |
 |---|---|---|
-| C4 Nivel 3 · Componentes | [`ms04-c4-3-components.drawio.svg`](ms04-c4-3-components.drawio.svg) | Componentes vitales de MS04 (cada parte agrupa las clases de un mismo tema): de dónde llegan las peticiones (API Gateway) y a qué se conectan (PostgreSQL y, por el Gateway, MS01, MS02, MS05 y MS08). |
-| Modelo de datos físico | [`ms04-er-physical.drawio.svg`](ms04-er-physical.drawio.svg) | Tablas, tipos, claves, `CHECK`, índices, la vista `v_checkins_vigentes` y el trigger de solo inserción (scripts de `database/`). |
-| Clases (UML) | [`ms04-classes.puml`](ms04-classes.puml) · [SVG](ms04-classes.svg) | Entidades y enums del dominio, identidad del solicitante y auditoría. |
-| Despliegue (propuesta) | [`ms04-deployment-aws.drawio.svg`](ms04-deployment-aws.drawio.svg) | VM EC2 de MS04 en AWS con Security Group, Caddy de borde con mTLS y stacks prod/test; el API Gateway sigue en Azure. |
+| C4 Nivel 3 · Componentes | [`ms04-c4-3-components.drawio.svg`](ms04-c4-3-components.drawio.svg) | Controllers, services, repositories y clientes de MS04 en una vista simplificada, con una línea de color por interfaz: de dónde llegan las peticiones (API Gateway y las rutas internas de MS06) y a qué se conectan (PostgreSQL y, por el Gateway, MS01, MS02, MS05 y MS08). |
+| Modelo de datos físico | [`ms04-er-physical.drawio.svg`](ms04-er-physical.drawio.svg) | Tablas, tipos, claves, `CHECK`, índices, la vista `v_checkins_vigentes` y el trigger de solo inserción (scripts 001 a 006 de `database/`). |
+| Clases (UML) | [`ms04-classes.puml`](ms04-classes.puml) · [SVG](ms04-classes.svg) | Entidades y enums del dominio, identidad y permisos del solicitante, y auditoría con su contexto de evento. |
+| Despliegue | [`ms04-deployment-aws.drawio.svg`](ms04-deployment-aws.drawio.svg) | EC2 de MS04 en AWS con Security Group, Caddy de borde con mTLS y stacks prod/test, y otra EC2 sin IP pública con una PostgreSQL por entorno; el API Gateway sigue en Azure. |
 
 ## Cómo ver y editar los diagramas
 
