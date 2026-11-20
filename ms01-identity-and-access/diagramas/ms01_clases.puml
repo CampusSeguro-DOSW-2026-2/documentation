@@ -1,12 +1,12 @@
 @startuml ms01_clases
-' UML · Clases: estructura estática del dominio de MS01 (identidad, roles, permisos, recuperación y auditoría).
-' Fuente: entity/*, security/RequesterIdentity, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+' UML · Clases: estructura estática del dominio de MS01 (usuarios, roles y permisos en BD, registro, recuperación y auditoría).
+' Fuente: ms01-identity-and-access (develop) entity/*, security/RequesterIdentity, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
 skinparam classAttributeIconSize 0
 skinparam shadowing false
 hide empty members
 title MS01 · Diagrama de clases
 
-class UserEntity <<@Entity usuarios>> {
+class UserEntity <<@Entity users>> {
     - id : UUID
     - firstName : String
     - secondName : String
@@ -14,15 +14,57 @@ class UserEntity <<@Entity usuarios>> {
     - secondLastName : String
     - email : String
     - password : String
-    - roles : Set<UserRole>
+    - roles : Set<RoleEntity>
     - state : UserState
     - createdAt : Instant
     - updatedAt : Instant
-    + getRoles() : Set<UserRole>
-    + setRoles(roles : Set<UserRole>) : void
+    - validFrom : Instant
+    + getRoleNames() : List<String>
+    + setRoles(roles : Set<RoleEntity>) : void
 }
 
-class PasswordResetCodeEntity <<@Entity codigos_recuperacion>> {
+class RoleEntity <<@Entity roles>> {
+    - id : UUID
+    - name : String
+    - description : String
+    - permissions : Set<PermissionEntity>
+    - system : boolean
+    - validFrom : Instant
+    - createdAt : Instant
+    - updatedAt : Instant
+    + isSystem() : boolean
+    + setPermissions(permissions : Set<PermissionEntity>) : void
+}
+
+class PermissionEntity <<@Entity permissions>> {
+    - id : UUID
+    - name : String
+    - description : String
+}
+
+enum Permission {
+    MS01_PROFILE_READ
+    MS01_PROFILE_WRITE
+    MS01_PASSWORD_CHANGE
+    MS01_SESSION_LOGOUT
+    MS01_ROLE_READ_OWN
+    MS01_ROLE_READ_ALL
+    MS01_ROLE_MANAGE
+    MS01_USER_READ
+    MS01_USER_STATUS
+    MS01_USER_ROLES
+    --
+    - code : String
+    - description : String
+    + getCode() : String
+}
+
+enum UserState {
+    ACTIVO
+    INACTIVO
+}
+
+class PasswordResetCodeEntity <<@Entity password_reset_codes>> {
     - id : UUID
     - userId : UUID
     - codeHash : String
@@ -33,52 +75,29 @@ class PasswordResetCodeEntity <<@Entity codigos_recuperacion>> {
     + isActiveAt(now : Instant) : boolean
 }
 
-enum UserState {
-    ACTIVO
-    INACTIVO
-}
-
-enum UserRole {
-    ESTUDIANTE
-    PROFESOR
-    ADMINISTRATIVO
-    BRIGADISTA
-    COORDINADOR
-    ORGANIZADOR
-    ADMIN
-    AUDITOR
-    --
-    - permissions : Set<Permission>
-    + hasPermission(p : Permission) : boolean
-    + getPermissionCodes() : List<String>
-    + {static} permissionsOf(roles : Collection<UserRole>) : Set<Permission>
-    + {static} sortedByName(roles : Collection<UserRole>) : List<UserRole>
-}
-
-enum Permission {
-    MS01_PROFILE_READ
-    MS01_PROFILE_WRITE
-    MS01_PASSWORD_CHANGE
-    MS01_SESSION_LOGOUT
-    MS01_ROLE_READ_OWN
-    MS01_ROLE_READ_ALL
-    MS01_USER_READ
-    MS01_USER_STATUS
-    MS01_USER_ROLES
-    … 38 más de MS02 a MS08 (47 en total)
-    --
-    - code : String
-    - description : String
-    + getCode() : String
-    + {static} grantedToEveryRole() : Set<Permission>
-    + {static} grantedToCommunity() : Set<Permission>
+class PendingRegistrationEntity <<@Entity pending_registrations>> {
+    - email : String
+    - firstName : String
+    - secondName : String
+    - firstLastName : String
+    - secondLastName : String
+    - passwordHash : String
+    - codeHash : String
+    - requestTokenHash : String
+    - attempts : int
+    - expiresAt : Instant
+    - codeSentAt : Instant
+    - codesSent : int
+    - windowStartedAt : Instant
+    + isCodeActiveAt(now : Instant) : boolean
 }
 
 class RequesterIdentity <<record>> {
     - userId : UUID
-    - roles : Set<UserRole>
-    + permissions() : Set<Permission>
+    - roles : Set<String>
+    - permissions : Set<String>
     + hasPermission(p : Permission) : boolean
+    + hasPermission(code : String) : boolean
     + rolesHeader() : String
 }
 
@@ -98,6 +117,10 @@ enum AuditAction {
     LOGIN
     LOGOUT
     CAMBIO_ROL
+    CREACION_ROL
+    EDICION_ROL
+    CAMBIO_PERMISOS_ROL
+    ELIMINACION_ROL
     CAMBIO_ESTADO
     CAMBIO_CONTRASENA
     RECUPERACION
@@ -108,23 +131,30 @@ enum AuditResult {
     FALLO
 }
 
-UserEntity "0..*" -- "1..*" UserRole : tiene >
-UserEntity "0..*" --> "1" UserState : estado
-UserRole "0..*" -- "1..*" Permission : otorga >
+UserEntity "0..*" -- "1..*" RoleEntity : tiene (user_roles) >
+RoleEntity "0..*" -- "1..*" PermissionEntity : otorga (role_permissions) >
+UserEntity "0..*" --> "1" UserState : state
 PasswordResetCodeEntity "0..*" -- "1" UserEntity : pertenece a (userId) >
-RequesterIdentity "0..*" -- "1..*" UserRole : actúa con >
+Permission "0..1" -- "1" PermissionEntity : se sincroniza con (code = name) >
+RequesterIdentity "0..*" -- "1" UserEntity : identifica (userId) >
 AuditEvent "0..*" -- "0..1" UserEntity : ejecutada por (usuarioId) >
 AuditEvent "0..*" --> "1" AuditAction : accion
 AuditEvent "0..*" --> "1" AuditResult : resultado
 
-note bottom of RequesterIdentity
-  Identidad del solicitante, construida con
-  X-User-Id y X-User-Role; sus permisos son la
-  unión de los permisos de sus roles.
+note right of PendingRegistrationEntity
+  Registro sin verificar, sin relación con users:
+  al verificar el código de 6 dígitos se crea el
+  UserEntity con el rol ESTUDIANTE y se borra la fila.
 end note
-note right of UserEntity
-  roles se guarda en usuario_rol
-  (@ElementCollection); el mínimo
-  de un rol lo exige RoleServiceImpl.
+note top of RequesterIdentity
+  Identidad del solicitante, construida con
+  X-User-Id, X-User-Role y X-User-Permission
+  que inyecta el API Gateway.
+end note
+note bottom of Permission
+  Catálogo de MS01 en el código: al arrancar,
+  PermissionCatalogSynchronizer inserta o borra las
+  filas ms01:* de permissions. Las de ms02 a ms08
+  solo existen en la base de datos.
 end note
 @enduml
