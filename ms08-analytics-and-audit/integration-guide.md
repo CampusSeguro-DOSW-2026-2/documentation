@@ -24,7 +24,7 @@ MS08 es el único que guarda y consulta la auditoría. Su servicio **solo emite 
 | `X-Service-Key` | La `GATEWAY_SERVICE_KEY` de su servicio |
 | `X-Correlation-ID` | El de la petición que originó la acción |
 | `Content-Type` | `application/json` |
-| `X-User-Id`, `X-User-Role` | Solo si la acción la origina un usuario; los mismos que recibió |
+| `X-User-Id`, `X-User-Role`, `X-User-Permission` | Solo si la acción la origina un usuario: las tres juntas y tal como las recibió. Si falta alguna, el Gateway responde `400 VALIDACION` y el evento se pierde |
 
 * No hace falta `X-Service-Name` ni JWT: su servicio se identifica por la clave y por el campo `modulo`.
 * La URL del Gateway y la clave van en variables de entorno; está prohibido hardcodearlas.

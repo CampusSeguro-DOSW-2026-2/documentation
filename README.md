@@ -44,12 +44,12 @@ Cada carpeta lleva el nombre del repositorio del microservicio y la estructura q
 | MS02, MS07 | | [`nataliaRT12`](https://github.com/nataliaRT12) |
 | MS02, MS07 | | [`Marix201`](https://github.com/Marix201) |
 | MS02, MS07 | | [`AndreaSolano23`](https://github.com/AndreaSolano23) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`ginnko2019`](https://github.com/ginnko2019) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`iAxstral`](https://github.com/iAxstral) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`KenjiMaster`](https://github.com/KenjiMaster) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`Dracodec113`](https://github.com/Dracodec113) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`Aleja15-31`](https://github.com/Aleja15-31) |
-| MS03, MS05, MS06 (squad Zephyros) | | [`itsValepP`](https://github.com/itsValepP) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | Rodrigo Humberto Gualtero Martínez | [`ginnko2019`](https://github.com/ginnko2019) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | Tomás Olaya Díaz | [`iAxstral`](https://github.com/iAxstral) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | José Daniel García Pineda | [`KenjiMaster`](https://github.com/KenjiMaster) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | Jerónimo Moreno Herrera | [`Dracodec113`](https://github.com/Dracodec113) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | Paula Alejandra Novoa Castellanos | [`Aleja15-31`](https://github.com/Aleja15-31) |
+| MS03, MS05, MS06, MS08 (squad Zephyros) | Derly Valeria Pachón Pinzón | [`itsValepP`](https://github.com/itsValepP) |
 
 ## Cómo se cambia la documentación
 
