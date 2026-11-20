@@ -29,7 +29,7 @@ Base de datos PostgreSQL propia de MS02 ([RNF-MS02-01](1_requirements.md#requeri
 **Se almacena:** la infraestructura del campus (campus, zonas abiertas, edificios, pisos, espacios, salidas, escaleras), las zonas seguras, las rutas de evacuación (de texto y exteriores, con el último cálculo), las recomendaciones preventivas y los datos de las imágenes.
 
 **No se almacena, y por qué:**
-* **Los archivos de las imágenes:** van en un volumen de disco; la tabla `imagen` guarda su ruta ([RN-MS02-35](1_requirements.md#rn-ms02-35)).
+* **Los archivos de las imágenes:** van en un volumen de disco o en Azure Blob Storage, según la configuración; la tabla `imagen` guarda su ruta ([RN-MS02-35](1_requirements.md#rn-ms02-35)).
 * **Los códigos QR:** se generan al vuelo a partir del UUID ([RN-MS02-37](1_requirements.md#rn-ms02-37)).
 * **Usuarios y auditoría:** los usuarios son de MS01 y la auditoría de MS08. MS02 no guarda quién hizo cada cambio; lo deja en el log con el Correlation ID.
 * **Estado de las personas durante una evacuación:** es de MS04.
@@ -222,7 +222,7 @@ Guarda los dos tipos de ruta ([RN-MS02-13](1_requirements.md#rn-ms02-13)): la de
 | `nombre_original` | VARCHAR(255) | No | — | — | |
 | `tipo_contenido` | VARCHAR(50) | No | — | CHECK IN (`image/jpeg`, `image/png`, `image/webp`) | |
 | `tamanio_bytes` | BIGINT | No | — | CHECK > 0 | Máximo 5 MB, validado en la aplicación. |
-| `ruta_archivo` | VARCHAR(500) | No | — | — | Ruta dentro del volumen de imágenes. |
+| `ruta_archivo` | VARCHAR(500) | No | — | — | Ruta dentro del volumen de imágenes o nombre del blob en el contenedor de Azure (es la misma en ambos). |
 | `created_at` | TIMESTAMP | No | `CURRENT_TIMESTAMP` | — | |
 
 **Índices:** `idx_imagen_elemento (tipo_elemento, elemento_id)`.

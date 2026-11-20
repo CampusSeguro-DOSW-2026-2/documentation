@@ -20,13 +20,14 @@ rectangle "MS02 · ms02-campus-and-security (Spring Boot)" as ms02 {
   component "Puertos del módulo de rutas\nEdificioGateway, EspacioGateway, SalidaGateway,\nEscaleraGateway, ZonaSeguraGateway, VerificadorRutas" as puertos
   component "ProveedorNavegacion\n(OsmProveedorNavegacion)" as nav
   component "CodigoQrService\n(PNG con el enlace del front)" as qr
-  component "AlmacenamientoImagenLocal" as storage
+  component "AlmacenamientoImagen (interfaz)\nLocal | AzureBlob" as storage
   component "Repositorios Spring Data JPA" as repo
   component "ManejadorGlobalErrores\n(ErrorResponse de los Estándares)" as err
 }
 
 database "PostgreSQL\n(esquema Flyway V1–V17)" as db
 storage "Volumen de imágenes" as vol
+cloud "Azure Blob Storage\ncontenedor por entorno" as blob
 cloud "OSRM peatonal\n(OpenStreetMap)" as osrm
 
 usuario --> front
@@ -48,7 +49,8 @@ puertos --> repo
 ruta --> nav
 nav --> osrm : HTTP
 repo --> db : JDBC
-storage --> vol
+storage --> vol : local (por defecto)
+storage --> blob : azure (HTTPS)
 ctrl ..> err
 ctrlRuta ..> err
 @enduml

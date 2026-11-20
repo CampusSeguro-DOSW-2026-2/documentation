@@ -12,6 +12,7 @@ node "VM del API Gateway (Azure)" as vmgw {
 }
 
 cloud "OSRM peatonal\nrouting.openstreetmap.de" as osrm
+cloud "Azure Blob Storage\ncuenta de almacenamiento en la misma región\nun contenedor por entorno" as blob
 
 node "VM de MS02 (Azure, Ubuntu 24.04)\nNSG: 443 y 8443 solo desde la IP del GW; 22 solo desde quien administra" as vm {
   node "Borde (red campus-edge)" as edge {
@@ -20,12 +21,12 @@ node "VM de MS02 (Azure, Ubuntu 24.04)\nNSG: 443 y 8443 solo desde la IP del GW;
   node "Stack ms02-prod (puerto 443)" as prod {
     component "MS02 :8082" as ms02p
     database "PostgreSQL\nvolumen datos" as dbp
-    storage "volumen imagenes" as imgp
+    storage "volumen imagenes\n(modo local)" as imgp
   }
   node "Stack ms02-test (puerto 8443)" as test {
     component "MS02 :8082" as ms02t
     database "PostgreSQL\nvolumen datos" as dbt
-    storage "volumen imagenes" as imgt
+    storage "volumen imagenes\n(modo local)" as imgt
   }
   component "Runner self-hosted\n(etiqueta ms02)" as runner
 }
@@ -37,9 +38,11 @@ gw --> caddy : HTTPS + mTLS
 caddy --> ms02p : 443 → ms02-prod:8082
 caddy --> ms02t : 8443 → ms02-test:8082
 ms02p --> dbp
-ms02p --> imgp
 ms02t --> dbt
-ms02t --> imgt
+ms02p ..> imgp : local (por defecto)
+ms02t ..> imgt : local (por defecto)
+ms02p --> blob : HTTPS (IMAGEN_STORAGE_TYPE=azure)
+ms02t --> blob : HTTPS (IMAGEN_STORAGE_TYPE=azure)
 ms02p --> osrm : HTTPS (salida)
 ms02t --> osrm : HTTPS (salida)
 

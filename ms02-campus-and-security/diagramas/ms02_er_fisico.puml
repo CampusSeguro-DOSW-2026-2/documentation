@@ -149,6 +149,7 @@ edificio |o--o{ recomendacion_preventiva
 note bottom of imagen
   elemento_id apunta a edificio, espacio,
   salida o zona_segura según tipo_elemento
-  (sin FK). El archivo vive en un volumen.
+  (sin FK). El archivo vive en un volumen o en Azure Blob
+  Storage; ruta_archivo es su ruta o el nombre del blob.
 end note
 @enduml
