@@ -1,0 +1,1042 @@
+openapi: 3.1.0
+info:
+  title: MS08 - Analítica y Auditoría (CampusSeguro)
+  description: >-
+    API REST del microservicio de Auditoría y Analítica de CampusSeguro.
+    Registra de forma inmutable (`append-only` en MongoDB / Azure DocumentDB con
+    retención TTL de 180 días) los hechos enviados por los microservicios MS01..MS07,
+    permite consultar y filtrar la bitácora de auditoría segregada por permisos de
+    simulacro (`SIMULACRO`) o evento real (`REAL`), y calcula en vuelo los indicadores
+    de desempeño por evento, la comparación lado a lado entre eventos (2 a 10) y la
+    analítica de incidentes, solicitudes de asistencia y tiempos de respuesta por
+    edificio o zona (1 a 10 eventos).
+  version: 1.0.0
+  contact:
+    name: CampusSeguro DOSW 2026-2 — MS08 Analytics & Audit
+    url: https://github.com/CampusSeguro-DOSW-2026-2/ms08-analytics-and-audit
+servers:
+  - url: http://localhost:8088
+    description: Entorno de desarrollo local (puerto 8088)
+  - url: http://ms08-test:8088
+    description: Entorno de pruebas en VM Azure (red campus-edge)
+  - url: http://ms08-prod:8088
+    description: Entorno de producción en VM Azure (red campus-edge)
+tags:
+  - name: Audit Events
+    description: Ingesta interna idempotente (`POST /api/v1/audit/events`) para MS01..MS08 y consulta/búsqueda paginada o por ID de hechos de auditoría (`GET /api/v1/audit/events`).
+  - name: Event Indicators
+    description: Cálculo en vuelo de indicadores de notificación, participación/check-in, incidentes y tiempos de respuesta de un evento (`GET /api/v1/analytics/events/{eventoId}`).
+  - name: Event Analytics
+    description: Comparación histórica lado a lado de 2 a 10 eventos (`GET /api/v1/analytics/comparisons`) y analítica por edificio o zona de 1 a 10 eventos (`GET /api/v1/analytics/locations`).
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/audit/events:
+    post:
+      tags:
+        - Audit Events
+      summary: Registrar un hecho de auditoría (ruta interna entre microservicios)
+      description: >-
+        Ruta **Interna** consumida exclusivamente por los microservicios `ms01`..`ms08` a través
+        del API Gateway (requiere cabecera `X-Service-Name` con patrón `^ms0[1-8]$`; si es invocada
+        por un usuario final responde `403 PROHIBIDO`).
+        Inserta de forma inmutable el hecho en la colección `audit_events`. Si no se envía `id`,
+        MS08 calcula un identificador determinista SHA-256 a partir de
+        `correlation_id + modulo + accion + recurso_afectado + fecha_hora`.
+        La operación es idempotente: si el mismo `id` ya fue almacenado, devuelve igualmente `202 Accepted`
+        sin cuerpo.
+      operationId: registerAuditEvent
+      security:
+        - serviceHeaderAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServiceNameHeaderRequired"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditEventRequest"
+            example:
+              id: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
+              usuario_id: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+              modulo: MS04
+              accion: REGISTRO_CHECKIN
+              recurso_afectado: checkin:chk-901
+              resultado: EXITO
+              fecha_hora: "2026-11-20T15:02:10Z"
+              correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+              detalle: Check-in registrado en punto de encuentro Bloque B
+              evento_id: 11111111-1111-4111-8111-111111111111
+              tipo_evento: SIMULACRO
+              atributos:
+                estado: SAFE
+                punto_encuentro: PE_BLOQUE_B
+                ubicacion_tipo: BUILDING
+                ubicacion_id: bloque-b
+      responses:
+        "202":
+          description: Hecho de auditoría aceptado y almacenado (o ignorado si ya existía con el mismo `id`). Sin cuerpo de respuesta.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+    get:
+      tags:
+        - Audit Events
+      summary: Consultar y filtrar hechos de auditoría (paginado)
+      description: >-
+        Ruta **Protegida** para usuarios autenticados que posean al menos uno de los permisos de lectura
+        de auditoría (`ms08:audit_drill:read` y/o `ms08:audit_real_event:read`):
+        - Con `ms08:audit_drill:read`: solo visualiza hechos con `tipo_evento = SIMULACRO`.
+        - Con `ms08:audit_real_event:read`: solo visualiza hechos con `tipo_evento = REAL`.
+        - Con **ambos** permisos: visualiza todos los hechos, incluidos los administrativos sin `evento_id` ni `tipo_evento` (por ejemplo inicios de sesión en MS01).
+        Ordena los resultados del más reciente al más antiguo (`fecha_hora` descendente).
+      operationId: searchAuditEvents
+      parameters:
+        - name: modulo
+          in: query
+          required: false
+          description: Filtra por código del microservicio emisor (`MS01`..`MS08`).
+          schema:
+            type: string
+            pattern: "^MS0[1-8]$"
+          example: MS04
+        - name: accion
+          in: query
+          required: false
+          description: Filtra por código de acción en `UPPER_SNAKE_CASE` (por ejemplo `EVENT_STARTED`, `REGISTRO_CHECKIN`, `CREAR_INCIDENTE`).
+          schema:
+            type: string
+            pattern: "^[A-Z][A-Z0-9_]*$"
+            maxLength: 100
+          example: REGISTRO_CHECKIN
+        - name: usuario_id
+          in: query
+          required: false
+          description: Filtra por el UUID del usuario actor del hecho.
+          schema:
+            type: string
+            format: uuid
+          example: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+        - name: evento_id
+          in: query
+          required: false
+          description: Filtra por el UUID del evento o simulacro asociado.
+          schema:
+            type: string
+            format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        - name: tipo_evento
+          in: query
+          required: false
+          description: Filtra por clase de evento (`SIMULACRO` o `REAL`). Si el usuario solicita un tipo para el cual no tiene permiso, responde `403 PROHIBIDO`.
+          schema:
+            $ref: "#/components/schemas/EventKind"
+        - name: recurso_afectado
+          in: query
+          required: false
+          description: Filtra por identificador del recurso afectado en formato `<tipo>:<id>`.
+          schema:
+            type: string
+            pattern: "^[A-Za-z][A-Za-z0-9_]*:\\S{1,100}$"
+          example: checkin:chk-901
+        - name: correlation_id
+          in: query
+          required: false
+          description: Filtra por identificador de correlación de la petición distribuida.
+          schema:
+            type: string
+            maxLength: 100
+          example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+        - name: desde
+          in: query
+          required: false
+          description: Fecha y hora inicial del rango (ISO-8601, inclusiva). No debe superar a `hasta`.
+          schema:
+            type: string
+            format: date-time
+          example: "2026-11-01T00:00:00Z"
+        - name: hasta
+          in: query
+          required: false
+          description: Fecha y hora final del rango (ISO-8601, inclusiva).
+          schema:
+            type: string
+            format: date-time
+          example: "2026-11-30T23:59:59Z"
+        - name: page
+          in: query
+          required: false
+          description: Número de página (inicia en 0).
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Cantidad de elementos por página (entre 1 y 100).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/UserPermissionHeader"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Página de hechos de auditoría retornada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseAuditEventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/audit/events/{id}:
+    get:
+      tags:
+        - Audit Events
+      summary: Obtener el detalle de un hecho de auditoría por su ID
+      description: >-
+        Devuelve un único registro de auditoría a partir de su identificador (`id`, ya sea UUID
+        o hash SHA-256). Requiere `ms08:audit_drill:read` si el registro pertenece a un `SIMULACRO`,
+        `ms08:audit_real_event:read` si pertenece a un evento `REAL`, o ambos permisos si es un
+        registro administrativo sin `tipo_evento`.
+      operationId: getAuditEventById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador único del hecho de auditoría (UUID o hash SHA-256 de 64 caracteres hexadecimales).
+          schema:
+            type: string
+          example: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/UserPermissionHeader"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Hecho de auditoría encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/analytics/events/{eventoId}:
+    get:
+      tags:
+        - Event Indicators
+      summary: Calcular los indicadores consolidados de un evento o simulacro
+      description: >-
+        Calcula en vuelo (sin colección intermedia) los indicadores de un evento a partir de todos
+        los hechos auditados de MS03 (`NOTIFICATION_SENT`, `NOTIFICATION_FAILED`, `CONFIRM`),
+        MS04 (`REGISTRO_CHECKIN`, `CAMBIO_ESTADO_CHECKIN`), MS05 (`CREAR_INCIDENTE`, `INICIAR_ATENCION`)
+        y MS06 (`EVENT_STARTED`).
+        Requiere el permiso `ms08:indicators_drill:read` cuando el evento es de tipo `SIMULACRO`,
+        o `ms08:indicators_real_event:read` cuando el evento es de tipo `REAL`.
+      operationId: getEventIndicators
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          description: Identificador UUID del evento o simulacro a evaluar.
+          schema:
+            type: string
+            format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/UserPermissionHeader"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Indicadores del evento calculados exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventIndicatorsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/analytics/comparisons:
+    get:
+      tags:
+        - Event Analytics
+      summary: Comparar lado a lado de 2 a 10 eventos del mismo tipo
+      description: >-
+        Compara entre **2 y 10** eventos distintos del mismo tipo (`SIMULACRO` o `REAL`),
+        ordenados desde el inicio más antiguo hasta el más reciente. Incluye para cada evento
+        participación, confirmación de alertas, porcentaje de solicitudes de asistencia, total de
+        incidentes, tiempos promedio y el objeto `cambio_vs_anterior` (valor actual menos valor
+        del evento inmediatamente anterior en la lista).
+        Los identificadores se envían repitiendo `?evento_id=a&evento_id=b` o separados por comas.
+        Requiere `ms08:indicators_drill:read` (simulacros) o `ms08:indicators_real_event:read` (eventos reales).
+      operationId: compareEvents
+      parameters:
+        - name: evento_id
+          in: query
+          required: true
+          description: Lista de 2 a 10 UUIDs de eventos del mismo tipo (repetidos en query o separados por coma).
+          schema:
+            type: array
+            minItems: 2
+            maxItems: 10
+            items:
+              type: string
+              format: uuid
+          example:
+            - 11111111-1111-4111-8111-111111111111
+            - 22222222-2222-4222-8222-222222222222
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/UserPermissionHeader"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Comparación entre eventos calculada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventComparisonResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/analytics/locations:
+    get:
+      tags:
+        - Event Analytics
+      summary: Analítica de incidentes, asistencia y tiempos de respuesta por edificio o zona (1 a 10 eventos)
+      description: >-
+        Agrupa de **1 a 10** eventos del mismo tipo (`SIMULACRO` o `REAL`) por ubicación física
+        (`ubicacion_tipo` + `ubicacion_id`), calculando para cada edificio o zona el total de
+        incidentes, las solicitudes de asistencia (`NEEDS_ASSISTANCE`), el tiempo promedio hasta la
+        primera atención y el desglose `por_evento`.
+        Las ubicaciones se ordenan de mayor a menor tiempo promedio hasta la primera atención
+        (las ubicaciones sin muestras quedan al final).
+        Requiere `ms08:indicators_drill:read` (simulacros) o `ms08:indicators_real_event:read` (eventos reales).
+      operationId: getLocationAnalytics
+      parameters:
+        - name: evento_id
+          in: query
+          required: true
+          description: Lista de 1 a 10 UUIDs de eventos del mismo tipo (repetidos en query o separados por coma).
+          schema:
+            type: array
+            minItems: 1
+            maxItems: 10
+            items:
+              type: string
+              format: uuid
+          example:
+            - 11111111-1111-4111-8111-111111111111
+            - 22222222-2222-4222-8222-222222222222
+        - $ref: "#/components/parameters/UserIdHeader"
+        - $ref: "#/components/parameters/UserPermissionHeader"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Analítica por ubicación calculada exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationAnalyticsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Token JWT presentado por el usuario ante el API Gateway. El Gateway valida el token e
+        inyecta hacia MS08 las cabeceras `X-User-Id` (UUID) y `X-User-Permission`
+        (`ms08:audit_drill:read`, `ms08:audit_real_event:read`, `ms08:indicators_drill:read`,
+        `ms08:indicators_real_event:read`).
+    serviceHeaderAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Name
+      description: >-
+        Identidad de microservicio inyectada por el API Gateway tras validar `X-Service-Key`
+        (`ms01`..`ms08`). Requerida para la ruta interna `POST /api/v1/audit/events`.
+
+  parameters:
+    ServiceNameHeaderRequired:
+      name: X-Service-Name
+      in: header
+      required: true
+      description: Nombre del microservicio emisor autenticado por el API Gateway (`ms01`..`ms08`).
+      schema:
+        type: string
+        pattern: "^ms0[1-8]$"
+      example: ms04
+    UserIdHeader:
+      name: X-User-Id
+      in: header
+      required: false
+      description: UUID del usuario autenticado (inyectado por el API Gateway al validar el JWT; requerido cuando se invoca directamente sin Gateway).
+      schema:
+        type: string
+        format: uuid
+      example: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+    UserPermissionHeader:
+      name: X-User-Permission
+      in: header
+      required: false
+      description: >-
+        Permisos efectivos del usuario separados por coma (inyectados por el API Gateway):
+        `ms08:audit_drill:read`, `ms08:audit_real_event:read`,
+        `ms08:indicators_drill:read`, `ms08:indicators_real_event:read`.
+      schema:
+        type: string
+      example: ms08:audit_drill:read,ms08:indicators_drill:read
+    CorrelationIdHeader:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Identificador de correlación para trazabilidad entre microservicios; si no se envía, MS08 genera uno y lo devuelve en la respuesta.
+      schema:
+        type: string
+      example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+
+  responses:
+    BadRequest:
+      description: Datos de entrada o parámetros de consulta no válidos (`VALIDACION`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Los datos enviados no son válidos
+            errores:
+              - campo: fecha_hora
+                mensaje: No puede estar más de 5 minutos en el futuro
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    Unauthorized:
+      description: Faltan las cabeceras de identidad del Gateway o su formato no es válido (`NO_AUTENTICADO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Se requiere autenticación o la identidad no es válida
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    Forbidden:
+      description: El actor autenticado no tiene permiso para la operación o para el tipo de evento (`PROHIBIDO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No tienes permiso para realizar esta operación
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    NotFound:
+      description: El hecho de auditoría o los hechos del evento consultado no existen en MS08 (`NO_ENCONTRADO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: El recurso solicitado no existe
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    ServiceUnavailable:
+      description: La base de datos MongoDB / Azure DocumentDB no está disponible (`SERVICIO_NO_DISPONIBLE`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 503
+            codigo: SERVICIO_NO_DISPONIBLE
+            mensaje: El servicio no está disponible. Intenta de nuevo más tarde
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+
+  schemas:
+    AuditResult:
+      type: string
+      description: Resultado de la acción auditada.
+      enum:
+        - EXITO
+        - FALLO
+      example: EXITO
+
+    EventKind:
+      type: string
+      description: Clase de evento al que pertenece el hecho (`SIMULACRO` o `REAL`). Determina el permiso de lectura requerido.
+      enum:
+        - SIMULACRO
+        - REAL
+      example: SIMULACRO
+
+    AuditEventRequest:
+      type: object
+      additionalProperties: false
+      description: >-
+        Cuerpo de ingesta de un hecho de auditoría (`POST /api/v1/audit/events`, sección 12 de los
+        Estándares de API). Cualquier campo de primer nivel desconocido es rechazado con `400 VALIDACION`.
+      required:
+        - modulo
+        - accion
+        - resultado
+        - fecha_hora
+        - correlation_id
+      properties:
+        id:
+          type: string
+          format: uuid
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          description: Identificador UUID opcional del hecho. Si se omite, MS08 calcula un SHA-256 determinista.
+          example: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
+        usuario_id:
+          type: string
+          format: uuid
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          description: UUID del usuario que ejecutó la acción (`null` cuando la acción fue disparada por un proceso automático).
+          example: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+        modulo:
+          type: string
+          pattern: "^MS0[1-8]$"
+          description: Código del microservicio donde ocurrió el hecho (`MS01`..`MS08`).
+          example: MS04
+        accion:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]*$"
+          maxLength: 100
+          description: Código de la acción en `UPPER_SNAKE_CASE` (por ejemplo `EVENT_STARTED`, `NOTIFICATION_SENT`, `CONFIRM`, `REGISTRO_CHECKIN`, `CAMBIO_ESTADO_CHECKIN`, `CREAR_INCIDENTE`, `INICIAR_ATENCION`).
+          example: REGISTRO_CHECKIN
+        recurso_afectado:
+          type: string
+          pattern: "^[A-Za-z][A-Za-z0-9_]*:\\S{1,100}$"
+          description: Recurso afectado en formato `<tipo>:<id>` (por ejemplo `checkin:chk-901`, `alert:al-10`, `incident:inc-04`).
+          example: checkin:chk-901
+        resultado:
+          $ref: "#/components/schemas/AuditResult"
+        fecha_hora:
+          type: string
+          format: date-time
+          description: Instante en que ocurrió el hecho (ISO-8601). No puede estar más de 5 minutos en el futuro ni ser anterior a los 180 días de retención.
+          example: "2026-11-20T15:02:10Z"
+        correlation_id:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Identificador de correlación de la solicitud que originó el hecho.
+          example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+        detalle:
+          type: string
+          maxLength: 100
+          description: Descripción breve opcional del hecho (máximo 100 caracteres).
+          example: Check-in registrado en punto de encuentro Bloque B
+        evento_id:
+          type: string
+          format: uuid
+          pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          description: UUID del evento o simulacro asociado (`null` en acciones administrativas generales).
+          example: 11111111-1111-4111-8111-111111111111
+        tipo_evento:
+          $ref: "#/components/schemas/EventKind"
+        atributos:
+          type: object
+          maxProperties: 20
+          description: >-
+            Mapa plano de hasta 20 claves en `snake_case` (`^[a-z][a-z0-9_]*$`).
+            Cada valor debe ser texto (máximo 100 caracteres), número o booleano.
+          additionalProperties:
+            oneOf:
+              - type: string
+                maxLength: 100
+              - type: number
+              - type: boolean
+          example:
+            estado: SAFE
+            punto_encuentro: PE_BLOQUE_B
+            ubicacion_tipo: BUILDING
+            ubicacion_id: bloque-b
+
+    AuditEventResponse:
+      type: object
+      description: Registro inmutable de auditoría almacenado en `audit_events` (incluye `recibido_en`).
+      properties:
+        id:
+          type: string
+          example: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
+        usuario_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+        modulo:
+          type: string
+          example: MS04
+        accion:
+          type: string
+          example: REGISTRO_CHECKIN
+        recurso_afectado:
+          type: string
+          nullable: true
+          example: checkin:chk-901
+        resultado:
+          $ref: "#/components/schemas/AuditResult"
+        fecha_hora:
+          type: string
+          format: date-time
+          example: "2026-11-20T15:02:10Z"
+        recibido_en:
+          type: string
+          format: date-time
+          example: "2026-11-20T15:02:11Z"
+        correlation_id:
+          type: string
+          example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+        detalle:
+          type: string
+          nullable: true
+          example: Check-in registrado en punto de encuentro Bloque B
+        evento_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: 11111111-1111-4111-8111-111111111111
+        tipo_evento:
+          $ref: "#/components/schemas/EventKind"
+        atributos:
+          type: object
+          additionalProperties: true
+          example:
+            estado: SAFE
+            punto_encuentro: PE_BLOQUE_B
+
+    PageResponseAuditEventResponse:
+      type: object
+      description: Página de hechos de auditoría conforme al estándar de paginación de CampusSeguro.
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEventResponse"
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 20
+        total_elementos:
+          type: integer
+          format: int64
+          example: 42
+        total_paginas:
+          type: integer
+          format: int32
+          example: 3
+
+    IndicatorBucket:
+      type: object
+      description: Agrupación de conteo con su porcentaje respecto al total del grupo.
+      properties:
+        clave:
+          type: string
+          example: SAFE
+        cantidad:
+          type: integer
+          format: int64
+          example: 180
+        porcentaje:
+          type: number
+          nullable: true
+          example: 90.0
+
+    TimeStat:
+      type: object
+      description: Tiempo promedio en segundos y cantidad de muestras utilizadas para el cálculo.
+      properties:
+        promedio_segundos:
+          type: number
+          nullable: true
+          example: 95.4
+        muestras:
+          type: integer
+          format: int64
+          example: 180
+
+    SlowLocation:
+      type: object
+      description: Edificio o zona con su tiempo promedio hasta la primera atención de incidente.
+      properties:
+        ubicacion_tipo:
+          type: string
+          example: BUILDING
+        ubicacion_id:
+          type: string
+          example: bloque-c
+        promedio_segundos:
+          type: number
+          example: 210.5
+        muestras:
+          type: integer
+          format: int64
+          example: 3
+
+    NotificationIndicators:
+      type: object
+      description: Indicadores de envío y confirmación de alertas del evento (MS03).
+      properties:
+        destinatarios:
+          type: integer
+          format: int64
+          example: 250
+        enviados:
+          type: integer
+          format: int64
+          example: 245
+        fallidos:
+          type: integer
+          format: int64
+          example: 5
+        confirmados:
+          type: integer
+          format: int64
+          example: 210
+        porcentaje_confirmacion:
+          type: number
+          nullable: true
+          example: 84.0
+
+    ParticipationIndicators:
+      type: object
+      description: Indicadores de personas que realizaron check-in (MS04), agrupados por último estado y punto de encuentro.
+      properties:
+        participantes:
+          type: integer
+          format: int64
+          example: 200
+        porcentaje_participacion:
+          type: number
+          nullable: true
+          example: 80.0
+        por_estado:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorBucket"
+        puntos_encuentro:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorBucket"
+        solicitaron_asistencia:
+          type: integer
+          format: int64
+          example: 4
+        porcentaje_asistencia:
+          type: number
+          nullable: true
+          example: 2.0
+
+    IncidentIndicators:
+      type: object
+      description: Indicadores de incidentes reportados durante el evento (MS05).
+      properties:
+        total:
+          type: integer
+          format: int64
+          example: 5
+        por_categoria:
+          type: array
+          items:
+            $ref: "#/components/schemas/IndicatorBucket"
+
+    ResponseTimeIndicators:
+      type: object
+      description: Tiempos promedio de respuesta en segundos calculados para el evento.
+      properties:
+        hasta_checkin:
+          $ref: "#/components/schemas/TimeStat"
+        evacuacion:
+          $ref: "#/components/schemas/TimeStat"
+        hasta_primera_atencion:
+          $ref: "#/components/schemas/TimeStat"
+        ubicaciones_mas_lentas:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlowLocation"
+
+    EventIndicatorsResponse:
+      type: object
+      description: Indicadores consolidados de un evento (simulacro o real) calculados en vuelo sobre `audit_events`.
+      properties:
+        evento_id:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        tipo_evento:
+          $ref: "#/components/schemas/EventKind"
+        calculado_en:
+          type: string
+          format: date-time
+          example: "2026-11-20T16:00:00Z"
+        inicio_evento:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-11-20T15:00:00Z"
+        notificacion:
+          $ref: "#/components/schemas/NotificationIndicators"
+        participacion:
+          $ref: "#/components/schemas/ParticipationIndicators"
+        incidentes:
+          $ref: "#/components/schemas/IncidentIndicators"
+        tiempos:
+          $ref: "#/components/schemas/ResponseTimeIndicators"
+
+    ComparisonChange:
+      type: object
+      description: Diferencia entre el valor del evento actual y el evento inmediatamente anterior (`null` en el primer evento o cuando falta alguno de los dos valores).
+      properties:
+        porcentaje_participacion:
+          type: number
+          nullable: true
+          example: 5.5
+        porcentaje_confirmacion:
+          type: number
+          nullable: true
+          example: 3.2
+        hasta_checkin_segundos:
+          type: number
+          nullable: true
+          example: -12.4
+        evacuacion_segundos:
+          type: number
+          nullable: true
+          example: -18.0
+        hasta_primera_atencion_segundos:
+          type: number
+          nullable: true
+          example: -9.5
+
+    EventComparisonRow:
+      type: object
+      description: Resumen de indicadores de un evento dentro de la comparación histórica.
+      properties:
+        evento_id:
+          type: string
+          format: uuid
+          example: 22222222-2222-4222-8222-222222222222
+        tipo_evento:
+          $ref: "#/components/schemas/EventKind"
+        inicio_evento:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-11-20T15:00:00Z"
+        participantes:
+          type: integer
+          format: int64
+          example: 200
+        porcentaje_participacion:
+          type: number
+          nullable: true
+          example: 80.0
+        porcentaje_confirmacion:
+          type: number
+          nullable: true
+          example: 84.0
+        porcentaje_asistencia:
+          type: number
+          nullable: true
+          example: 2.0
+        incidentes:
+          type: integer
+          format: int64
+          example: 5
+        hasta_checkin_segundos:
+          type: number
+          nullable: true
+          example: 95.4
+        evacuacion_segundos:
+          type: number
+          nullable: true
+          example: 142.0
+        hasta_primera_atencion_segundos:
+          type: number
+          nullable: true
+          example: 165.0
+        cambio_vs_anterior:
+          $ref: "#/components/schemas/ComparisonChange"
+
+    EventComparisonResponse:
+      type: object
+      description: Comparación lado a lado de 2 a 10 eventos del mismo tipo, ordenados del inicio más antiguo al más reciente.
+      properties:
+        eventos:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventComparisonRow"
+
+    LocationByEvent:
+      type: object
+      description: Cifras de un edificio o zona en un evento individual.
+      properties:
+        evento_id:
+          type: string
+          format: uuid
+          example: 11111111-1111-4111-8111-111111111111
+        incidentes:
+          type: integer
+          format: int64
+          example: 3
+        solicitudes_asistencia:
+          type: integer
+          format: int64
+          example: 2
+        promedio_segundos:
+          type: number
+          nullable: true
+          example: 185.0
+        muestras:
+          type: integer
+          format: int64
+          example: 3
+
+    LocationAnalyticsItem:
+      type: object
+      description: Consolidado de un edificio o zona sobre los eventos consultados y su desglose por evento.
+      properties:
+        ubicacion_tipo:
+          type: string
+          example: BUILDING
+        ubicacion_id:
+          type: string
+          example: bloque-b
+        incidentes:
+          type: integer
+          format: int64
+          example: 5
+        solicitudes_asistencia:
+          type: integer
+          format: int64
+          example: 3
+        hasta_primera_atencion:
+          $ref: "#/components/schemas/TimeStat"
+        por_evento:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationByEvent"
+
+    LocationAnalyticsResponse:
+      type: object
+      description: Analítica por ubicación física ordenada desde el mayor tiempo promedio hasta la primera atención.
+      properties:
+        ubicaciones:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationAnalyticsItem"
+
+    ErrorDetail:
+      type: object
+      description: Detalle de un campo inválido dentro de `ErrorResponse`.
+      properties:
+        campo:
+          type: string
+          example: fecha_hora
+        mensaje:
+          type: string
+          example: No puede estar más de 5 minutos en el futuro
+
+    ErrorResponse:
+      type: object
+      description: >-
+        Formato estándar de respuesta de error de CampusSeguro (sección 7.1):
+        `status`, `codigo`, `mensaje`, `errores` y `correlation_id`.
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+      properties:
+        status:
+          type: integer
+          format: int32
+          example: 400
+        codigo:
+          type: string
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - PROHIBIDO
+            - NO_ENCONTRADO
+            - METODO_NO_PERMITIDO
+            - TIPO_NO_SOPORTADO
+            - SERVICIO_NO_DISPONIBLE
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          example: Los datos enviados no son válidos
+        errores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+        correlation_id:
+          type: string
+          nullable: true
+          example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
