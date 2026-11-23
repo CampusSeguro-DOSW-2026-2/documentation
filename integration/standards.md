@@ -67,6 +67,9 @@ Los términos **DEBE** y **NO DEBE** son obligatorios.
 | `POST` | `/api/v1/auth/login` | MS01 |
 | `POST` | `/api/v1/auth/password/forgot` | MS01 |
 | `POST` | `/api/v1/auth/password/reset` | MS01 |
+| `GET` | `/api/v1/public/spaces` | MS02 (consulta por QR, sin datos personales) |
+| `GET` | `/api/v1/public/exits` | MS02 (consulta por QR, sin datos personales) |
+| `GET` | `/api/v1/public/safe-zones` | MS02 (consulta por QR, sin datos personales) |
 | `GET` | `/actuator/health` | GW (propio, no se enruta) |
 
 * **Swagger/OpenAPI de los servicios:** habilitado solo en desarrollo local. No se expone a través del GW.
