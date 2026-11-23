@@ -48,6 +48,9 @@ La política es independiente del prefijo. Se evalúa por **método + ruta exact
 | Pública | `POST` | `/api/v1/auth/login` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/password/forgot` | Ninguna |
 | Pública | `POST` | `/api/v1/auth/password/reset` | Ninguna |
+| Pública | `GET` | `/api/v1/public/spaces` | Ninguna |
+| Pública | `GET` | `/api/v1/public/exits` | Ninguna |
+| Pública | `GET` | `/api/v1/public/safe-zones` | Ninguna |
 | Interna | `POST` | `/api/v1/audit/events` | Clave de servicio |
 | Interna | `POST` | `/api/v1/users/batch` | Clave de servicio |
 | Interna | `GET` | `/api/v1/users/by-role` | Clave de servicio |
