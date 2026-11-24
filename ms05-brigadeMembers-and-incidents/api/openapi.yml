@@ -22,14 +22,17 @@ info:
     que otorga la autoridad interna `SERVICE_MS06`.
 
     Permisos utilizados por MS05:
-    - `ms05:brigadier:assign`: Buscar brigadistas, cambiar su estado operativo y gestionar asignaciones a edificios, zonas seguras o puntos de encuentro (COORDINADOR, ORGANIZADOR).
+    - `ms05:brigadier:assign_to_drill`: Buscar brigadistas, cambiar su estado operativo y gestionar asignaciones a edificios, zonas seguras o puntos de encuentro en simulacros (ORGANIZADOR).
+    - `ms05:brigadier:assign_to_real`: Lo mismo en eventos reales (COORDINADOR). Las operaciones sobre un evento exigen el permiso de su tipo; el tipo de evento que gestiona cada usuario sale de sus permisos, nunca de `X-User-Role`.
     - `ms05:panel:read_own`: Consultar panel propio de responsabilidades, autoasignarse y cambiar el estado propio de disponibilidad (BRIGADISTA).
     - `ms05:incident:report`: Registrar incidentes y adjuntar evidencias multimedia (ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR).
     - `ms05:incident:read`: Consultar incidentes, detalles, historial, evidencias, asignaciones y listado general de responsabilidades.
+    - `ms05:incident:manage_own`: Consultar los incidentes propios ("Mis incidentes", `soloPropios=true`) (toda la comunidad, ADMIN y AUDITOR).
     - `ms05:incident:update`: Modificar la descripcion de un incidente (propietario o brigadista activo).
-    - `ms05:assistance:assign`: Asignar brigadista responsable a un incidente, cerrarlo o eliminarlo logicamente cuando esta resuelto (COORDINADOR).
+    - `ms05:assistance:assign_to_drill`: Asignar brigadista responsable a un incidente, cerrarlo o eliminarlo logicamente cuando esta resuelto, en simulacros (ORGANIZADOR).
+    - `ms05:assistance:assign_to_real`: Lo mismo en eventos reales (COORDINADOR).
     - `ms05:assistance:update_status`: Iniciar atencion y resolver incidentes como brigadista responsable (BRIGADISTA, COORDINADOR).
-    - `ms08:audit:read`: Consultar los registros de auditoria de MS05 (AUDITOR).
+    - `ms08:audit_drill:read` / `ms08:audit_real_event:read`: Consultar los registros de auditoria de MS05 (ORGANIZADOR / COORDINADOR, ADMIN y AUDITOR); el permiso es de MS08.
     - `SERVICE_MS06` (`X-Service-Name: ms06`): Crear asignaciones predeterminadas, actualizar el estado operativo del evento y consultar brigadistas e indicadores del evento.
   version: 1.0.0
   license:
@@ -55,7 +58,7 @@ tags:
   - name: Integracion MS06 (Eventos)
     description: Endpoints internos exclusivos para MS06 (estado operativo del evento, brigadistas e indicadores)
   - name: Auditoria
-    description: Consulta inmutable de eventos de auditoria por evento, recurso o listado general (permiso ms08:audit:read)
+    description: Consulta inmutable de eventos de auditoria por evento, recurso o listado general (permisos ms08:audit_drill:read o ms08:audit_real_event:read)
   - name: Salud (Actuator)
     description: Verificacion de salud del contenedor para despliegue y red interna campus-edge
 
@@ -78,8 +81,8 @@ paths:
         Consulta los usuarios con rol BRIGADISTA en MS01, sincroniza su estado
         operativo en MS05 y devuelve sus asignaciones vigentes. Si no se envia
         `nombreBrigadista` (o se envia vacio), devuelve todos los brigadistas.
-        Requiere el permiso `ms05:brigadier:assign`.
-      x-permiso: ms05:brigadier:assign
+        Requiere el permiso `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -134,10 +137,10 @@ paths:
       summary: Activar o cambiar el estado de disponibilidad de un brigadista (con respuesta detallada)
       description: |
         Permite activar o pasar a inactivo a un brigadista. Puede invocarlo un
-        coordinador/organizador (`ms05:brigadier:assign`) para cualquier
+        coordinador/organizador (`ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales)) para cualquier
         brigadista, o el propio brigadista (`ms05:panel:read_own`) cuando
         `brigadistaId` coincide con su `X-User-Id`.
-      x-permiso: ms05:brigadier:assign | ms05:panel:read_own (propio)
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:panel:read_own (propio)
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -184,8 +187,8 @@ paths:
       description: |
         Cambia el estado de un brigadista (`ACTIVO` o `INACTIVO`) validando en
         MS01 que el usuario tenga rol de brigadista. Exclusivo para quien posea
-        el permiso `ms05:brigadier:assign`.
-      x-permiso: ms05:brigadier:assign
+        el permiso `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -231,7 +234,7 @@ paths:
         El coordinador u organizador asigna un brigadista activo a un edificio,
         zona segura o punto de encuentro dentro de un evento. Valida el usuario
         en MS01 y la existencia de la ubicacion en MS02.
-      x-permiso: ms05:brigadier:assign
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -384,8 +387,8 @@ paths:
       summary: Consultar el detalle de una asignacion especifica
       description: |
         Devuelve los datos de una asignacion por su UUID. Requiere
-        `ms05:brigadier:assign` o `ms05:incident:read`.
-      x-permiso: ms05:brigadier:assign | ms05:incident:read
+        `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read`.
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -411,7 +414,7 @@ paths:
       description: |
         Permite al coordinador u organizador actualizar la ubicacion, el tipo
         de ubicacion y las observaciones de una asignacion vigente.
-      x-permiso: ms05:brigadier:assign
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -459,8 +462,8 @@ paths:
       summary: Retirar una asignacion vigente
       description: |
         Cambia el estado de la asignacion a `RETIRADA`. Requiere el permiso
-        `ms05:brigadier:assign`.
-      x-permiso: ms05:brigadier:assign
+        `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -494,8 +497,8 @@ paths:
       summary: Listar todas las asignaciones de un evento
       description: |
         Devuelve todas las asignaciones asociadas a un evento. Requiere
-        `ms05:brigadier:assign` o `ms05:incident:read`.
-      x-permiso: ms05:brigadier:assign | ms05:incident:read
+        `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read`.
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -529,9 +532,9 @@ paths:
       description: |
         Un brigadista con `ms05:panel:read_own` puede consultar unicamente sus
         propias asignaciones (`brigadistaId == X-User-Id`). Quienes tengan
-        `ms05:brigadier:assign` o `ms05:incident:read` pueden consultar las de
+        `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read` pueden consultar las de
         cualquier brigadista.
-      x-permiso: ms05:brigadier:assign | ms05:incident:read | ms05:panel:read_own (propio)
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read | ms05:panel:read_own (propio)
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -617,7 +620,7 @@ paths:
         Permite a coordinadores, organizadores y auditores consultar y filtrar
         todas las asignaciones de brigadistas por evento, nombre del
         brigadista, estado, tipo de ubicacion e identificador de ubicacion.
-      x-permiso: ms05:brigadier:assign | ms05:incident:read
+      x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -748,14 +751,18 @@ paths:
         Devuelve una pagina de incidentes no eliminados del evento (`contenido`,
         `page`, `size`, `total_elementos`, `total_paginas`). Soporta filtrado
         por prioridad, estado y ubicacion, asi como ordenamiento dinamico.
-        Requiere `ms05:incident:read`.
-      x-permiso: ms05:incident:read
-      x-roles:
-        - BRIGADISTA
-        - COORDINADOR
-        - ORGANIZADOR
-        - AUDITOR
+        Requiere `ms05:incident:read`. Con `soloPropios=true` devuelve solo los
+        incidentes que reporto el usuario ("Mis incidentes") y basta
+        `ms05:incident:manage_own`.
+      x-permiso: ms05:incident:read | ms05:incident:manage_own (soloPropios=true)
       parameters:
+        - name: soloPropios
+          in: query
+          required: false
+          description: Si es true, solo los incidentes que reporto el usuario autenticado.
+          schema:
+            type: boolean
+            default: false
         - name: prioridad
           in: query
           required: false
@@ -917,8 +924,8 @@ paths:
       description: |
         Marca `eliminado = true` en el incidente (solo permitido si el incidente
         se encuentra en estado `RESUELTO` o `CERRADO`). Requiere
-        `ms05:assistance:assign` (COORDINADOR).
-      x-permiso: ms05:assistance:assign
+        `ms05:assistance:assign_to_drill` o `ms05:assistance:assign_to_real` según el tipo de evento.
+      x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
       responses:
@@ -954,8 +961,8 @@ paths:
         transiciona el estado a `ASIGNADO` (si estaba `REPORTADO`), registra el
         cambio en `historial_incidente` y envia una alerta operativa a MS03
         (`POST /api/v1/alertas`) para notificar por correo al brigadista.
-        Requiere `ms05:brigadier:assign` o `ms05:assistance:assign`.
-      x-permiso: ms05:brigadier:assign | ms05:assistance:assign
+        Requiere `ms05:assistance:assign_to_drill` (simulacros) o `ms05:assistance:assign_to_real` (eventos reales).
+      x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
         - ORGANIZADOR
@@ -1090,8 +1097,8 @@ paths:
       summary: Cerrar definitivamente un incidente resuelto
       description: |
         Transiciona el incidente de `RESUELTO` a `CERRADO` y registra
-        `fechaCierre`. Exclusivo para el coordinador (`ms05:assistance:assign`).
-      x-permiso: ms05:assistance:assign
+        `fechaCierre`. Requiere el permiso del tipo de evento (`ms05:assistance:assign_to_drill` o `ms05:assistance:assign_to_real`).
+      x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
       responses:
@@ -1354,8 +1361,8 @@ paths:
       summary: Consultar todos los registros de auditoria de MS05
       description: |
         Devuelve la bitacora completa de auditoria de asignaciones,
-        solicitudes, incidentes y evidencias. Requiere `ms08:audit:read`.
-      x-permiso: ms08:audit:read
+        solicitudes, incidentes y evidencias. Requiere `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
+      x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
       responses:
@@ -1386,8 +1393,8 @@ paths:
       summary: Consultar los registros de auditoria asociados a un evento
       description: |
         Filtra los eventos de auditoria por `eventoId`. Requiere
-        `ms08:audit:read`.
-      x-permiso: ms08:audit:read
+        `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
+      x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
       responses:
@@ -1431,8 +1438,8 @@ paths:
       summary: Consultar los registros de auditoria de un recurso especifico
       description: |
         Devuelve los eventos de auditoria filtrados por `recursoTipo` y
-        `recursoId`. Requiere `ms08:audit:read`.
-      x-permiso: ms08:audit:read
+        `recursoId`. Requiere `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
+      x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
       responses:
@@ -1536,7 +1543,7 @@ components:
         solicitudes de usuario.
       schema:
         type: string
-        example: ms05:brigadier:assign,ms05:incident:read,ms05:incident:report,ms05:assistance:assign
+        example: ms05:assistance:assign_to_real,ms05:brigadier:assign_to_real,ms05:incident:read,ms05:incident:report
     UserRoleHeader:
       name: X-User-Role
       in: header
