@@ -781,21 +781,21 @@ components:
     Escenario:
       type: object
       additionalProperties: false
-      description: Edificios y zonas del evento tal como los envía MS06. Son informativos (RN-MS04-24).
+      description: Nombres de MS02 de los edificios y zonas del evento, tal como los envía MS06. Son informativos (RN-MS04-24).
       properties:
         edificios:
           type: array
           items:
             type: string
             minLength: 1
-            maxLength: 50
+            maxLength: 100
           example: [Bloque A]
         zonas:
           type: array
           items:
             type: string
             minLength: 1
-            maxLength: 50
+            maxLength: 100
           example: [Zona norte]
     EstadoEventoRequest:
       type: object

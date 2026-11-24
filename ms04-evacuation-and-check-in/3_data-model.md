@@ -67,8 +67,8 @@ Una fila por evento que MS06 ha comunicado a MS04. Se crea con la primera llamad
 | `fecha_inicio` | TIMESTAMPTZ | Sí | NULL | CHECK: nula si y solo si `estado = 'BORRADOR'` | Fecha de inicio que informa MS06 ([RN-MS04-24](1_requirements.md#rn-ms04-24)). MS04 no la compara con el reloj: no inicia el evento por sí misma. |
 | `fecha_cierre` | TIMESTAMPTZ | Sí | NULL | CHECK: no nula si y solo si `estado = 'FINALIZADO'` | Fecha/hora en que MS04 recibió `FINALIZADO` (MS06 no envía fecha de cierre). |
 | `roles_convocados` | VARCHAR(30)[] | No | — | CHECK (`chk_eventos_roles_convocados`): al menos 1 elemento, ninguno nulo y todos con el formato de nombre de rol de MS01 (`^[A-Z][A-Z0-9_]{1,29}$`) | Roles a los que les aplica el evento y que forman su población objetivo ([RN-MS04-01](1_requirements.md#rn-ms04-01), [RN-MS04-15](1_requirements.md#rn-ms04-15)). Sin repetidos (lo valida el servicio). |
-| `escenario_edificios` | VARCHAR(50)[] | No | `'{}'` | — | Edificios del escenario, tal como los envía MS06. Informativos ([RN-MS04-24](1_requirements.md#rn-ms04-24)). |
-| `escenario_zonas` | VARCHAR(50)[] | No | `'{}'` | — | Zonas del escenario, tal como las envía MS06. Informativas. |
+| `escenario_edificios` | VARCHAR(100)[] | No | `'{}'` | — | Edificios del escenario, tal como los envía MS06. Informativos ([RN-MS04-24](1_requirements.md#rn-ms04-24)). |
+| `escenario_zonas` | VARCHAR(100)[] | No | `'{}'` | — | Zonas del escenario, tal como las envía MS06. Informativas. |
 | `creado_en` | TIMESTAMPTZ | No | `now()` | — | Primera vez que MS04 recibió el evento. |
 | `actualizado_en` | TIMESTAMPTZ | No | `now()` | — | Último cambio recibido de MS06. |
 
