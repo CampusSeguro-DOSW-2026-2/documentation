@@ -1,0 +1,1120 @@
+openapi: 3.1.0
+info:
+  title: MS06 - Eventos y Simulacros (CampusSeguro)
+  description: >-
+    API REST para la gestión del ciclo de vida de eventos de emergencia y simulacros
+    de CampusSeguro: creación, edición, programación, inicio automático, monitoreo en
+    tiempo real, panel de evento en curso, finalización, evaluación automática y
+    catálogos de tipos de evento y tipos de alerta (canónico para MS03).
+  version: 1.0.0
+  contact:
+    name: Squad Zephyros — CampusSeguro DOSW 2026-2
+    url: https://github.com/CampusSeguro-DOSW-2026-2/ms06-drills
+servers:
+  - url: http://localhost:8083
+    description: Entorno de desarrollo local (perfil local)
+  - url: http://ms06-test:8086
+    description: Entorno de pruebas en VM Azure (red campus-edge)
+  - url: http://ms06-prod:8086
+    description: Entorno de producción en VM Azure (red campus-edge)
+tags:
+  - name: Events
+    description: Creación, edición, listado paginado, consulta de eventos activos, detalle/monitoreo, panel en curso y finalización de eventos y simulacros.
+  - name: Event types
+    description: Catálogo de tipos de evento (SIMULACRO, SISMO, INCENDIO, DISTURBIOS, INUNDACION, FUGA_QUIMICA, OTRO y tipos adicionales creados por el coordinador).
+  - name: Alert types
+    description: Catálogo canónico de tipos de alerta activos y elegibles (`alert_eligible = true`) que MS03 replica (excluye `SIMULACRO`).
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/eventos:
+    get:
+      tags:
+        - Events
+      summary: Listar y buscar eventos (paginado)
+      description: >-
+        Lista los eventos ordenados del más reciente al más antiguo, filtrando
+        opcionalmente por texto contenido en el nombre (`title`) y por estado (`status`).
+        Solo devuelve los eventos de los tipos que el usuario autenticado tiene permiso
+        de leer (`ms06:drill:read` para simulacros, `ms06:real_event:read` para eventos reales).
+      operationId: search
+      parameters:
+        - name: title
+          in: query
+          required: false
+          description: Filtra eventos cuyo nombre contenga el texto indicado (insensible a mayúsculas/minúsculas).
+          schema:
+            type: string
+          example: Simulacro
+        - name: status
+          in: query
+          required: false
+          description: Filtra por estado del evento.
+          schema:
+            $ref: "#/components/schemas/EventStatus"
+        - name: page
+          in: query
+          required: false
+          description: Número de página (inicia en 0).
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Cantidad de elementos por página (entre 1 y 100).
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Página de eventos encontrada (puede ser vacía si no hay coincidencias).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseEventSummaryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags:
+        - Events
+      summary: Crear un evento o simulacro
+      description: >-
+        Crea un evento real (requiere permiso `ms06:real_event:manage` — rol COORDINADOR)
+        o un simulacro si incluye el tipo `SIMULACRO` (requiere permiso `ms06:drill:manage` — rol ORGANIZADOR).
+        El evento queda en estado `SCHEDULED` únicamente si incluye fecha de inicio futura (`startDate`),
+        al menos un elemento de alcance (`scope`) y al menos un rol participante (`participantRoles`),
+        y si las validaciones externas responden; de lo contrario se guarda como `DRAFT` informando el motivo en `warnings`.
+      operationId: createEvent
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+            example:
+              name: Simulacro de evacuación Bloque A
+              description: Simulacro semestral de evacuación por sismo en el Bloque A
+              typeIds:
+                - 11111111-1111-1111-1111-111111111111
+                - 22222222-2222-2222-2222-222222222222
+              startDate: "2026-12-01T15:00:00Z"
+              scope:
+                - type: BUILDING
+                  id: bloque-a
+                - type: ZONE
+                  id: zona-segura-1
+              participantRoles:
+                - ESTUDIANTE
+                - PROFESOR
+                - BRIGADISTA
+      responses:
+        "201":
+          description: Evento o simulacro creado exitosamente (como DRAFT o SCHEDULED).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/eventos/activos:
+    get:
+      tags:
+        - Events
+      summary: Mis eventos en ejecución
+      description: >-
+        Devuelve la lista de eventos en estado `IN_PROGRESS` que involucran al usuario
+        autenticado (aquellos que gestiona como coordinador/organizador o aquellos que
+        convocan alguno de sus roles). Alimenta el panel de la pantalla principal.
+      operationId: active
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Lista de eventos en ejecución para el usuario autenticado.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventSummaryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/eventos/{id}:
+    get:
+      tags:
+        - Events
+      summary: Detalle, monitoreo o evaluación de un evento
+      description: >-
+        Devuelve la configuración completa del evento (`event`). Si el evento está
+        en estado `IN_PROGRESS`, incluye `monitoring` con indicadores en tiempo real
+        de check-in (MS04), incidentes y brigadistas por zona (MS05). Si el evento está
+        en estado `FINISHED`, incluye `evaluation` con la evaluación automática consolidada.
+        Requiere `ms06:drill:read` (simulacros) o `ms06:real_event:read` (eventos reales).
+      operationId: detail
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Detalle del evento retornado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags:
+        - Events
+      summary: Editar un evento o simulacro
+      description: >-
+        Reemplaza los campos editables de un evento existente. Solo permitido mientras
+        el evento se encuentra en estado `DRAFT`, `SCHEDULED` o `IN_PROGRESS` (un evento
+        `FINISHED` no es editable y un simulacro no puede convertirse en evento real ni viceversa).
+        Requiere `ms06:drill:manage` (simulacros) o `ms06:real_event:manage` (eventos reales).
+      operationId: update
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventRequest"
+      responses:
+        "200":
+          description: Evento actualizado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/eventos/{id}/panel:
+    get:
+      tags:
+        - Events
+      summary: Panel operativo de un evento en ejecución
+      description: >-
+        Devuelve la información del panel para un evento en estado `IN_PROGRESS`:
+        nombre, indicador de simulacro, hora de inicio real, mapas de rutas de evacuación
+        de los edificios/zonas del alcance (MS02), y el estado de habilitación de los botones
+        de check-in (MS04) y registro de incidentes (MS05). Accesible por cualquier usuario
+        autenticado; las advertencias de inicio solo se incluyen para el coordinador u
+        organizador responsable del evento.
+      operationId: panel
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Panel del evento en ejecución retornado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventPanelResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/eventos/{id}/finalizar:
+    patch:
+      tags:
+        - Events
+      summary: Finalizar un evento en ejecución y generar su evaluación
+      description: >-
+        Finaliza un evento en estado `IN_PROGRESS` (transición a `FINISHED`), notifica
+        el cierre a MS04 (Check-in), MS05 (Brigadistas e Incidentes) y MS03 (alerta de
+        finalización `FINISH`), y persiste la evaluación automática (`EvaluationResponse`).
+        Si MS04 o MS05 no responden al cierre, retorna `503 SERVICE_UNAVAILABLE` y el evento
+        continúa en ejecución; si MS03 falla, el evento finaliza con una advertencia en `warnings`.
+        Requiere `ms06:drill:execute` (simulacros) o `ms06:real_event:execute` (eventos reales).
+      operationId: finish
+      parameters:
+        - $ref: "#/components/parameters/EventIdPath"
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Evento finalizado y evaluado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventFinishResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/v1/tipos-evento:
+    get:
+      tags:
+        - Event types
+      summary: Listar los tipos de evento activos
+      description: >-
+        Devuelve todos los tipos de evento activos del catálogo (`active = true`) para
+        poblar el selector al crear o editar un evento. Incluye `SIMULACRO`, `SISMO`,
+        `INCENDIO`, `DISTURBIOS`, `INUNDACION`, `FUGA_QUIMICA`, `OTRO` y cualquier tipo
+        adicional creado por el coordinador.
+      operationId: listEventTypes
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Lista de tipos de evento activos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventTypeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags:
+        - Event types
+      summary: Crear un nuevo tipo de evento (solo coordinador)
+      description: >-
+        Agrega un nuevo tipo al catálogo de tipos de evento. El código interno (`code`)
+        se genera automáticamente en mayúsculas a partir del nombre (`name`).
+        Requiere el permiso `ms06:real_event:manage` (exclusivo del rol COORDINADOR).
+      operationId: createEventType
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEventTypeRequest"
+            example:
+              name: Amenaza biológica
+      responses:
+        "201":
+          description: Tipo de evento creado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventTypeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/tipos-alerta:
+    get:
+      tags:
+        - Alert types
+      summary: Listar los tipos de alerta activos y elegibles para MS03
+      description: >-
+        Catálogo canónico de tipos de alerta servido por MS06 para que MS03 lo replique.
+        Devuelve los registros de `event_types` con `active = true` y `alert_eligible = true`
+        ordenados por nombre. `SIMULACRO` nunca se incluye porque un simulacro no es un
+        tipo de alerta.
+      operationId: listAlertTypes
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      responses:
+        "200":
+          description: Lista de tipos de alerta elegibles para MS03.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlertTypeResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Token JWT emitido por MS01 (o `/local/tokens` en perfil `local`). Detrás del API Gateway,
+        el Gateway valida el JWT e inyecta las cabeceras `X-User-Id`, `X-User-Role` y `X-User-Permission`.
+
+  parameters:
+    EventIdPath:
+      name: id
+      in: path
+      required: true
+      description: Identificador único (UUID) del evento o simulacro.
+      schema:
+        type: string
+        format: uuid
+      example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+    CorrelationIdHeader:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Identificador de correlación para trazabilidad distribuida; si no se envía, MS06 genera uno y lo devuelve en la respuesta.
+      schema:
+        type: string
+      example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+
+  responses:
+    BadRequest:
+      description: Datos de entrada no válidos o referencias desconocidas (`VALIDACION`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 400
+            codigo: VALIDACION
+            mensaje: Los datos enviados no son válidos
+            errores:
+              - campo: name
+                mensaje: no debe estar vacío
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    Unauthorized:
+      description: No autenticado o cabeceras/token de identidad inválidos (`NO_AUTENTICADO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 401
+            codigo: NO_AUTENTICADO
+            mensaje: Se requiere autenticación o la identidad no es válida
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    Forbidden:
+      description: El usuario autenticado no tiene el permiso requerido para la operación (`PROHIBIDO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 403
+            codigo: PROHIBIDO
+            mensaje: No tienes permiso para realizar esta operación
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    NotFound:
+      description: El recurso solicitado no existe (`NO_ENCONTRADO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 404
+            codigo: NO_ENCONTRADO
+            mensaje: El recurso solicitado no existe
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    Conflict:
+      description: >-
+        Conflicto con el estado actual del recurso (`CONFLICTO`, `MODIFICACION_CONCURRENTE`,
+        `TRANSICION_INVALIDA`, `EVENTO_NO_EDITABLE` o `EVENTO_NO_ACTIVO`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 409
+            codigo: EVENTO_NO_ACTIVO
+            mensaje: El evento no está en ejecución
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+    ServiceUnavailable:
+      description: Un servicio externo indispensable para la operación (MS04 o MS05 al finalizar) no está disponible (`SERVICIO_EXTERNO_NO_DISPONIBLE`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            status: 503
+            codigo: SERVICIO_EXTERNO_NO_DISPONIBLE
+            mensaje: Un servicio externo no está disponible. Intenta de nuevo más tarde
+            errores: []
+            correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+
+  schemas:
+    EventStatus:
+      type: string
+      description: Estado del ciclo de vida del evento o simulacro.
+      enum:
+        - DRAFT
+        - SCHEDULED
+        - IN_PROGRESS
+        - FINISHED
+      example: SCHEDULED
+
+    ScopeType:
+      type: string
+      description: Tipo de ubicación física del alcance en MS02 (edificio o zona).
+      enum:
+        - BUILDING
+        - ZONE
+      example: BUILDING
+
+    EventAlertPurpose:
+      type: string
+      description: Propósito de la alerta creada en MS03 para el evento.
+      enum:
+        - BRIGADISTS
+        - GENERAL
+        - EDIT
+        - FINISH
+      example: GENERAL
+
+    CreateEventRequest:
+      type: object
+      description: Cuerpo para crear (`POST /api/v1/eventos`) o editar (`PUT /api/v1/eventos/{id}`) un evento o simulacro.
+      required:
+        - name
+        - typeIds
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          description: Nombre del evento o simulacro.
+          example: Simulacro de evacuación Bloque A
+        description:
+          type: string
+          maxLength: 1000
+          description: Objetivo y contexto del evento (opcional).
+          example: Simulacro semestral de evacuación por sismo en el Bloque A
+        typeIds:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          description: Identificadores (UUID) de los tipos de evento activos (de 1 a 4 tipos). Si incluye el tipo `SIMULACRO`, el evento es un simulacro.
+          items:
+            type: string
+            format: uuid
+        startDate:
+          type: string
+          format: date-time
+          description: Fecha y hora programada de inicio en UTC (debe ser futura para programar el evento).
+          example: "2026-12-01T15:00:00Z"
+        scope:
+          type: array
+          description: Edificios y zonas del campus (MS02) incluidos en el alcance del evento.
+          items:
+            $ref: "#/components/schemas/ScopeItemRequest"
+        participantRoles:
+          type: array
+          uniqueItems: true
+          description: Nombres de los roles convocados tal como los expone MS01 (por ejemplo `ESTUDIANTE`, `PROFESOR`, `ADMINISTRATIVO`, `BRIGADISTA`).
+          items:
+            type: string
+          example:
+            - ESTUDIANTE
+            - PROFESOR
+            - BRIGADISTA
+
+    ScopeItemRequest:
+      type: object
+      description: Edificio o zona dentro del alcance del evento.
+      required:
+        - type
+        - id
+      properties:
+        type:
+          $ref: "#/components/schemas/ScopeType"
+        id:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Identificador del edificio o zona en MS02 (Campus).
+          example: bloque-a
+
+    CreateEventTypeRequest:
+      type: object
+      description: Datos para registrar un nuevo tipo de evento en el catálogo.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: Nombre visible y único del tipo de evento (el código se deriva automáticamente).
+          example: Amenaza biológica
+
+    EventTypeResponse:
+      type: object
+      description: Tipo de evento del catálogo de MS06.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 22222222-2222-2222-2222-222222222222
+        code:
+          type: string
+          example: SISMO
+        name:
+          type: string
+          example: Sismo
+        active:
+          type: boolean
+          example: true
+
+    AlertTypeResponse:
+      type: object
+      description: Tipo de alerta del catálogo de MS06 replicado por MS03 (`SIMULACRO` nunca se incluye).
+      properties:
+        code:
+          type: string
+          example: SISMO
+        name:
+          type: string
+          example: Sismo
+
+    ScopeItem:
+      type: object
+      description: Edificio o zona asociado a un evento.
+      properties:
+        type:
+          $ref: "#/components/schemas/ScopeType"
+        id:
+          type: string
+          example: bloque-a
+
+    AlertLink:
+      type: object
+      description: Vínculo con una alerta creada en MS03 y su propósito dentro del evento.
+      properties:
+        purpose:
+          $ref: "#/components/schemas/EventAlertPurpose"
+        alertId:
+          type: string
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+
+    EventWarning:
+      type: object
+      description: Advertencia no bloqueante ocurrida durante la operación (por ejemplo `SAVED_AS_DRAFT`, `SCOPE_PENDING`, `PARTICIPANTS_PENDING`, `BRIGADIERS_PENDING`).
+      properties:
+        code:
+          type: string
+          example: SAVED_AS_DRAFT
+        message:
+          type: string
+          example: El evento se guardó como borrador porque falta el alcance o los participantes
+
+    EventResponse:
+      type: object
+      description: Configuración completa de un evento o simulacro.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        name:
+          type: string
+          example: Simulacro de evacuación Bloque A
+        description:
+          type: string
+          nullable: true
+          example: Simulacro semestral de evacuación por sismo en el Bloque A
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        simulacro:
+          type: boolean
+          example: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-12-01T15:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        types:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventTypeResponse"
+        scope:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScopeItem"
+        participantRoles:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+          example:
+            - ESTUDIANTE
+            - PROFESOR
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertLink"
+        createdBy:
+          type: string
+          example: 8f14e45f-ceea-467a-a838-6b208f239d1b
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-11-20T14:20:00Z"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventWarning"
+
+    EventSummaryResponse:
+      type: object
+      description: Resumen de un evento mostrado en listados paginados y en la consulta de eventos activos.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        name:
+          type: string
+          example: Simulacro de evacuación Bloque A
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        simulacro:
+          type: boolean
+          example: true
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-12-01T15:00:00Z"
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        types:
+          type: array
+          description: Nombres visibles de los tipos asociados al evento.
+          items:
+            type: string
+          example:
+            - Simulacro
+            - Sismo
+        scope:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScopeItem"
+        participantRoles:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        createdBy:
+          type: string
+          example: 8f14e45f-ceea-467a-a838-6b208f239d1b
+
+    PageResponseEventSummaryResponse:
+      type: object
+      description: Página de resultados conforme al estándar de paginación de CampusSeguro (`contenido`, `page`, `size`, `total_elementos`, `total_paginas`).
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventSummaryResponse"
+        page:
+          type: integer
+          format: int32
+          example: 0
+        size:
+          type: integer
+          format: int32
+          example: 20
+        total_elementos:
+          type: integer
+          format: int64
+          example: 1
+        total_paginas:
+          type: integer
+          format: int32
+          example: 1
+
+    CheckInProgress:
+      type: object
+      description: Avance en tiempo real de los check-ins reportados por MS04.
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:05:00Z"
+        totalCheckins:
+          type: integer
+          format: int32
+          example: 145
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+          example:
+            SAFE: 140
+            NEEDS_HELP: 5
+        participationPct:
+          type: number
+          example: 72.5
+
+    IncidentProgress:
+      type: object
+      description: Avance en tiempo real de los incidentes reportados por MS05.
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:05:00Z"
+        totalIncidents:
+          type: integer
+          format: int32
+          example: 4
+        attended:
+          type: integer
+          format: int32
+          example: 3
+        resolved:
+          type: integer
+          format: int32
+          example: 2
+        pending:
+          type: integer
+          format: int32
+          example: 1
+        avgAttentionSeconds:
+          type: integer
+          format: int64
+          nullable: true
+          example: 180
+
+    Brigadier:
+      type: object
+      description: Brigadista sincronizado desde MS05 dentro de una zona del evento.
+      properties:
+        brigadierId:
+          type: string
+          example: brig-001
+        name:
+          type: string
+          example: Laura Gómez
+        active:
+          type: boolean
+          example: true
+
+    ZoneBrigadiers:
+      type: object
+      description: Brigadistas agrupados por zona dentro del monitoreo de un evento en curso.
+      properties:
+        zoneId:
+          type: string
+          nullable: true
+          example: zona-segura-1
+        activeCount:
+          type: integer
+          format: int64
+          example: 2
+        brigadiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Brigadier"
+
+    EventMonitoringResponse:
+      type: object
+      description: Indicadores en tiempo real de un evento en estado `IN_PROGRESS`.
+      properties:
+        checkIn:
+          $ref: "#/components/schemas/CheckInProgress"
+        incidents:
+          $ref: "#/components/schemas/IncidentProgress"
+        brigadiersByZone:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneBrigadiers"
+        brigadiersSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2026-12-01T15:04:50Z"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventWarning"
+
+    BrigadierResult:
+      type: object
+      description: Desempeño de un brigadista en la evaluación final del evento.
+      properties:
+        brigadierId:
+          type: string
+          example: brig-001
+        casesAttended:
+          type: integer
+          format: int32
+          example: 2
+        casesResolved:
+          type: integer
+          format: int32
+          example: 2
+
+    EvaluationResponse:
+      type: object
+      description: Evaluación automática consolidada al finalizar un evento (snapshot de MS04 y MS05).
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        evaluatedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:45:00Z"
+        complete:
+          type: boolean
+          description: "`true` cuando ya se cuenta con las cifras tanto de MS04 (Check-in) como de MS05 (Brigadistas e Incidentes)."
+          example: true
+        noRecords:
+          type: boolean
+          description: "`true` si el evento terminó con 0 check-ins y 0 incidentes registrados."
+          example: false
+        totalCheckins:
+          type: integer
+          format: int32
+          nullable: true
+          example: 210
+        checkinParticipationPct:
+          type: number
+          nullable: true
+          example: 84.0
+        checkInByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int32
+          example:
+            SAFE: 208
+            NEEDS_HELP: 2
+        totalIncidents:
+          type: integer
+          format: int32
+          nullable: true
+          example: 4
+        casesAttended:
+          type: integer
+          format: int32
+          nullable: true
+          example: 4
+        casesResolved:
+          type: integer
+          format: int32
+          nullable: true
+          example: 4
+        avgAttentionSeconds:
+          type: integer
+          format: int64
+          nullable: true
+          example: 165
+        brigadiers:
+          type: array
+          items:
+            $ref: "#/components/schemas/BrigadierResult"
+
+    EventDetailResponse:
+      type: object
+      description: Detalle de un evento (`monitoring` solo cuando está `IN_PROGRESS`; `evaluation` solo cuando está `FINISHED`).
+      properties:
+        event:
+          $ref: "#/components/schemas/EventResponse"
+        monitoring:
+          $ref: "#/components/schemas/EventMonitoringResponse"
+        evaluation:
+          $ref: "#/components/schemas/EvaluationResponse"
+
+    EventFinishResponse:
+      type: object
+      description: Respuesta al finalizar un evento en ejecución (`PATCH /api/v1/eventos/{id}/finalizar`).
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        name:
+          type: string
+          example: Simulacro de evacuación Bloque A
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        startedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:00:02Z"
+        endedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:45:00Z"
+        evaluation:
+          $ref: "#/components/schemas/EvaluationResponse"
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventWarning"
+
+    Route:
+      type: object
+      description: Mapa de ruta de evacuación de un edificio o zona obtenido desde MS02.
+      properties:
+        type:
+          $ref: "#/components/schemas/ScopeType"
+        id:
+          type: string
+          example: bloque-a
+        name:
+          type: string
+          example: Bloque A
+        url:
+          type: string
+          example: https://campusseguro.escuelaing.edu.co/mapas/bloque-a.png
+
+    EventPanelResponse:
+      type: object
+      description: Panel operativo mostrado a los usuarios para un evento en estado `IN_PROGRESS`.
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        name:
+          type: string
+          example: Simulacro de evacuación Bloque A
+        simulacro:
+          type: boolean
+          example: true
+        startedAt:
+          type: string
+          format: date-time
+          example: "2026-12-01T15:00:02Z"
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Route"
+        routesAvailable:
+          type: boolean
+          example: true
+        checkInEnabled:
+          type: boolean
+          example: true
+        incidentRegistrationEnabled:
+          type: boolean
+          example: true
+        warnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventWarning"
+
+    ErrorDetail:
+      type: object
+      description: Detalle de un campo inválido dentro de `ErrorResponse`.
+      properties:
+        campo:
+          type: string
+          example: name
+        mensaje:
+          type: string
+          example: no debe estar vacío
+
+    ErrorResponse:
+      type: object
+      description: >-
+        Formato estándar de respuesta de error de CampusSeguro (sección 7.1):
+        `status`, `codigo`, `mensaje`, `errores` y `correlation_id`.
+      required:
+        - status
+        - codigo
+        - mensaje
+        - errores
+      properties:
+        status:
+          type: integer
+          format: int32
+          example: 400
+        codigo:
+          type: string
+          enum:
+            - VALIDACION
+            - NO_AUTENTICADO
+            - PROHIBIDO
+            - NO_ENCONTRADO
+            - METODO_NO_PERMITIDO
+            - TIPO_NO_SOPORTADO
+            - CONFLICTO
+            - MODIFICACION_CONCURRENTE
+            - TRANSICION_INVALIDA
+            - EVENTO_NO_EDITABLE
+            - EVENTO_NO_ACTIVO
+            - SERVICIO_EXTERNO_NO_DISPONIBLE
+            - ERROR_INTERNO
+          example: VALIDACION
+        mensaje:
+          type: string
+          example: Los datos enviados no son válidos
+        errores:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
+        correlation_id:
+          type: string
+          nullable: true
+          example: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d

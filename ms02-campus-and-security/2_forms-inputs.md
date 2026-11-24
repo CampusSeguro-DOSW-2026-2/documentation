@@ -1,4 +1,4 @@
-# Diccionario de Datos, Formularios y Entradas
+# Formularios y entradas
 
 ## Índice de Contenido
 1. [Reglas generales de entrada](#reglas-generales-de-entrada)
@@ -221,4 +221,6 @@ Referencia: **RF-MS02-09**
 * **Consulta de rutas** (RF-MS02-06): el usuario elige edificio y espacio en listas; no hay campos de texto.
 * **Inactivar y reactivar** (RF-MS02-07): botones con confirmación para las entidades que tienen ambas operaciones. Las recomendaciones preventivas solo muestran la opción de inactivar. Si el sistema responde 422, la pantalla muestra el `mensaje` tal cual (por ejemplo, las rutas que deben bloquearse antes).
 * **Códigos QR** (RF-MS02-15): botón que descarga el PNG.
+* **Zonas seguras para la comunidad** (RF-MS02-04): `#/zonas-seguras`, de solo lectura (`ms02:campus:read`). Tarjetas paginadas de 6 en 6, con ubicación, capacidad, fotografías y enlace al mapa. No hay campos de texto.
+* **Información preventiva para la comunidad** (RF-MS02-08): `#/preventiva`, de solo lectura (`ms02:preventive_info:read`). Recomendaciones activas agrupadas por edificio y por tipo de espacio. No hay campos de texto.
 * **Consulta pública por QR** (RF-MS02-16): la abre el QR; el id viene en el enlace (`#/qr/{espacios|salidas|zonas}/{id}`) y no hay formulario.

@@ -1,0 +1,1088 @@
+openapi: 3.0.3
+info:
+  title: MS07 - Training and AI Assistant API
+  description: 'API de contenidos preventivos, categorías, evaluaciones,
+
+    seguimiento de progreso y tutor CampusSeguro.
+
+
+    La autenticación y autorización son responsabilidad del API Gateway.
+
+    MS07 recibe las cabeceras de identidad y autoriza mediante
+
+    X-User-Permission. Los roles no se utilizan para derivar permisos.
+
+    '
+  version: 1.0.0
+servers:
+- url: /
+  description: Base URL del servicio MS07
+tags:
+- name: Categories
+- name: Contents
+- name: Progress
+- name: Evaluations
+- name: Tutor
+paths:
+  /api/v1/training/categories:
+    get:
+      tags:
+      - Categories
+      summary: Listar categorías
+      operationId: listCategories
+      x-permiso: ms07:content:read
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Categorías consultadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageCategoryResponse'
+        '401':
+          description: Usuario no autenticado
+        '403':
+          description: Permiso insuficiente
+    post:
+      tags:
+      - Categories
+      summary: Crear categoría
+      operationId: createCategory
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '201':
+          description: Categoría creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Datos inválidos
+        '401':
+          description: Usuario no autenticado
+        '403':
+          description: Permiso insuficiente
+  /api/v1/training/categories/{id}:
+    put:
+      tags:
+      - Categories
+      summary: Actualizar categoría
+      operationId: updateCategory
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryRequest'
+      responses:
+        '200':
+          description: Categoría actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Datos inválidos
+        '404':
+          description: Categoría no encontrada
+  /api/v1/training/categories/{id}/deactivate:
+    patch:
+      tags:
+      - Categories
+      summary: Desactivar categoría
+      operationId: deactivateCategory
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Categoría desactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+  /api/v1/training/categories/{id}/reactivate:
+    patch:
+      tags:
+      - Categories
+      summary: Reactivar categoría
+      operationId: reactivateCategory
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Categoría reactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+  /api/v1/training/contents:
+    get:
+      tags:
+      - Contents
+      summary: Consultar contenidos
+      operationId: listContents
+      x-permiso: ms07:content:read
+      parameters:
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Contenidos consultados
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageContentSummaryResponse'
+    post:
+      tags:
+      - Contents
+      summary: Crear contenido
+      operationId: createContent
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRequest'
+      responses:
+        '201':
+          description: Contenido creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponse'
+        '400':
+          description: Datos inválidos
+  /api/v1/training/contents/{id}:
+    get:
+      tags:
+      - Contents
+      summary: Consultar contenido por identificador
+      operationId: getContent
+      x-permiso: ms07:content:read
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Contenido encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponse'
+        '404':
+          description: Contenido no encontrado
+    put:
+      tags:
+      - Contents
+      summary: Actualizar contenido
+      operationId: updateContent
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentRequest'
+      responses:
+        '200':
+          description: Contenido actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponse'
+  /api/v1/training/contents/{id}/deactivate:
+    patch:
+      tags:
+      - Contents
+      summary: Desactivar contenido
+      operationId: deactivateContent
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Contenido desactivado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponse'
+  /api/v1/training/contents/{id}/reactivate:
+    patch:
+      tags:
+      - Contents
+      summary: Reactivar contenido
+      operationId: reactivateContent
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Contenido reactivado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentResponse'
+  /api/v1/training/contents/{id}/views:
+    post:
+      tags:
+      - Progress
+      summary: Registrar visualización de contenido
+      operationId: registerContentView
+      x-permiso: ms07:content:read
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '201':
+          description: Visualización registrada
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentViewResponse'
+  /api/v1/training/progress/me:
+    get:
+      tags:
+      - Progress
+      summary: Consultar progreso del usuario autenticado
+      operationId: getMyProgress
+      x-permiso: ms07:quiz:take
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Progreso consultado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+  /api/v1/training/evaluations:
+    get:
+      tags:
+      - Evaluations
+      summary: Consultar evaluaciones
+      operationId: listEvaluations
+      x-permiso: ms07:quiz:take
+      parameters:
+      - name: category
+        in: query
+        required: false
+        schema:
+          type: string
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Evaluaciones consultadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageEvaluationSummaryResponse'
+    post:
+      tags:
+      - Evaluations
+      summary: Crear evaluación
+      operationId: createEvaluation
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '201':
+          description: Evaluación creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+  /api/v1/training/evaluations/{id}:
+    get:
+      tags:
+      - Evaluations
+      summary: Consultar evaluación
+      operationId: getEvaluation
+      x-permiso: ms07:quiz:take
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Evaluación encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+    put:
+      tags:
+      - Evaluations
+      summary: Actualizar evaluación
+      operationId: updateEvaluation
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationRequest'
+      responses:
+        '200':
+          description: Evaluación actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+  /api/v1/training/evaluations/{id}/attempts:
+    post:
+      tags:
+      - Evaluations
+      summary: Registrar intento de evaluación
+      operationId: submitEvaluationAttempt
+      x-permiso: ms07:quiz:take
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttemptRequest'
+      responses:
+        '200':
+          description: Intento registrado
+        '201':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttemptResponse'
+  /api/v1/training/evaluations/{id}/deactivate:
+    patch:
+      tags:
+      - Evaluations
+      summary: Desactivar evaluación
+      operationId: deactivateEvaluation
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Evaluación desactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+  /api/v1/training/evaluations/{id}/reactivate:
+    patch:
+      tags:
+      - Evaluations
+      summary: Reactivar evaluación
+      operationId: reactivateEvaluation
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Evaluación reactivada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationResponse'
+  /api/v1/tutor/questions:
+    post:
+      tags:
+      - Tutor
+      summary: Consultar al tutor CampusSeguro
+      operationId: askTutor
+      x-permiso: ms07:tutor:use
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TutorQuestionRequest'
+      responses:
+        '200':
+          description: Respuesta del tutor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TutorAnswerResponse'
+        '400':
+          description: Pregunta inválida
+        '401':
+          description: Usuario no autenticado
+        '403':
+          description: Permiso insuficiente
+        '503':
+          description: Proveedor de IA no disponible
+components:
+  parameters:
+    UserId:
+      name: X-User-Id
+      in: header
+      required: true
+      description: UUID del usuario propagado por Gateway
+      schema:
+        type: string
+        format: uuid
+    UserRole:
+      name: X-User-Role
+      in: header
+      required: true
+      description: Rol propagado por Gateway; no determina la autorización en MS07
+      schema:
+        type: string
+    UserPermission:
+      name: X-User-Permission
+      in: header
+      required: true
+      description: Permiso autorizado por Gateway y utilizado por MS07
+      schema:
+        type: string
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: Identificador de correlación de la solicitud
+      schema:
+        type: string
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Nombre de la categoría
+        description:
+          type: string
+          maxLength: 500
+      required:
+      - name
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+      required:
+      - id
+      - name
+      - status
+    ContentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 150
+        body:
+          type: string
+          maxLength: 20000
+        categoryId:
+          type: string
+          format: uuid
+      required:
+      - title
+      - body
+      - categoryId
+    ContentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        body:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - body
+      - categoryId
+      - status
+      - createdAt
+      - updatedAt
+    ContentSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - categoryId
+      - status
+      - updatedAt
+    EvaluationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 150
+        topic:
+          type: string
+          maxLength: 150
+        categoryId:
+          type: string
+          format: uuid
+        questions:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/QuestionRequest'
+      required:
+      - title
+      - topic
+      - categoryId
+      - questions
+    QuestionRequest:
+      type: object
+      properties:
+        statement:
+          type: string
+          maxLength: 500
+        options:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/OptionRequest'
+      required:
+      - statement
+      - options
+    OptionRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 300
+        correct:
+          type: boolean
+      required:
+      - text
+      - correct
+    EvaluationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        topic:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - topic
+      - categoryId
+      - status
+      - questions
+      - createdAt
+      - updatedAt
+    QuestionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        statement:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptionResponse'
+      required:
+      - id
+      - position
+      - statement
+      - options
+    OptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        text:
+          type: string
+        correct:
+          type: boolean
+          nullable: true
+      required:
+      - id
+      - position
+      - text
+    EvaluationSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        topic:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - topic
+      - categoryId
+      - status
+      - updatedAt
+    AttemptRequest:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerRequest'
+      required:
+      - answers
+    AnswerRequest:
+      type: object
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        optionId:
+          type: string
+          format: uuid
+      required:
+      - questionId
+      - optionId
+    AttemptResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        evaluationId:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        score:
+          type: integer
+        correctAnswers:
+          type: integer
+        totalQuestions:
+          type: integer
+        attemptedAt:
+          type: string
+          format: date-time
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnswerResult'
+      required:
+      - id
+      - evaluationId
+      - topic
+      - score
+      - correctAnswers
+      - totalQuestions
+      - attemptedAt
+      - answers
+    AnswerResult:
+      type: object
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        optionId:
+          type: string
+          format: uuid
+        correct:
+          type: boolean
+        correctOptionId:
+          type: string
+          format: uuid
+      required:
+      - questionId
+      - optionId
+      - correct
+      - correctOptionId
+    ProgressResponse:
+      type: object
+      properties:
+        contents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViewedContent'
+        evaluations:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationResult'
+      required:
+      - contents
+      - evaluations
+    ViewedContent:
+      type: object
+      properties:
+        contentId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        firstViewedAt:
+          type: string
+          format: date-time
+        lastViewedAt:
+          type: string
+          format: date-time
+        available:
+          type: boolean
+      required:
+      - contentId
+      - title
+      - categoryId
+      - firstViewedAt
+      - lastViewedAt
+      - available
+    EvaluationResult:
+      type: object
+      properties:
+        evaluationId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        topic:
+          type: string
+        bestScore:
+          type: integer
+        attemptedAt:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+        available:
+          type: boolean
+      required:
+      - evaluationId
+      - title
+      - categoryId
+      - topic
+      - bestScore
+      - attemptedAt
+      - attempts
+      - available
+    ContentViewResponse:
+      type: object
+      properties:
+        contentId:
+          type: string
+          format: uuid
+        firstViewedAt:
+          type: string
+          format: date-time
+        lastViewedAt:
+          type: string
+          format: date-time
+      required:
+      - contentId
+      - firstViewedAt
+      - lastViewedAt
+    TutorQuestionRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          maxLength: 500
+      required:
+      - question
+    TutorAnswerResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        sufficient:
+          type: boolean
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/TutorSource'
+      required:
+      - answer
+      - sufficient
+      - sources
+    TutorSource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+      required:
+      - id
+      - title
+    PageCategoryResponse:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryResponse'
+        page:
+          type: integer
+        size:
+          type: integer
+        total_elementos:
+          type: integer
+          format: int64
+        total_paginas:
+          type: integer
+      required:
+      - contenido
+      - page
+      - size
+      - total_elementos
+      - total_paginas
+    PageContentSummaryResponse:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentSummaryResponse'
+        page:
+          type: integer
+        size:
+          type: integer
+        total_elementos:
+          type: integer
+          format: int64
+        total_paginas:
+          type: integer
+      required:
+      - contenido
+      - page
+      - size
+      - total_elementos
+      - total_paginas
+    PageEvaluationSummaryResponse:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvaluationSummaryResponse'
+        page:
+          type: integer
+        size:
+          type: integer
+        total_elementos:
+          type: integer
+          format: int64
+        total_paginas:
+          type: integer
+      required:
+      - contenido
+      - page
+      - size
+      - total_elementos
+      - total_paginas
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        codigo:
+          type: string
+        mensaje:
+          type: string
+        errores:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+        correlation_id:
+          type: string
+      required:
+      - status
+      - codigo
+      - mensaje
+      - errores
+      - correlation_id
+    FieldError:
+      type: object
+      properties:
+        campo:
+          type: string
+        mensaje:
+          type: string
+      required:
+      - campo
+      - mensaje
