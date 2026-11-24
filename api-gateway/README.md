@@ -10,6 +10,8 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 | [contracts.md](contracts.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios, configuración y aislamiento en la nube. |
 | [quality-and-tests.md](quality-and-tests.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…19. |
 | [api/openapi.yml](api/openapi.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. Estándar para que el frontend y los MS llamen al GW. |
+| [diagrams/gw-c4-1-context.drawio.svg](diagrams/gw-c4-1-context.drawio.svg) | C4 nivel 1: quién usa el GW (comunidad del campus, equipo de operación) y con qué sistemas interactúa (aplicación web, MS01, MS02–MS08), sin tecnología. |
+| [diagrams/gw-c4-2-containers.drawio.svg](diagrams/gw-c4-2-containers.drawio.svg) | C4 nivel 2: frontend, GW y MS01…MS08 con su tecnología, el bus de rutas con mTLS y las llamadas internas con clave de servicio. |
 | [diagrams/gw-c4-3-components.drawio.svg](diagrams/gw-c4-3-components.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, los componentes que requiere cada filtro, la consulta periódica de los cortes de sesión a MS01 y la salida con mTLS a MS01…MS08. |
 | [diagrams/gw-deployment-azure.drawio.svg](diagrams/gw-deployment-azure.drawio.svg) | Despliegue: VM del GW en Azure con NSG, Caddy de borde con Let's Encrypt, stacks `gw-prod` y `gw-test` con su certificado de cliente, y la salida con mTLS a la VM de cada MS. |
 | [diagrams/gw-classes.puml](diagrams/gw-classes.puml) · [SVG](diagrams/gw-classes.svg) | Clases (UML): tabla de rutas, políticas de acceso, identidad del usuario y del servicio llamante, cortes de sesión y errores propios. |
