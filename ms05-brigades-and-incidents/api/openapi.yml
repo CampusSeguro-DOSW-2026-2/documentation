@@ -2292,12 +2292,22 @@ components:
           maxLength: 1000
     EditarIncidenteRequest:
       type: object
+      description: Los campos que no se envían quedan igual.
       properties:
         descripcion:
           type:
             - string
             - 'null'
           maxLength: 500
+        prioridadId:
+          type:
+            - integer
+            - 'null'
+          format: int64
+          minimum: 1
+          description: >-
+            Nueva prioridad del catálogo de MS05. Completa la solicitud de asistencia que MS04 crea desde el
+            check-in con la prioridad por defecto. Una prioridad inexistente responde 400.
     AsignarResponsableRequest:
       type: object
       required:
@@ -2723,6 +2733,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/IncidenteResumenDTO'
+        tiempoPromedioAtencionSegundos:
+          type:
+            - integer
+            - 'null'
+          format: int64
+          description: >-
+            Promedio, en segundos, entre el reporte y la primera atención de los casos atendidos; null si ninguno se
+            ha atendido. Atendido = EN_ATENCION, RESUELTO o CERRADO; resuelto = RESUELTO o CERRADO.
 
     # -------------------------------------------------------------------------
     # DTOs de Auditoria y Errores Estandar
