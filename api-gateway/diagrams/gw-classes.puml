@@ -1,140 +1,130 @@
 @startuml gw-classes
-' UML · Clases: estructura estática del API Gateway (tabla de rutas, políticas de acceso, identidad propagada, cortes de sesión y errores propios).
-' Fuente: api-gateway (develop) config/GatewayRoutesProperties, security/*, sessioncuts/SessionCutSnapshot y SessionCutStore, error/GatewayError, ErrorResponse y GatewayException. Sin filtros, configuración de Spring ni utilidades.
+' UML · Clases del API Gateway: estructura estática de su dominio (rutas, políticas de acceso, identidad, cortes de
+' sesión y errores propios). Fuente: src/main/java/.../gateway_service (config, security, sessioncuts, error).
+' Se omiten filtros, configuraciones Spring y utilidades (están en el diagrama de componentes).
+!pragma layout smetana
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+skinparam nodesep 60
+skinparam ranksep 70
 hide empty members
 title API Gateway · Diagrama de clases
 
-class GatewayRoutesProperties <<@ConfigurationProperties gateway>> {
-    - downstreamTimeout : Duration
-    - routes : List<Route>
-    - pathTimeouts : List<PathTimeout>
-    + responseTimeoutOf(path : String) : Duration
+package "Enrutamiento" {
+    class GatewayRoutesProperties <<record>> {
+        - downstreamTimeout : Duration
+        + isPathsUnique() : boolean
+    }
+    class Route <<record>> {
+        - id : String
+        - uri : URI
+        - paths : List<String>
+        + isUriValid() : boolean
+    }
 }
 
-class Route <<record>> {
-    - id : String
-    - uri : URI
-    - paths : List<String>
+package "Control de acceso" {
+    class AccessPolicyResolver {
+        + resolve(method : HttpMethod, path : String) : AccessPolicy
+    }
+    class Endpoint <<record>> {
+        - method : HttpMethod
+        - path : String
+    }
+    enum AccessPolicy {
+        PUBLICA
+        INTERNA
+        PROTEGIDA
+    }
+    class JwtValidator {
+        - properties : JwtProperties
+        + validate(token : String) : AuthenticatedUser
+    }
+    class ServiceKeyAuthenticator {
+        - digestsByService : Map<String, byte[]>
+        + authenticate(serviceKey : String) : CallingService
+    }
+    class AuthenticatedUser <<record>> {
+        - userId : String
+        - roles : List<String>
+        - permissions : List<String>
+    }
+    class CallingService <<record>> {
+        - name : String
+    }
 }
 
-class PathTimeout <<record>> {
-    - path : String
-    - timeout : Duration
+package "Cortes de sesión" {
+    class SessionCutStore {
+        + replace(snapshot : SessionCutSnapshot) : void
+        + isCut(userId : String, roles : List<String>, issuedAt : Instant) : boolean
+    }
+    class SessionCutSnapshot <<record>> {
+        - users : Map<String, Instant>
+        - roles : Map<String, Instant>
+    }
+    class SessionCutsPoller {
+        + start() : void
+        + stop() : void
+    }
+    class SessionCutsClient {
+        + fetch() : Mono<SessionCutSnapshot>
+    }
 }
 
-class Endpoint <<record>> {
-    - method : HttpMethod
-    - path : String
+package "Errores" {
+    class GatewayException {
+        - error : GatewayError
+    }
+    enum GatewayError {
+        VALIDATION (400)
+        UNAUTHORIZED (401)
+        FORBIDDEN (403)
+        NOT_FOUND (404)
+        INTERNAL_ERROR (500)
+        SERVICE_UNAVAILABLE (502)
+        TIMEOUT (504)
+        - codigo : String
+        - mensaje : String
+    }
+    class ErrorResponse <<record>> {
+        - status : int
+        - codigo : String
+        - mensaje : String
+        - correlationId : String
+    }
+    class FieldError <<record>> {
+        - campo : String
+        - mensaje : String
+    }
+    class RuntimeException
 }
 
-class AccessPolicyResolver <<@Component>> {
-    - publicRoutes : List<Endpoint>
-    - internalRoutes : List<Endpoint>
-    + resolve(method : HttpMethod, path : String) : AccessPolicy
-}
+' Composición: las rutas y los endpoints no existen sin su configuración
+GatewayRoutesProperties "1" *-- "1..*" Route : routes >
+AccessPolicyResolver "1" *-- "0..*" Endpoint : públicas e internas >
+AccessPolicyResolver "1" --> "0..*" AccessPolicy : resuelve >
 
-enum AccessPolicy {
-    PUBLICA
-    INTERNA
-    PROTEGIDA
-}
+' Asociaciones del control de acceso
+JwtValidator "1" --> "0..*" AuthenticatedUser : produce >
+ServiceKeyAuthenticator "1" --> "0..*" CallingService : identifica >
+JwtValidator "0..*" --> "1" SessionCutStore : consulta >
 
-class JwtValidator <<@Component>> {
-    - verifier : RSASSAVerifier
-    - properties : JwtProperties
-    - clock : Clock
-    + validate(token : String) : AuthenticatedUser
-}
+' Cortes de sesión: el store agrega la instantánea vigente, que el poller reemplaza
+SessionCutStore "1" o-- "1" SessionCutSnapshot : actual >
+SessionCutsPoller "1" --> "1" SessionCutsClient : usa >
+SessionCutsPoller "1" --> "1" SessionCutStore : reemplaza >
+SessionCutsClient "1" --> "0..*" SessionCutSnapshot : obtiene >
 
-class ServiceKeyAuthenticator <<@Component>> {
-    - digestsByService : Map<String, byte[]>
-    + authenticate(serviceKey : String) : CallingService
-}
-
-class AuthenticatedUser <<record>> {
-    - userId : String
-    - roles : List<String>
-    - permissions : List<String>
-}
-
-class CallingService <<record>> {
-    - name : String
-}
-
-class SessionCutStore <<@Component>> {
-    + replace(snapshot : SessionCutSnapshot) : void
-    + isCut(userId : String, roles : List<String>, issuedAt : Instant) : boolean
-}
-
-class SessionCutSnapshot <<record>> {
-    - users : Map<String, Instant>
-    - roles : Map<String, Instant>
-}
-
-enum GatewayError {
-    VALIDATION
-    UNAUTHORIZED
-    FORBIDDEN
-    NOT_FOUND
-    INTERNAL_ERROR
-    SERVICE_UNAVAILABLE
-    TIMEOUT
-    --
-    - status : HttpStatus
-    - codigo : String
-    - mensaje : String
-}
-
-class GatewayException {
-    - error : GatewayError
-    + error() : GatewayError
-}
-
-class RuntimeException
-
-class ErrorResponse <<record>> {
-    - status : int
-    - codigo : String
-    - mensaje : String
-    - errores : List<FieldError>
-    - correlationId : String
-}
-
-class FieldError <<record>> {
-    - campo : String
-    - mensaje : String
-}
-
-GatewayRoutesProperties "1" *-- "1..*" Route : routes
-GatewayRoutesProperties "1" *-- "0..*" PathTimeout : pathTimeouts
-AccessPolicyResolver "1" o-- "0..*" Endpoint : públicas e internas
-AccessPolicyResolver "0..*" --> "1" AccessPolicy : resuelve >
-JwtValidator "1" --> "1" SessionCutStore : consulta (isCut) >
-JwtValidator "1" -- "0..*" AuthenticatedUser : produce >
-ServiceKeyAuthenticator "1" -- "0..*" CallingService : identifica >
-SessionCutStore "1" o-- "1" SessionCutSnapshot : última instantánea
+' Errores
 RuntimeException <|-- GatewayException
-GatewayException "0..*" --> "1" GatewayError : error
-ErrorResponse "1" *-- "0..*" FieldError : errores
-GatewayError "1" -- "0..*" ErrorResponse : se escribe como >
+GatewayException "0..*" --> "1" GatewayError : error >
+ErrorResponse "1" *-- "0..*" FieldError : errores >
+ErrorResponse "0..*" --> "1" GatewayError : se construye con >
 
-note right of AuthenticatedUser
-  Sale del JWT o de las cabeceras X-User-* que
-  propaga un MS autenticado; el GW la inyecta
-  hacia el MS como X-User-Id, X-User-Role
-  y X-User-Permission.
-end note
-note bottom of SessionCutSnapshot
-  SessionCutsPoller la pide a MS01 al arrancar
-  y cada 4 s; un token emitido antes de un
-  corte de su usuario o de uno de sus roles
-  se rechaza con 401.
-end note
-note right of Endpoint
-  Método + ruta exacta, sin comodines.
-  Lo que no es público ni interno
-  es PROTEGIDA.
-end note
+' Layout: dos filas (enrutamiento y control de acceso arriba; cortes de sesión y errores abajo)
+Route -[hidden]down- SessionCutsPoller
+CallingService -[hidden]down- SessionCutsPoller
+AuthenticatedUser -[hidden]down- GatewayException
+AccessPolicy -[hidden]down- RuntimeException
 @enduml
