@@ -1,169 +1,95 @@
-@startuml ms04-classes
-' UML · Clases: estructura estática del dominio de MS04 (eventos, check-ins, solicitudes de asistencia, identidad y auditoría).
-' Fuente: ms04-evacuation-and-check-in (develop) entity/*, security/RequesterIdentity, security/Permiso, audit/AuditEvent, AuditContext, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
-skinparam classAttributeIconSize 0
+@startuml uml_clases
+' UML · Clases del dominio de MS04 Evacuación y check-in. Fuente: paquete entity/ de origin/develop (rama develop).
+' Las entidades se enlazan por id (eventoId, checkinId), sin @ManyToOne: la asociación es lógica y la garantiza la FK de la BD.
 skinparam shadowing false
-hide empty members
-title MS04 · Diagrama de clases
+skinparam classAttributeIconSize 0
+skinparam linetype polyline
+title MS04 Evacuación y check-in · Diagrama de clases del dominio
 
-class Evento <<@Entity eventos>> {
-    - id : UUID
-    - nombre : String
-    - simulacro : boolean
-    - estado : EstadoEvento
-    - fechaInicio : Instant
-    - fechaCierre : Instant
-    - rolesConvocados : List<String>
-    - escenarioEdificios : List<String>
-    - escenarioZonas : List<String>
-    - creadoEn : Instant
-    - actualizadoEn : Instant
-    + isCheckinHabilitado() : boolean
-    + corteDePoblacion(ahora : Instant) : Instant
+class Evento {
+  - id : UUID
+  - nombre : String
+  - simulacro : boolean
+  - estado : EstadoEvento
+  - fechaInicio : Instant
+  - fechaCierre : Instant
+  - rolesConvocados : List<String>
+  - escenarioEdificios : List<String>
+  - escenarioZonas : List<String>
+  - creadoEn : Instant
+  - actualizadoEn : Instant
+  + isCheckinHabilitado() : boolean
+  + corteDePoblacion(ahora : Instant) : Instant
 }
 
-class Checkin <<@Entity checkins>> {
-    - id : UUID
-    - numero : Long
-    - eventoId : UUID
-    - usuarioId : UUID
-    - estado : EstadoCheckin
-    - puntoEncuentroId : UUID
-    - ubicacionTipo : TipoUbicacion
-    - ubicacionId : UUID
-    - registradoEn : Instant
-    + Checkin(eventoId : UUID, usuarioId : UUID, estado : EstadoCheckin, puntoEncuentroId : UUID, ubicacionTipo : TipoUbicacion, ubicacionId : UUID)
+class Checkin <<solo inserción>> {
+  - id : UUID
+  - numero : Long
+  - eventoId : UUID
+  - usuarioId : UUID
+  - estado : EstadoCheckin
+  - puntoEncuentroId : UUID
+  - ubicacionTipo : TipoUbicacion
+  - ubicacionId : UUID
+  - registradoEn : Instant
 }
 
-class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
-    - id : UUID
-    - checkinId : UUID
-    - eventoId : UUID
-    - usuarioId : UUID
-    - ubicacionTipo : TipoUbicacion
-    - ubicacionId : UUID
-    - solicitudMs05Id : String
-    - estadoEnvio : EstadoEnvio
-    - intentos : int
-    - ultimoIntentoEn : Instant
-    - rolesSolicitante : String
-    - permisosSolicitante : String
-    - reportadaEn : Instant
-    - actualizadoEn : Instant
-    + setEstadoEnvio(estadoEnvio : EstadoEnvio) : void
-    + setIdentidadSolicitante(roles : String, permisos : String) : void
+class SolicitudAsistencia {
+  - id : UUID
+  - checkinId : UUID
+  - eventoId : UUID
+  - usuarioId : UUID
+  - ubicacionTipo : TipoUbicacion
+  - ubicacionId : UUID
+  - solicitudMs05Id : String
+  - estadoEnvio : EstadoEnvio
+  - intentos : int
+  - ultimoIntentoEn : Instant
+  - rolesSolicitante : String
+  - permisosSolicitante : String
+  - reportadaEn : Instant
+  - actualizadoEn : Instant
+  + setIdentidadSolicitante(roles : String, permisos : String) : void
 }
 
 enum EstadoEvento {
-    BORRADOR
-    PROGRAMADO
-    EN_EJECUCION
-    FINALIZADO
+  BORRADOR
+  PROGRAMADO
+  EN_EJECUCION
+  FINALIZADO
 }
 
 enum EstadoCheckin {
-    SAFE
-    EVACUATING
-    NEEDS_ASSISTANCE
-    OFF_CAMPUS
-}
-
-enum TipoUbicacion {
-    EDIFICIO
-    ESPACIO
-    PUNTO_ENCUENTRO
+  SAFE
+  EVACUATING
+  NEEDS_ASSISTANCE
+  OFF_CAMPUS
 }
 
 enum EstadoEnvio {
-    ENVIADA
-    PENDIENTE_ENVIO
-    RECHAZADA
+  ENVIADA
+  PENDIENTE_ENVIO
+  RECHAZADA
 }
 
-class RequesterIdentity <<record>> {
-    - userId : UUID
-    - roles : Set<String>
-    - permisos : Set<String>
-    + tienePermiso(permiso : Permiso) : boolean
-    + rolesComoCabecera() : String
-    + permisosComoCabecera() : String
+enum TipoUbicacion {
+  EDIFICIO
+  ESPACIO
+  PUNTO_ENCUENTRO
 }
 
-enum Permiso {
-    CHECKIN_WRITE
-    CHECKIN_READ_OWN
-    ASSISTANCE_REQUEST
-    DASHBOARD_READ
-    HISTORY_READ
-    --
-    - code : String
-    + getCode() : String
-}
+Evento "1" -- "0..*" Checkin : registra >
+Evento "1" -- "0..*" SolicitudAsistencia : recibe >
+Checkin "1" -- "0..*" SolicitudAsistencia : origina >
 
-class AuditEvent <<record>> {
-    - id : UUID
-    - accion : AuditAction
-    - resultado : AuditResult
-    - usuarioId : UUID
-    - usuarioRoles : String
-    - usuarioPermisos : String
-    - detalle : String
-    - correlationId : String
-    - fecha : Instant
-    - recursoAfectado : String
-    - contexto : AuditContext
-}
+Evento --> "1" EstadoEvento : estado
+Checkin --> "1" EstadoCheckin : estado
+Checkin --> "0..1" TipoUbicacion : ubicacionTipo
+SolicitudAsistencia --> "1" EstadoEnvio : estadoEnvio
+SolicitudAsistencia --> "1" TipoUbicacion : ubicacionTipo
 
-class AuditContext <<record>> {
-    - eventoId : UUID
-    - simulacro : Boolean
-    - atributos : Map<String, Object>
-    + {static} de(evento : Evento) : AuditContext
-    + con(clave : String, valor : Object) : AuditContext
-    + tipoEvento() : String
-}
-
-enum AuditAction {
-    REGISTRO_CHECKIN
-    CAMBIO_ESTADO_CHECKIN
-    SOLICITUD_ASISTENCIA
-    CAMBIO_ESTADO_EVENTO
-}
-
-enum AuditResult {
-    EXITO
-    FALLO
-}
-
-Evento "1" -- "0..*" Checkin : recibe (eventoId) >
-Evento "1" -- "0..*" SolicitudAsistencia : agrupa (eventoId) >
-Checkin "1" -- "0..*" SolicitudAsistencia : origina (checkinId) >
-Evento "0..*" --> "1" EstadoEvento : estado
-Checkin "0..*" --> "1" EstadoCheckin : estado
-Checkin "0..*" --> "0..1" TipoUbicacion : ubicacionTipo
-SolicitudAsistencia "0..*" --> "1" TipoUbicacion : ubicacionTipo
-SolicitudAsistencia "0..*" --> "1" EstadoEnvio : estadoEnvio
-RequesterIdentity "0..*" -- "0..*" Permiso : tiene (permisos) >
-RequesterIdentity "1" -- "0..*" Checkin : reporta (usuarioId) >
-AuditEvent "1" *-- "1" AuditContext : contexto
-AuditContext "0..*" -- "0..1" Evento : describe (eventoId) >
-AuditEvent "0..*" --> "1" AuditAction : accion
-AuditEvent "0..*" --> "1" AuditResult : resultado
-
-note right of Checkin
-  Solo se agregan (trigger en la BD): el estado
-  vigente de una persona es su check-in más
-  reciente (vista v_checkins_vigentes).
-end note
-note bottom of SolicitudAsistencia
-  Se crea con el check-in NEEDS_ASSISTANCE y se
-  envía a MS05 después del commit; si MS05 falla
-  queda PENDIENTE_ENVIO y la reenvía la tarea
-  periódica con la identidad guardada.
-end note
-note top of RequesterIdentity
-  Identidad del solicitante, construida con
-  X-User-Id, X-User-Role y X-User-Permission
-  que inyecta el API Gateway (MS04 no ve el JWT).
+note bottom of Checkin
+  El estado vigente de una persona es su check-in
+  más reciente en el evento (mayor registradoEn, luego numero).
 end note
 @enduml

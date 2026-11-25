@@ -3,8 +3,9 @@
 ' Fuente: ms01-identity-and-access (develop) entity/*, security/RequesterIdentity, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+skinparam linetype polyline
 hide empty members
-title MS01 · Diagrama de clases
+title MS01 Identidad y acceso · Diagrama de clases del dominio
 
 class UserEntity <<@Entity users>> {
     - id : UUID
