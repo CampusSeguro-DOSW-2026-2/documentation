@@ -17,9 +17,9 @@ Cómo verlos y editarlos: [`diagrams/README.md`](diagrams/README.md).
 
 | Vista | Diagrama |
 |---|---|
-| C4 · Componentes | [Filtros, controladores, servicios, rutas y navegación](diagrams/ms02-c4-3-components.puml) |
-| Clases | [Dominio](diagrams/ms02-classes.puml) |
-| Despliegue | [VM en Azure con firewall y mTLS, entornos de prueba y producción](diagrams/ms02-deployment-azure.puml) |
-| Modelo de datos físico | [Tablas de PostgreSQL](diagrams/ms02-er-physical.puml) |
+| C4 · Componentes | [1/3 Infraestructura del campus](diagrams/ms02-c4-3-components-1-campus.drawio.svg) · [2/3 Imágenes, QR y consulta pública](diagrams/ms02-c4-3-components-2-public-lookup.drawio.svg) · [3/3 Rutas de evacuación](diagrams/ms02-c4-3-components-3-evacuation-routes.drawio.svg) |
+| Clases | [Dominio](diagrams/ms02-classes.svg) |
+| Despliegue | [VM en Azure con firewall y mTLS, base de datos administrada y Blob Storage](diagrams/ms02-deployment-azure.drawio.svg) |
+| Modelo de datos físico | [Tablas de PostgreSQL](diagrams/ms02-er-physical.drawio.svg) |
 
 **Para otros squads:** las reglas transversales están en los [Estándares](../integration/standards.md) y la asignación inicial de permisos a los roles en la [matriz de roles y permisos](../integration/permissions-matrix.md).

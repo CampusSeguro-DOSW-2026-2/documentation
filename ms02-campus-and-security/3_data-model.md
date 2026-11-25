@@ -246,7 +246,7 @@ Guarda los dos tipos de ruta ([RN-MS02-13](1_requirements.md#rn-ms02-13)): la de
 | edificio → recomendacion_preventiva | 1 a N | FK `edificio_id` |
 | elemento → imagen | 1 a N | `tipo_elemento` + `elemento_id` (sin FK) |
 
-El diagrama está en [`diagrams/ms02-er-physical.puml`](diagrams/ms02-er-physical.puml).
+El diagrama está en [`diagrams/ms02-er-physical.drawio.svg`](diagrams/ms02-er-physical.drawio.svg).
 
 ---
 
