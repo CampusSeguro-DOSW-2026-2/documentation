@@ -267,20 +267,21 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 |:--|:--|
 | **Código** | RF-BEI-05 |
 | **Nombre** | Editar incidente |
-| **Descripción** | Permite adjuntar a un incidente una descripción y, cuando corresponda, máximo cinco archivos de evidencia (pueden ser fotos (png), videos (mp4) o documentos (pdf)), así como consultar las evidencias registradas. |
+| **Descripción** | Permite adjuntar a un incidente una descripción y, cuando corresponda, máximo cinco archivos de evidencia (pueden ser fotos (png), videos (mp4) o documentos (pdf)), así como consultar las evidencias registradas. También permite cambiar la prioridad: así la persona completa la solicitud de asistencia que MS04 crea desde el check-in «Requiero asistencia» con la prioridad por defecto, sin crear otra. |
 | **Actor principal** | **Usuario general** (estudiantes, profesores, personal administrativo, coordinadores, organizadores, administradores, brigadista): para una solicitud propia<br>**Brigadistas**: para solicitudes ajenas. |
 | **Precondiciones** | Debe existir el incidente y debe estar en un estado diferente a cerrado. Cualquier actor debe estar autenticado para editar un incidente propio, para editar un incidente de un tercero debe tener el rol de brigadista y debe estar activo. |
 
 **Cómo se ejecutará**
 
 - **Automáticamente:** -
-- **Manualmente:** **Usuario general \| Brigadista**: Ingresa a la aplicación, se autentica, accede inmediatamente a la página principal donde podrá ver los eventos activos en el momento y da click en el botón "Mis incidentes". Accederá a una pantalla con todos los incidentes creados al momento. Podrá elegir un incidente en particular, dar click sobre el botón de editar y acceder a un entorno de donde podrá modificar únicamente la descripción del incidente y adjuntar nueva evidencia (máximo 5 archivos.
+- **Manualmente:** **Usuario general \| Brigadista**: Ingresa a la aplicación, se autentica, accede inmediatamente a la página principal donde podrá ver los eventos activos en el momento y da click en el botón "Mis incidentes". Accederá a una pantalla con todos los incidentes creados al momento. Podrá elegir un incidente en particular, dar click sobre el botón de editar y acceder a un entorno de donde podrá modificar la descripción y la prioridad del incidente y adjuntar nueva evidencia (máximo 5 archivos).<br>**Usuario general**: al elegir «Requiero asistencia» en el check-in llega al formulario «Necesito ayuda»; al enviarlo, MS04 registra su estado y crea la solicitud, y el formulario la completa aquí con la prioridad, la descripción y la evidencia.
 
 ### 2. Datos de entrada
 
 | Nombre | Descripción | Tipo de campo | Reglas / Aplicación | Obligatorio |
 |:--|:--|:--|:--|:--:|
 | descripcion | Descripción de la evidencia. | Texto | Longitud máxima definida (por ejemplo, 500 caracteres). | No |
+| prioridadId | Nueva prioridad del incidente. | Número | Debe existir en el catálogo de prioridades; si no se envía, se conserva la actual. | No |
 | evidencia | Archivo de evidencia que apoyan la atención del incidente. | Lista de Objetos | Formatos permitidos: fotos (png), videos (mp4) o documentos (pdf) | No |
 
 ### 3. Datos de salida
@@ -296,7 +297,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 
 | Paso | Actor | Descripción | Excepciones |
 |:--:|:--|:--|:--|
-| 1 | Usuario general | Ingresa al aplicativo, identifica el incidente a modificar. Luego, accede a la zona de edición de este y añade una descripción o evidencia. | Los únicos campos modificables son los de descripción y evidencia. |
+| 1 | Usuario general | Ingresa al aplicativo, identifica el incidente a modificar. Luego, accede a la zona de edición de este y añade una descripción o evidencia. | Los únicos campos modificables son la descripción, la prioridad y la evidencia. |
 | 2 | Sistema | Valida que el incidente exista y no esté cerrado, que el actor esté autenticado, que el archivo cumpla el formato y la descripción la extensión y que la cantidad de archivos no supere el máximo (cinco). | Si falla, ver Flujo alterno A1 o A2 |
 | 3 | Sistema | Almacena la evidencia asociada al incidente. | - |
 | 4 | Sistema | Registra la acción en el módulo de auditoría. | - |
