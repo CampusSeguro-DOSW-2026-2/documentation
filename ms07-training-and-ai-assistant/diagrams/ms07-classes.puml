@@ -1,0 +1,155 @@
+@startuml ms07-classes
+' UML · Clases de MS07: contenidos, evaluaciones, progreso, auditoría y adaptadores del tutor IA.
+' Fuente: src/main/java/.../training/{category,content,evaluation,progress,audit,tutor/ai}.
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 60
+skinparam ranksep 70
+skinparam packageStyle rectangle
+hide empty members
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #455A64
+}
+skinparam package {
+    BorderColor #546E7A
+    FontColor #263238
+}
+title MS07 · Diagrama de clases
+
+package "Contenidos y progreso" <<Rectangle>> #E3F2FD {
+    class Category {
+        - id : UUID
+        - name : String
+        - description : String
+        - status : Status
+        + update(name : String, description : String) : void
+        + deactivate() : void
+        + reactivate() : void
+        + isActive() : boolean
+    }
+    class Content {
+        - id : UUID
+        - title : String
+        - body : String
+        - status : Status
+        - createdAt : Instant
+        - updatedAt : Instant
+        + update(title : String, body : String, category : Category) : void
+        + deactivate() : void
+        + reactivate() : void
+        + isVisibleToCommunity() : boolean
+    }
+    class ContentView {
+        - id : UUID
+        - userId : UUID
+        - firstViewedAt : Instant
+        - lastViewedAt : Instant
+    }
+}
+
+package "Evaluaciones" <<Rectangle>> #E8F5E9 {
+    class Evaluation {
+        - id : UUID
+        - title : String
+        - topic : String
+        - status : Status
+        - createdAt : Instant
+        - updatedAt : Instant
+        + update(title : String, topic : String, category : Category) : void
+        + addQuestion(statement : String) : Question
+        + clearQuestions() : void
+        + deactivate() : void
+        + reactivate() : void
+    }
+    class Question {
+        - id : UUID
+        - position : int
+        - statement : String
+        + addOption(text : String, correct : boolean) : void
+    }
+    class QuestionOption {
+        - id : UUID
+        - position : int
+        - text : String
+        - correct : boolean
+    }
+    class EvaluationAttempt {
+        - id : UUID
+        - userId : UUID
+        - topic : String
+        - score : int
+        - attemptedAt : Instant
+    }
+}
+
+package "Tutor IA" <<Rectangle>> #F3E5F5 {
+    interface AiAdapter {
+        + provider() : String
+        + complete(prompt : AiPrompt) : String
+    }
+    abstract class ChatCompletionsAdapter {
+        - properties : TutorProperties
+        - client : RestClient
+        + complete(prompt : AiPrompt) : String
+        # {abstract} authenticate(headers : HttpHeaders, apiKey : String) : void
+        # {abstract} sendsModel() : boolean
+    }
+    class OpenAiAdapter {
+        + provider() : String
+    }
+    class AzureOpenAiAdapter {
+        + provider() : String
+    }
+    class AiPrompt <<record>> {
+        + instructions : String
+        + message : String
+    }
+}
+
+package "Auditoría" <<Rectangle>> #FFF3E0 {
+    class AuditEvent {
+        - id : UUID
+        - userId : UUID
+        - eventType : String
+        - occurredAt : Instant
+        - correlationId : String
+        - result : String
+    }
+}
+
+package "Enumeraciones" <<Rectangle>> #ECEFF1 {
+    enum Status {
+        ACTIVO
+        INACTIVO
+    }
+    enum TutorQueryResult {
+        RESPONDIDA
+        FUERA_DE_ALCANCE
+    }
+}
+
+' Asociaciones (FK NOT NULL)
+Category "1" -- "0..*" Content : agrupa >
+Category "1" -- "0..*" Evaluation : agrupa >
+ContentView "0..*" -- "1" Content : registra la visita a >
+EvaluationAttempt "0..*" -- "1" Evaluation : responde >
+' Composición: preguntas y opciones viven y mueren con su evaluación (cascade + orphanRemoval)
+Evaluation "1" *-- "0..*" Question : contiene >
+Question "1" *-- "0..*" QuestionOption : ofrece >
+' Realización y herencia de los adaptadores del tutor
+AiAdapter <|.. ChatCompletionsAdapter
+ChatCompletionsAdapter <|-- OpenAiAdapter
+ChatCompletionsAdapter <|-- AzureOpenAiAdapter
+AiAdapter "1" -- "1" AiPrompt : recibe >
+
+note bottom of AuditEvent
+  userId es el usuario de MS01 (sin FK).
+  result guarda un TutorQueryResult
+  solo en los eventos TUTOR_QUERY.
+end note
+note bottom of ContentView
+  Una fila por usuario y contenido:
+  otra visita solo mueve lastViewedAt.
+end note
+@enduml

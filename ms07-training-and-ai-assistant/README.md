@@ -7,6 +7,7 @@ Documentación del microservicio de formación preventiva y asistente de intelig
 - [Requerimientos](1_requirements.md): funcionalidades, reglas de negocio y comportamiento del servicio.
 - [Modelo de datos](3_data-model.md): entidades, tablas, relaciones y restricciones.
 - [Contrato API](api/openapi.yml): especificación OpenAPI 3 de los endpoints.
+- [Diagramas](diagrams/README.md): componentes, despliegue, modelo de datos físico y clases.
 
 ## Alcance
 
