@@ -1,161 +1,261 @@
-@startuml ms02_clases
-title MS02 Campus y seguridad · Clases del dominio
-hide empty methods
+@startuml ms02-classes
+' UML · Clases de MS02: dominio del campus y de las rutas de evacuación, tal como está en el código.
+' Fuente: src/main/java/.../campus/entity, .../ruta/domain y .../ruta/port (rama develop, e5c79d2).
+' Las entidades guardan el UUID de la otra (campusId, edificioId...): por eso las relaciones son asociaciones
+' navegables del hijo al padre, rotuladas con el campo. La única referencia a objetos es Escalera.pisos (@ManyToMany).
 skinparam classAttributeIconSize 0
-skinparam linetype ortho
+skinparam shadowing false
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam packageStyle rectangle
+hide empty members
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #455A64
+}
+skinparam package {
+    BorderColor #546E7A
+    FontColor #263238
+}
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #F9A825
+}
+title MS02 · Diagrama de clases (dominio)
 
-enum Estado {
-  ACTIVO
-  INACTIVO
-}
-enum TipoEspacio {
-  SALON
-  LABORATORIO
-  AUDITORIO
-  OFICINA
-  ESPACIO_COMUN
-}
-enum TipoZonaAbierta {
-  ZONA_VERDE
-  PLAZOLETA
-  CANCHA
-  PARQUEADERO
-  OTRA
-}
-enum DisponibilidadEscalera {
-  DISPONIBLE
-  BLOQUEADA
-  FUERA_DE_SERVICIO
-}
-enum EstadoRuta {
-  DISPONIBLE
-  BLOQUEADA
-  RESTRINGIDA
-}
-enum AmbitoRecomendacion {
-  EDIFICIO
-  TIPO_ESPACIO
-}
-enum TipoElementoImagen {
-  EDIFICIO
-  ESPACIO
-  SALIDA
-  ZONA_SEGURA
-}
-
-class Campus {
-  - id : UUID
-  - nombre : String
-  - descripcion : String
-  - estado : Estado
-}
-class ZonaAbierta {
-  - id : UUID
-  - nombre : String
-  - tipo : TipoZonaAbierta
-  - latitud : BigDecimal [0..1]
-  - longitud : BigDecimal [0..1]
-  - estado : Estado
-}
-class Edificio {
-  - id : UUID
-  - nombre : String
-  - descripcion : String
-  - estado : Estado
-}
-class Piso {
-  - id : UUID
-  - numero : int
-  - nombre : String
-  - estado : Estado
-}
-class Espacio {
-  - id : UUID
-  - nombre : String
-  - tipo : TipoEspacio
-  - estado : Estado
-}
-class Salida {
-  - id : UUID
-  - nombre : String
-  - latitud : BigDecimal
-  - longitud : BigDecimal
-  - estado : Estado
-}
-class Escalera {
-  - id : UUID
-  - codigo : String «generado ESC-…»
-  - nombre : String
-  - prioridad : int
-  - disponibilidad : DisponibilidadEscalera
-  - motivo : String
-  - estado : Estado
-}
-class ZonaSegura {
-  - id : UUID
-  - codigo : String «fijo»
-  - nombre : String
-  - ubicacion : String
-  - descripcion : String
-  - capacidad : int
-  - latitud : BigDecimal [0..1]
-  - longitud : BigDecimal [0..1]
-  - puntoEncuentro : boolean
-  - estado : Estado
-}
-class RutaEvacuacion {
-  - id : UUID
-  - descripcion : String
-  - estado : EstadoRuta
-  - motivo : String
-  - distanciaMetros : BigDecimal
-  - duracionSegundos : BigDecimal
-  - geometria : String
-  - pasos : String
-  - calculadaEn : Instant
-}
-class RecomendacionPreventiva {
-  - id : UUID
-  - ambito : AmbitoRecomendacion
-  - tipoEspacio : TipoEspacio [0..1]
-  - titulo : String
-  - recomendacion : String
-  - estado : Estado
-}
-class Imagen {
-  - id : UUID
-  - tipoElemento : TipoElementoImagen
-  - elementoId : UUID
-  - nombreOriginal : String
-  - tipoContenido : String
-  - tamanioBytes : long
-  - rutaArchivo : String
+package "Estructura del campus" <<Rectangle>> #E3F2FD {
+    class Campus <<@Entity>> {
+        - id : UUID
+        - nombre : String
+        - descripcion : String
+        - estado : Estado = ACTIVO
+    }
+    class Edificio <<@Entity>> {
+        - id : UUID
+        - campusId : UUID
+        - nombre : String
+        - descripcion : String
+        - estado : Estado = ACTIVO
+    }
+    class Piso <<@Entity>> {
+        - id : UUID
+        - edificioId : UUID
+        - numero : Integer
+        - nombre : String
+        - estado : Estado = ACTIVO
+    }
+    class Espacio <<@Entity>> {
+        - id : UUID
+        - edificioId : UUID
+        - pisoId : UUID
+        - nombre : String
+        - tipo : TipoEspacio
+        - estado : Estado = ACTIVO
+    }
+    class Salida <<@Entity>> {
+        - id : UUID
+        - edificioId : UUID
+        - pisoId : UUID
+        - nombre : String
+        - latitud : BigDecimal
+        - longitud : BigDecimal
+        - estado : Estado = ACTIVO
+    }
+    class Escalera <<@Entity>> {
+        - id : UUID
+        - edificioId : UUID
+        - codigo : String
+        - nombre : String
+        - disponibilidad : DisponibilidadEscalera = DISPONIBLE
+        - motivo : String
+        - prioridad : int = 1
+        - estado : Estado = ACTIVO
+        - pisos : Set<Piso>
+    }
 }
 
-Campus "1" -- "0..*" Edificio : contiene >
-Campus "1" -- "0..*" ZonaAbierta : contiene >
-ZonaAbierta "0..1" -- "0..*" ZonaSegura : ubica >
-Edificio "1" -- "0..*" Piso : tiene >
-Piso "1" -- "0..*" Espacio : contiene >
-Piso "1" -- "0..*" Salida : sale desde <
-Edificio "1" -- "0..*" Escalera : tiene >
-Escalera "0..*" -- "2..*" Piso : conecta >
-Espacio "0..1" -- "0..1" RutaEvacuacion : origen (ruta de texto) <
-Salida "0..1" -- "0..*" RutaEvacuacion : origen (ruta exterior) <
-ZonaSegura "1" -- "0..*" RutaEvacuacion : destino <
-Edificio "0..1" -- "0..*" RecomendacionPreventiva : ámbito EDIFICIO <
-Imagen "0..*" ..> Edificio : foto de
-Imagen "0..*" ..> Espacio : foto de
-Imagen "0..*" ..> Salida : foto de
-Imagen "0..*" ..> ZonaSegura : foto de
+package "Zonas exteriores" <<Rectangle>> #E8F5E9 {
+    class ZonaAbierta <<@Entity>> {
+        - id : UUID
+        - campusId : UUID
+        - nombre : String
+        - tipo : TipoZonaAbierta
+        - latitud : BigDecimal
+        - longitud : BigDecimal
+        - estado : Estado = ACTIVO
+    }
+    class ZonaSegura <<@Entity>> {
+        - id : UUID
+        - nombre : String
+        - ubicacion : String
+        - descripcion : String
+        - capacidad : Integer
+        - estado : Estado = ACTIVO
+        - codigo : String
+        - latitud : BigDecimal
+        - longitud : BigDecimal
+        - zonaAbiertaId : UUID
+        - puntoEncuentro : boolean = true
+    }
+}
 
-note bottom of RutaEvacuacion
-  Exactamente un origen: espacio o salida.
-  Las métricas y la geometría solo existen
-  en las rutas exteriores (salida → zona).
+package "Rutas de evacuación" <<Rectangle>> #FFF3E0 {
+    class RutaEvacuacion <<@Entity>> {
+        - id : UUID
+        - espacioOrigenId : UUID
+        - salidaOrigenId : UUID
+        - zonaSeguraDestinoId : UUID
+        - descripcion : String
+        - estado : EstadoRuta
+        - motivo : String
+        - distanciaMetros : BigDecimal
+        - duracionSegundos : BigDecimal
+        - geometria : String
+        - pasos : String
+        - calculadaEn : Instant
+        - createdAt : Instant
+        - updatedAt : Instant
+        + {static} exterior(salidaOrigenId : UUID, zonaSeguraDestinoId : UUID, descripcion : String) : RutaEvacuacion
+        + esExterior() : boolean
+        + registrarCalculo(distanciaMetros : double, duracionSegundos : double, geometria : String, pasos : String, calculadaEn : Instant) : void
+        + cambiarEstado(estado : EstadoRuta, motivo : String) : void
+        ~ alCrear() : void
+        ~ alActualizar() : void
+    }
+    interface ProveedorNavegacion <<puerto>> {
+        + calcularRutaPeatonal(origen : Coordenada, destino : Coordenada) : RutaCalculada
+    }
+    class RutaCalculada <<record>> {
+        + distanciaMetros : double
+        + duracionSegundos : double
+        + geometria : List<Coordenada>
+        + pasos : List<PasoRuta>
+    }
+    class Coordenada <<record>> {
+        + latitud : BigDecimal
+        + longitud : BigDecimal
+        + {static} de(latitud : double, longitud : double) : Coordenada
+        + distanciaMetrosA(otra : Coordenada) : double
+    }
+    class PasoRuta <<record>> {
+        + instruccion : String
+        + distanciaMetros : double
+        + duracionSegundos : double
+    }
+}
+
+package "Apoyo" <<Rectangle>> #F3E5F5 {
+    class RecomendacionPreventiva <<@Entity>> {
+        - id : UUID
+        - ambito : AmbitoRecomendacion
+        - edificioId : UUID
+        - tipoEspacio : TipoEspacio
+        - titulo : String
+        - recomendacion : String
+        - estado : Estado = ACTIVO
+        - createdAt : LocalDateTime
+        - updatedAt : LocalDateTime
+        ~ alCrear() : void
+        ~ alActualizar() : void
+    }
+    class Imagen <<@Entity>> {
+        - id : UUID
+        - tipoElemento : TipoElementoImagen
+        - elementoId : UUID
+        - nombreOriginal : String
+        - tipoContenido : String
+        - tamanioBytes : Long
+        - rutaArchivo : String
+        - createdAt : LocalDateTime
+        # alCrear() : void
+    }
+}
+
+package "Enumeraciones" <<Rectangle>> #ECEFF1 {
+    enum Estado {
+        ACTIVO
+        INACTIVO
+    }
+    enum TipoEspacio {
+        SALON
+        LABORATORIO
+        AUDITORIO
+        OFICINA
+        ESPACIO_COMUN
+    }
+    enum DisponibilidadEscalera {
+        DISPONIBLE
+        BLOQUEADA
+        FUERA_DE_SERVICIO
+    }
+    enum TipoZonaAbierta {
+        ZONA_VERDE
+        PLAZOLETA
+        CANCHA
+        PARQUEADERO
+        OTRA
+    }
+    enum EstadoRuta {
+        DISPONIBLE
+        BLOQUEADA
+        RESTRINGIDA
+    }
+    enum AmbitoRecomendacion {
+        EDIFICIO
+        TIPO_ESPACIO
+    }
+    enum TipoElementoImagen {
+        EDIFICIO
+        ESPACIO
+        SALIDA
+        ZONA_SEGURA
+    }
+}
+
+' ---- Referencias por id (el hijo guarda el UUID del padre). Color = clase a la que apunta.
+' a Campus (azul oscuro)
+Campus "1" <-[#0D47A1]- "0..*" Edificio : campusId
+Campus "1" <-[#0D47A1]- "0..*" ZonaAbierta : campusId
+' a Edificio (azul)
+Edificio "1" <-[#1E88E5]- "0..*" Piso : edificioId
+Edificio "1" <-[#1E88E5]- "0..*" Escalera : edificioId
+Edificio "1" <-[#1E88E5]- "0..*" Espacio : edificioId
+Edificio "1" <-[#1E88E5]- "0..*" Salida : edificioId
+Edificio "0..1" <-[#1E88E5]- "0..*" RecomendacionPreventiva : edificioId
+' a Piso (verde azulado)
+Piso "1" <-[#00897B]- "0..*" Espacio : pisoId
+Piso "1" <-[#00897B]- "0..*" Salida : pisoId
+' Única referencia a objetos: @ManyToMany por la tabla escalera_piso (la API exige al menos 2 pisos)
+Escalera "0..*" -[#00897B,bold]-> "2..*" Piso : pisos
+' a ZonaAbierta (verde)
+ZonaAbierta "0..1" <-[#2E7D32]- "0..*" ZonaSegura : zonaAbiertaId
+' La ruta: exactamente un origen (espacio o salida) y un destino (naranja)
+Espacio "0..1" <-[#EF6C00]- "0..1" RutaEvacuacion : espacioOrigenId
+Salida "0..1" <-[#EF6C00]- "0..*" RutaEvacuacion : salidaOrigenId
+ZonaSegura "1" <-[#EF6C00]- "0..*" RutaEvacuacion : zonaSeguraDestinoId
+' ---- Valores del cálculo de OSRM (records inmutables)
+RutaCalculada "1" *-- "0..*" Coordenada : geometria
+RutaCalculada "1" *-- "0..*" PasoRuta : pasos
+ProveedorNavegacion ..> RutaCalculada : «crea»
+
+note top of Campus
+  <b>Cómo leerlo</b>
+  Flecha →: la clase guarda el <b>id (UUID)</b> de la otra; el rótulo es el campo.
+  Color de la flecha = clase a la que apunta:
+  <color:#0D47A1>■</color> Campus  <color:#1E88E5>■</color> Edificio  <color:#00897B>■</color> Piso
+  <color:#2E7D32>■</color> ZonaAbierta  <color:#EF6C00>■</color> origen y destino de la ruta
+  Línea gruesa: <b>Escalera.pisos</b>, la única referencia a objetos.
+  Nada se borra: <b>estado</b> pasa a INACTIVO.
+  Escalera: nunca se recomienda BLOQUEADA, FUERA_DE_SERVICIO o INACTIVA; prioridad 1 = principal.
 end note
-note right of ZonaSegura
-  Un punto de encuentro es una
-  zona segura con puntoEncuentro = true.
+note bottom of RutaEvacuacion
+  Un solo origen: <b>espacioOrigenId</b> (ruta de texto, legado)
+  o <b>salidaOrigenId</b> (ruta exterior calculada con OSRM).
+  RutaExteriorService copia distancia, duración, geometría
+  y pasos de la RutaCalculada con registrarCalculo(...).
+end note
+note bottom of Imagen
+  Sin FK: (tipoElemento, elementoId) apunta a un
+  Edificio, Espacio, Salida o ZonaSegura.
 end note
 @enduml

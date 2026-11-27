@@ -1,0 +1,62 @@
+@startuml uml_secuencia
+' UML · Secuencia: registrar un check-in NEEDS_ASSISTANCE (POST /api/v1/chi/eventos/{eventoId}/checkins).
+' Fuente: CheckinController, CheckinService y SolicitudAsistenciaService de origin/develop. Se omite la auditoría en MS08 por ser asíncrona al flujo.
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+autonumber
+title MS04 Evacuación y check-in · Secuencia: reportar "Requiero asistencia"
+
+actor "Persona convocada" as U
+participant "API Gateway" as GW
+participant "CheckinController" as C
+participant "CheckinService" as S
+participant "EventoRepository" as ER
+participant "CheckinRepository" as CR
+participant "SolicitudAsistenciaService" as SS
+participant "Ms05SolicitudAsistenciaClient" as M5
+database "PostgreSQL" as DB
+participant "MS05" as MS05
+
+U -> GW : POST /eventos/{eventoId}/checkins\n{estado: NEEDS_ASSISTANCE, ubicacion}
+GW -> C : reenvía con X-User-Id, X-User-Role, X-User-Permission
+C -> C : exige ms04:checkin:write y ms04:assistance:request
+C -> S : registrar(eventoId, request, requester, correlationId)
+S -> S : CheckinValidator.validar(request)
+S -> ER : findById(eventoId)
+ER --> S : Evento
+alt evento inexistente, sin check-in habilitado o rol no convocado
+    S --> C : ApiException (no encontrado, conflicto o regla de negocio)
+    C --> GW : error
+    GW --> U : error
+else evento EN_EJECUCION y rol convocado
+    group transacción
+        S -> CR : bloquearUsuarioEnEvento(eventoId, usuarioId)
+        S -> CR : buscarVigente(eventoId, usuarioId)
+        CR --> S : check-in vigente o vacío
+        alt repite el estado vigente
+            S --> C : ResultadoCheckin (sin crear)
+        else estado nuevo
+            S -> CR : save(nuevo Checkin)
+            CR -> DB : INSERT INTO checkins
+            S -> SS : registrar(checkin)
+            SS -> DB : INSERT solicitudes_asistencia (PENDIENTE_ENVIO)
+        end
+    end
+    S -> SS : enviar(solicitudId, requester, correlationId)\n(solo si la solicitud es nueva)
+    SS -> M5 : enviar(solicitud)
+    M5 -> MS05 : POST /api/v1/incidentes/eventos/{eventoId} (vía Gateway)
+    alt MS05 responde
+        MS05 --> M5 : idIncidente
+        M5 --> SS : ENVIADA
+        SS -> DB : UPDATE estado_envio = ENVIADA, solicitud_ms05_id
+    else MS05 no responde
+        M5 --> SS : fallo
+        SS -> DB : intentos + 1, sigue PENDIENTE_ENVIO
+        note right of SS : ReenvioSolicitudesTarea\nlo reintenta cada 30 s
+    end
+    SS --> S : solicitud
+    S --> C : ResultadoCheckin
+    C --> GW : 201 Created (primer check-in) o 200 OK, con CheckinResponse
+    GW --> U : 201 Created o 200 OK
+end
+@enduml

@@ -3,18 +3,19 @@
 Base de datos PostgreSQL propia de MS05. El esquema desplegado está en `database/` del repositorio de MS05. Ningún otro microservicio la lee ni la modifica; se accede a ella solo mediante la API.
 
 ## Índice de Contenido
+
 1. [Alcance](#alcance)
 2. [Convenciones](#convenciones)
 3. [Catálogos](#catalogos)
 4. [Tablas](#tablas)
-    - [brigadista](#brigadista)
-    - [configuracion_operacion_evento](#configuracion_operacion_evento)
-    - [evento_zona](#evento_zona)
-    - [asignacion_brigadista](#asignacion_brigadista)
-    - [incidente](#incidente)
-    - [evidencia_incidente](#evidencia_incidente)
-    - [historial_incidente](#historial_incidente)
-    - [registro_auditoria](#registro_auditoria)
+   - [brigadista](#brigadista)
+   - [configuracion_operacion_evento](#configuracion_operacion_evento)
+   - [evento_zona](#evento_zona)
+   - [asignacion_brigadista](#asignacion_brigadista)
+   - [incidente](#incidente)
+   - [evidencia_incidente](#evidencia_incidente)
+   - [historial_incidente](#historial_incidente)
+   - [registro_auditoria](#registro_auditoria)
 5. [Relaciones](#relaciones)
 6. [Correspondencia requerimientos ↔ tablas](#correspondencia)
 7. [Reglas de integridad](#reglas-de-integridad)
@@ -23,42 +24,46 @@ Base de datos PostgreSQL propia de MS05. El esquema desplegado está en `databas
 ---
 
 <a id="alcance"></a>
+
 ## Alcance
 
-**Se almacena:** los brigadistas con su estado de habilitación, la configuración de operación de cada evento (auto asignación y panel de gestión) con los edificios o zonas de su alcance, las asignaciones de brigadistas a edificios, zonas seguras o puntos de encuentro, los incidentes con su ciclo de atención, su historial de transiciones y sus evidencias, y el registro de auditoría propio de MS05.
+**Se almacena:** los brigadistas con su estado de habilitación, la configuración de operación de cada evento (autoasignación y panel de gestión) con los edificios o zonas de su alcance, las asignaciones de brigadistas a edificios, zonas seguras o puntos de encuentro, los incidentes con su ciclo de atención, su historial de transiciones y sus evidencias, y el registro de auditoría propio de MS05.
 
 **No se almacena, y por qué:**
-* **Datos personales:** del usuario solo se guarda su id en MS01 (`usuario_id_externo`, `reportante_id`, `actor_id`, `usuario_origen`), sin nombres ni correo. Los datos del usuario se consultan a MS01 cuando se necesitan.
-* **Datos de otros dominios:** los edificios, zonas seguras y puntos de encuentro pertenecen a MS02 y los eventos a MS06. De cada uno solo se guarda su id como referencia. Del evento, MS05 conserva únicamente lo que recibe de MS06 para operar: nombre, tipo (simulacro o real), estado y los edificios o zonas del alcance ([evento_zona](#evento_zona)).
-* **Los archivos de las evidencias:** se guardan en el almacenamiento de archivos del servicio y la base solo guarda su nombre, su tipo y la referencia al archivo ([evidencia_incidente](#evidencia_incidente)).
-* **Solicitudes de asistencia como entidad aparte:** una solicitud de asistencia que llega desde el check-in se registra como un incidente (`incidente`), de modo que comparte su ciclo de vida, su historial y sus evidencias.
-* **Auditoría centralizada:** la consolida MS08 ([catálogo de auditoría](../integration/audit-catalog.md#ms05--brigadistas-e-incidentes)). `registro_auditoria` es el registro propio de MS05 que atiende las consultas de [RF-BEI-09](1_requirements.md#rf-bei-09).
+
+- **Datos personales:** del usuario solo se guarda su id en MS01 (`usuario_id_externo`, `reportante_id`, `actor_id`, `usuario_origen`), sin nombres ni correo. Los datos del usuario se consultan a MS01 cuando se necesitan.
+- **Datos de otros dominios:** los edificios, zonas seguras y puntos de encuentro pertenecen a MS02 y los eventos a MS06. De cada uno solo se guarda su id como referencia. Del evento, MS05 conserva únicamente lo que recibe de MS06 para operar: nombre, tipo (simulacro o real), estado y los edificios o zonas del alcance ([evento_zona](#evento_zona)).
+- **Los archivos de las evidencias:** se guardan en el almacenamiento de archivos del servicio y la base solo guarda su nombre, su tipo y la referencia al archivo ([evidencia_incidente](#evidencia_incidente)).
+- **Solicitudes de asistencia como entidad aparte:** una solicitud de asistencia que llega desde el check-in se registra como un incidente (`incidente`), de modo que comparte su ciclo de vida, su historial y sus evidencias.
+- **Auditoría centralizada:** la consolida MS08 (catálogo de auditoría). `registro_auditoria` es el registro propio de MS05 que atiende las consultas de [RF-BEI-09](1_requirements.md#rf-bei-09); además de persistir localmente, MS05 reenvía cada hecho auditable a MS08 (`POST /api/v1/audit/events`) sin afectar la operación local si MS08 no responde.
 
 ---
 
 <a id="convenciones"></a>
+
 ## Convenciones
 
-* Nombres de tablas y columnas en `snake_case` y en español.
-* Identificadores propios de las tablas de negocio (brigadista, asignación, incidente, evidencia, historial, registro de auditoría): UUID generado por el servicio. Los catálogos usan un `BIGSERIAL`.
-* Fechas y horas en `TIMESTAMP WITH TIME ZONE`, con la excepción de `asignacion_brigadista.fecha_creacion` y `fecha_actualizacion`, que son `TIMESTAMP` sin zona horaria.
-* Identificadores externos, que no son llaves foráneas porque viven en otro microservicio:
-  * `usuario_id_externo`, `brigadista_id`, `brigadista_responsable_id`, `responsable_anterior_id`, `responsable_nuevo_id`, `reportante_id`, `actor_id`, `usuario_origen`: id del usuario en MS01. El `brigadista_id` de una asignación es el mismo valor que `brigadista.usuario_id_externo`.
-  * `evento_id`: id del evento en MS06.
-  * `ubicacion_id`, `zona_id`: id de MS02 del tipo de ubicación que indica `tipo_ubicacion_id` (edificio, zona segura o punto de encuentro).
-* Los estados, las prioridades y los tipos son tablas de catálogo con valores fijos ([Catálogos](#catalogos)). Agregar o cambiar un valor exige una migración nueva y la actualización del código en el mismo Pull Request.
-* Un incidente nunca se elimina físicamente: la eliminación es lógica (`incidente.eliminado`) y las consultas excluyen los incidentes eliminados.
-* El esquema se versiona con los scripts SQL de `database/`: `init/01-create-tables.sql` y `init/02-insert-catalogs.sql` crean las tablas y los catálogos iniciales, y las migraciones `migrations/V1` a `V5` los llevan al modelo actual. En una base nueva, el script de arranque `infra/db/01-initialize-ms05.sh` ejecuta `init/01`, `init/02` y las migraciones `V2` a `V5` en ese orden; `V1` actualiza a mano una base creada con un esquema anterior y no corre en una base nueva. En una base que ya existe, cada migración nueva se aplica una vez a mano. La aplicación solo valida el esquema (`ddl-auto=validate`) y nunca lo genera.
+- Nombres de tablas y columnas en `snake_case` y en español.
+- Identificadores propios de las tablas de negocio (brigadista, asignación, incidente, evidencia, historial, registro de auditoría): UUID generado por el servicio. Los catálogos usan un `BIGSERIAL`.
+- Fechas y horas en `TIMESTAMP WITH TIME ZONE`, con la excepción de `asignacion_brigadista.fecha_creacion` y `fecha_actualizacion`, que son `TIMESTAMP` sin zona horaria.
+- Identificadores externos, que no son llaves foráneas porque viven en otro microservicio:
+  - `usuario_id_externo`, `brigadista_id`, `brigadista_responsable_id`, `responsable_anterior_id`, `responsable_nuevo_id`, `reportante_id`, `actor_id`, `usuario_origen`: id del usuario en MS01. El `brigadista_id` de una asignación es el mismo valor que `brigadista.usuario_id_externo`.
+  - `evento_id`: id del evento en MS06.
+  - `ubicacion_id`, `zona_id`: id de MS02 del tipo de ubicación que indica `tipo_ubicacion_id` (edificio, zona segura o punto de encuentro).
+- Los estados, las prioridades y los tipos son tablas de catálogo con valores fijos ([Catálogos](#catalogos)). Agregar o cambiar un valor exige una migración nueva y la actualización del código en el mismo Pull Request.
+- Un incidente nunca se elimina físicamente: la eliminación es lógica (`incidente.eliminado`) y las consultas excluyen los incidentes eliminados.
+- El esquema se versiona con los scripts SQL de `database/`: `init/01-create-tables.sql` y `init/02-insert-catalogs.sql` crean las tablas y los catálogos iniciales, y las migraciones `V1` a `V5` los llevan al modelo actual. En una base nueva, el script de arranque `infra/db/01-initialize-ms05.sh` ejecuta `init/01`, `init/02` y las migraciones `V2` a `V5` en ese orden; `V1` actualiza a mano una base creada con un esquema anterior y no corre en una base nueva. En una base que ya existe, cada migración nueva se aplica una vez a mano. La aplicación solo valida el esquema (`ddl-auto=validate`) y nunca lo genera.
 
 ---
 
 <a id="catalogos"></a>
+
 ## Catálogos
 
 Cada catálogo tiene la misma forma: `id` (`BIGSERIAL`, PK), `nombre` (único) y `descripcion`.
 
 | Tabla | Longitud de `nombre` | Valores |
-|---|---|---|
+|---|---:|---|
 | `estado_brigadista` | 30 | `INACTIVO`, `ACTIVO` |
 | `estado_asignacion` | 30 | `VIGENTE`, `RETIRADA` |
 | `tipo_ubicacion` | 40 | `EDIFICIO`, `ZONA_SEGURA`, `PUNTO_ENCUENTRO` |
@@ -71,10 +76,13 @@ Cada catálogo tiene la misma forma: `id` (`BIGSERIAL`, PK), `nombre` (único) y
 ---
 
 <a id="tablas"></a>
+
 ## Tablas
 
 <a id="brigadista"></a>
+
 ### brigadista
+
 Una fila por usuario con rol de brigadista que MS05 ya conoce. MS05 la crea con estado `INACTIVO` la primera vez que lo ve (al buscarlo en MS01 o al listar los brigadistas de un evento); [RF-BEI-03](1_requirements.md#rf-bei-03) cambia el estado a `ACTIVO` o `INACTIVO`. Un brigadista solo puede asignarse a un edificio mientras su estado es `ACTIVO`.
 
 | Columna | Tipo | Nulo | Restricciones | Descripción |
@@ -86,8 +94,10 @@ Una fila por usuario con rol de brigadista que MS05 ya conoce. MS05 la crea con 
 **Índices:** PK `id`; único `usuario_id_externo`; `idx_brigadista_estado (estado_id)`.
 
 <a id="configuracion_operacion_evento"></a>
+
 ### configuracion_operacion_evento
-Una fila por evento que MS06 ha comunicado a MS05. Define si el evento admite auto asignación de brigadistas y si su panel de gestión está habilitado, y guarda los datos del evento que MS05 necesita para operar.
+
+Una fila por evento que MS06 ha comunicado a MS05. Define si el evento admite autoasignación de brigadistas y si su panel de gestión está habilitado, y guarda los datos del evento que MS05 necesita para operar.
 
 | Columna | Tipo | Nulo | Por defecto | Restricciones | Descripción |
 |---|---|---|---|---|---|
@@ -102,20 +112,24 @@ Una fila por evento que MS06 ha comunicado a MS05. Define si el evento admite au
 **Índices:** PK `evento_id`.
 
 <a id="evento_zona"></a>
+
 ### evento_zona
-Edificios o zonas del alcance de un evento, tal como los envía MS06 al cambiar el estado del evento. Los usan la auto asignación y el panel de gestión de brigadistas. El alcance guardado se reemplaza solo cuando MS06 envía al menos una ubicación.
+
+Edificios o zonas del alcance de un evento, tal como los envía MS06 al cambiar el estado del evento. Los usan la autoasignación y el panel de gestión de brigadistas. El alcance guardado se reemplaza solo cuando MS06 envía al menos una ubicación.
 
 | Columna | Tipo | Nulo | Por defecto | Restricciones | Descripción |
 |---|---|---|---|---|---|
 | `evento_id` | VARCHAR(100) | No | — | PK compuesta; FK → `configuracion_operacion_evento.evento_id` (`fk_evento_zona_configuracion`), `ON DELETE CASCADE` | Evento al que pertenece el edificio. |
 | `zona_id` | VARCHAR(100) | No | — | PK compuesta | Id del edificio o la zona en MS02. |
-| `nombre` | VARCHAR(200) | Sí | NULL | — | Nombre del edificio o la zona, tal como lo envía MS06. |
+| `nombre` | VARCHAR(200) | Sí | NULL | — | Nombre del edificio o la zona, tal como lo envía MS06. Si llega nulo, MS05 lo resuelve en MS02 al consultar (con caché por solicitud) y usa `zona_id` solo como último recurso. |
 | `tipo_ubicacion` | VARCHAR(40) | No | `'EDIFICIO'` | — | Tipo de ubicación en texto: `EDIFICIO`, `ZONA_SEGURA` o `PUNTO_ENCUENTRO`. MS05 convierte a estos valores los tipos que usa MS06. Los edificios que MS06 envía solo con su id se guardan como `EDIFICIO`. |
 
 **Índices:** PK (`evento_id`, `zona_id`).
 
 <a id="asignacion_brigadista"></a>
+
 ### asignacion_brigadista
+
 Una fila por cada asignación de un brigadista a una ubicación en un evento ([RF-BEI-01](1_requirements.md#rf-bei-01)). Retirar una asignación no la elimina: cambia su estado a `RETIRADA` y la fila queda como histórico.
 
 | Columna | Tipo | Nulo | Por defecto | Restricciones | Descripción |
@@ -134,7 +148,9 @@ Una fila por cada asignación de un brigadista a una ubicación en un evento ([R
 **Índices:** PK `id_asignacion`; `idx_asignacion_brigadista (brigadista_id)`; `idx_asignacion_evento (evento_id)`; `idx_asignacion_ubicacion (ubicacion_id)`; `idx_asignacion_estado (estado_id)`; `idx_asignacion_evento_estado (evento_id, estado_id)` para listar las asignaciones vigentes de un evento.
 
 <a id="incidente"></a>
+
 ### incidente
+
 Una fila por incidente, ya sea reportado directamente ([RF-BEI-04](1_requirements.md#rf-bei-04)) o generado por una solicitud de asistencia del check-in. Recorre el flujo `REPORTADO` → `ASIGNADO` → `EN_ATENCION` → `RESUELTO` → `CERRADO` ([RF-BEI-07](1_requirements.md#rf-bei-07), [RF-BEI-08](1_requirements.md#rf-bei-08)); cada transición queda en [historial_incidente](#historial_incidente).
 
 | Columna | Tipo | Nulo | Por defecto | Restricciones | Descripción |
@@ -149,7 +165,7 @@ Una fila por incidente, ya sea reportado directamente ([RF-BEI-04](1_requirement
 | `estado_id` | BIGINT | No | — | FK → `estado_incidente.id` (`fk_incidente_estado`) | Estado actual del incidente. |
 | `descripcion` | VARCHAR(1000) | Sí | NULL | — | Descripción del incidente. |
 | `fecha_reporte` | TIMESTAMPTZ | No | — | — | Fecha y hora en que se reportó. |
-| `brigadista_responsable_id` | VARCHAR(100) | Sí | NULL | — | Id en MS01 del brigadista que atiende el incidente. Se fija al iniciar la atención o al reasignarlo. |
+| `brigadista_responsable_id` | VARCHAR(100) | Sí | NULL | — | Id en MS01 del brigadista que atiende el incidente. Se asigna automáticamente al registrar el incidente (si hay un brigadista activo vigente en la ubicación) o al asignarlo/reasignarlo manualmente. |
 | `fecha_primera_atencion` | TIMESTAMPTZ | Sí | NULL | — | Momento en que se inició la atención. De ella se calcula el tiempo hasta la primera atención. |
 | `fecha_resolucion` | TIMESTAMPTZ | Sí | NULL | — | Momento en que el brigadista resolvió el incidente. |
 | `fecha_cierre` | TIMESTAMPTZ | Sí | NULL | — | Momento en que el coordinador cerró el incidente. |
@@ -159,7 +175,9 @@ Una fila por incidente, ya sea reportado directamente ([RF-BEI-04](1_requirement
 **Índices:** PK `id`; `idx_incidente_evento (evento_id)`; `idx_incidente_reportante (reportante_id)`; `idx_incidente_ubicacion (ubicacion_id)`; `idx_incidente_estado (estado_id)`; `idx_incidente_prioridad (prioridad_id)`; `idx_incidente_responsable (brigadista_responsable_id)`; `idx_incidente_eliminado (eliminado)`.
 
 <a id="evidencia_incidente"></a>
+
 ### evidencia_incidente
+
 Una fila por cada archivo de evidencia que se adjunta a un incidente. Solo admite INSERT.
 
 | Columna | Tipo | Nulo | Restricciones | Descripción |
@@ -174,7 +192,9 @@ Una fila por cada archivo de evidencia que se adjunta a un incidente. Solo admit
 **Índices:** PK `id`; `idx_evidencia_incidente (incidente_id)`.
 
 <a id="historial_incidente"></a>
+
 ### historial_incidente
+
 Una fila por cada transición de estado de un incidente, incluida su creación. Solo admite INSERT; es el registro de los tiempos en que ocurre cada transición.
 
 | Columna | Tipo | Nulo | Restricciones | Descripción |
@@ -192,7 +212,9 @@ Una fila por cada transición de estado de un incidente, incluida su creación. 
 **Índices:** PK `id`; `idx_historial_incidente (incidente_id)`; `idx_historial_fecha (fecha_cambio)`.
 
 <a id="registro_auditoria"></a>
+
 ### registro_auditoria
+
 Una fila por cada acción auditable realizada en MS05 ([RF-BEI-09](1_requirements.md#rf-bei-09)). Solo admite INSERT.
 
 | Columna | Tipo | Nulo | Restricciones | Descripción |
@@ -214,6 +236,7 @@ Una fila por cada acción auditable realizada en MS05 ([RF-BEI-09](1_requirement
 ---
 
 <a id="relaciones"></a>
+
 ## Relaciones
 
 | Origen | Destino | Cardinalidad | Llave |
@@ -235,6 +258,7 @@ Una fila por cada acción auditable realizada en MS05 ([RF-BEI-09](1_requirement
 ---
 
 <a id="correspondencia"></a>
+
 ## Correspondencia requerimientos ↔ tablas
 
 | Requerimiento | Tablas |
@@ -252,20 +276,22 @@ Una fila por cada acción auditable realizada en MS05 ([RF-BEI-09](1_requirement
 ---
 
 <a id="reglas-de-integridad"></a>
+
 ## Reglas de integridad
 
 La base de datos garantiza las llaves primarias, las llaves foráneas, la unicidad de `brigadista.usuario_id_externo` y de los nombres de los catálogos, y los campos obligatorios. El resto de las [reglas de negocio](1_requirements.md#reglas-de-negocio) las valida el servicio antes de escribir:
 
-* El flujo de estados del incidente no admite saltos ni retrocesos, y un incidente `CERRADO` no se modifica (reglas 1 y 2).
-* No se repite una asignación `VIGENTE` del mismo brigadista, ubicación y evento; en la auto asignación y el panel, un brigadista tiene un solo edificio por evento (regla 14).
-* Un incidente admite como máximo 5 evidencias (regla 10).
-* Un incidente solo se registra mientras el evento está en ejecución, es decir, con `panel_habilitado = true` (regla 7).
-* Solo se elimina lógicamente un incidente `RESUELTO`.
-* La concurrencia sobre una asignación se controla con `asignacion_brigadista.version`.
+- El flujo de estados del incidente no admite saltos ni retrocesos, y un incidente `CERRADO` no se modifica (reglas 1 y 2).
+- No se repite una asignación `VIGENTE` del mismo brigadista, ubicación y evento; en la autoasignación y el panel, un brigadista tiene un solo edificio por evento (regla 14).
+- Un incidente admite como máximo 5 evidencias (regla 10).
+- Un incidente solo se registra mientras el evento está en ejecución, es decir, con `panel_habilitado = true` (regla 7).
+- Solo se elimina lógicamente un incidente `RESUELTO`.
+- La concurrencia sobre una asignación se controla con `asignacion_brigadista.version`.
 
 ---
 
 <a id="datos-iniciales"></a>
+
 ## Datos iniciales
 
 Los valores de los [catálogos](#catalogos) los inserta `init/02-insert-catalogs.sql` (`estado_asignacion`, `tipo_ubicacion`, `estado_brigadista`, `estado_incidente` con `REPORTADO` y `ASIGNADO`, y `prioridad_incidente`). Los estados `EN_ATENCION`, `RESUELTO` y `CERRADO` los agrega la migración `V2`, y `tipo_registro_auditoria` se crea con sus cuatro valores en la migración `V4`. Los inserts de `init/02` y de `V2` usan `ON CONFLICT (nombre) DO NOTHING`. El esquema no incluye datos de ejemplo.

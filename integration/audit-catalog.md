@@ -87,7 +87,7 @@ Solo los hechos con `resultado` `EXITO` cuentan para los indicadores; los `FALLO
 | `accion` | Cuándo | `recurso_afectado` | `atributos` |
 |---|---|---|---|
 | `CREAR_INCIDENTE` | Se reporta (`fecha_hora` = fecha de reporte) | `incidente:<id>` | `prioridad` (`ALTA`, `MEDIA`, `BAJA`), `ubicacion_tipo`, `ubicacion_id` |
-| `EDITAR_INCIDENTE` | Se edita la descripción | `incidente:<id>` | — |
+| `EDITAR_INCIDENTE` | Se edita la descripción o la prioridad | `incidente:<id>` | — |
 | `ASIGNAR_RESPONSABLE` | Se asigna o reasigna brigadista | `incidente:<id>` | `responsable_id` |
 | `INICIAR_ATENCION` | Primera atención (`fecha_hora` = fecha de primera atención) | `incidente:<id>` | `ubicacion_tipo`, `ubicacion_id` |
 | `RESOLVER_INCIDENTE` | Se resuelve | `incidente:<id>` | — |
