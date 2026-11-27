@@ -1,143 +1,200 @@
 @startuml ms04-classes
-' UML · Clases: estructura estática del dominio de MS04 (eventos, check-ins, solicitudes de asistencia, identidad y auditoría).
-' Fuente: ms04-evacuation-and-check-in (develop) entity/*, security/RequesterIdentity, security/Permiso, audit/AuditEvent, AuditContext, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+' UML · Clases: estructura estática del dominio de MS04 (eventos, check-ins, solicitudes de asistencia, identidad y auditoría) y los patrones de diseño que la rodean.
+' Fuente: ms04-evacuation-and-check-in (develop, acd2a53) entity/*, repository/*, client/SolicitudAsistenciaClient, Ms05SolicitudAsistenciaClient, ResultadoEnvioMs05, security/RequesterIdentity, security/Permiso, audit/*. Sin DTOs, controladores ni utilidades.
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 55
 hide empty members
-title MS04 · Diagrama de clases
+title MS04 Evacuación y check-in · Diagrama de clases
 
-class Evento <<@Entity eventos>> {
-    - id : UUID
-    - nombre : String
-    - simulacro : boolean
-    - estado : EstadoEvento
-    - fechaInicio : Instant
-    - fechaCierre : Instant
-    - rolesConvocados : List<String>
-    - escenarioEdificios : List<String>
-    - escenarioZonas : List<String>
-    - creadoEn : Instant
-    - actualizadoEn : Instant
-    + isCheckinHabilitado() : boolean
-    + corteDePoblacion(ahora : Instant) : Instant
+package "Dominio (entidades JPA)" {
+  class Evento <<@Entity eventos>> {
+      - id : UUID
+      - nombre : String
+      - simulacro : boolean
+      - estado : EstadoEvento
+      - fechaInicio : Instant
+      - fechaCierre : Instant
+      - rolesConvocados : List<String>
+      - escenarioEdificios : List<String>
+      - escenarioZonas : List<String>
+      - creadoEn : Instant
+      - actualizadoEn : Instant
+      + isCheckinHabilitado() : boolean
+      + corteDePoblacion(ahora : Instant) : Instant
+  }
+
+  class Checkin <<@Entity checkins>> {
+      - id : UUID
+      - numero : Long
+      - eventoId : UUID
+      - usuarioId : UUID
+      - estado : EstadoCheckin
+      - puntoEncuentroId : UUID
+      - ubicacionTipo : TipoUbicacion
+      - ubicacionId : UUID
+      - registradoEn : Instant
+  }
+
+  class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
+      - id : UUID
+      - checkinId : UUID
+      - eventoId : UUID
+      - usuarioId : UUID
+      - ubicacionTipo : TipoUbicacion
+      - ubicacionId : UUID
+      - solicitudMs05Id : String
+      - estadoEnvio : EstadoEnvio
+      - intentos : int
+      - ultimoIntentoEn : Instant
+      - rolesSolicitante : String
+      - permisosSolicitante : String
+      - reportadaEn : Instant
+      - actualizadoEn : Instant
+      + setEstadoEnvio(estadoEnvio : EstadoEnvio) : void
+      + setIdentidadSolicitante(roles : String, permisos : String) : void
+  }
+
+  enum EstadoEvento {
+      BORRADOR
+      PROGRAMADO
+      EN_EJECUCION
+      FINALIZADO
+  }
+
+  enum EstadoCheckin {
+      SAFE
+      EVACUATING
+      NEEDS_ASSISTANCE
+      OFF_CAMPUS
+  }
+
+  enum TipoUbicacion {
+      EDIFICIO
+      ESPACIO
+      PUNTO_ENCUENTRO
+  }
+
+  enum EstadoEnvio {
+      ENVIADA
+      PENDIENTE_ENVIO
+      RECHAZADA
+  }
 }
 
-class Checkin <<@Entity checkins>> {
-    - id : UUID
-    - numero : Long
-    - eventoId : UUID
-    - usuarioId : UUID
-    - estado : EstadoCheckin
-    - puntoEncuentroId : UUID
-    - ubicacionTipo : TipoUbicacion
-    - ubicacionId : UUID
-    - registradoEn : Instant
-    + Checkin(eventoId : UUID, usuarioId : UUID, estado : EstadoCheckin, puntoEncuentroId : UUID, ubicacionTipo : TipoUbicacion, ubicacionId : UUID)
+package "Identidad del solicitante" {
+  class RequesterIdentity <<record>> {
+      - userId : UUID
+      - roles : Set<String>
+      - permisos : Set<String>
+      + tienePermiso(permiso : Permiso) : boolean
+      + rolesComoCabecera() : String
+      + permisosComoCabecera() : String
+  }
+
+  enum Permiso {
+      CHECKIN_WRITE
+      CHECKIN_READ_OWN
+      ASSISTANCE_REQUEST
+      DASHBOARD_READ
+      HISTORY_READ
+      --
+      - code : String
+      + getCode() : String
+  }
 }
 
-class SolicitudAsistencia <<@Entity solicitudes_asistencia>> {
-    - id : UUID
-    - checkinId : UUID
-    - eventoId : UUID
-    - usuarioId : UUID
-    - ubicacionTipo : TipoUbicacion
-    - ubicacionId : UUID
-    - solicitudMs05Id : String
-    - estadoEnvio : EstadoEnvio
-    - intentos : int
-    - ultimoIntentoEn : Instant
-    - rolesSolicitante : String
-    - permisosSolicitante : String
-    - reportadaEn : Instant
-    - actualizadoEn : Instant
-    + setEstadoEnvio(estadoEnvio : EstadoEnvio) : void
-    + setIdentidadSolicitante(roles : String, permisos : String) : void
+
+package "Integración con MS05 · patrón Adaptador" {
+  interface SolicitudAsistenciaClient <<puerto de salida>> {
+      + enviar(solicitud : SolicitudAsistencia, rolesUsuario : String, permisosUsuario : String, ...) : ResultadoEnvioMs05
+  }
+  class Ms05SolicitudAsistenciaClient <<Adaptador>>
+
+  class ResultadoEnvioMs05 <<record>> {
+      - tipo : Tipo
+      - solicitudMs05Id : String
+      - detalle : String
+      + {static} creada(solicitudMs05Id : String) : ResultadoEnvioMs05
+      + {static} rechazada(detalle : String) : ResultadoEnvioMs05
+      + {static} noDisponible(detalle : String) : ResultadoEnvioMs05
+  }
 }
 
-enum EstadoEvento {
-    BORRADOR
-    PROGRAMADO
-    EN_EJECUCION
-    FINALIZADO
+package "Auditoría · patrones Fachada y Adaptador" {
+  class AuditRecorder <<Fachada>> {
+      - publisher : AuditEventPublisher
+      - clock : Clock
+      + recordAs(action : AuditAction, result : AuditResult, requester : RequesterIdentity, ...) : void
+      + recordSystem(action : AuditAction, result : AuditResult, resource : String, ...) : void
+      + {static} checkinResource(checkinId : UUID) : String
+  }
+
+  interface AuditEventPublisher <<puerto de salida>> {
+      + publish(event : AuditEvent) : void
+  }
+  class AuditEventPublisherImpl <<Adaptador>>
+
+  class AuditEvent <<record>> {
+      - id : UUID
+      - accion : AuditAction
+      - resultado : AuditResult
+      - usuarioId : UUID
+      - usuarioRoles : String
+      - usuarioPermisos : String
+      - detalle : String
+      - correlationId : String
+      - fecha : Instant
+      - recursoAfectado : String
+  }
+
+  class AuditContext <<record>> {
+      - eventoId : UUID
+      - simulacro : Boolean
+      - atributos : Map<String, Object>
+      + {static} de(evento : Evento) : AuditContext
+      + con(clave : String, valor : Object) : AuditContext
+      + tipoEvento() : String
+  }
+
+  enum AuditAction {
+      REGISTRO_CHECKIN
+      CAMBIO_ESTADO_CHECKIN
+      SOLICITUD_ASISTENCIA
+      CAMBIO_ESTADO_EVENTO
+  }
+
+  enum AuditResult {
+      EXITO
+      FALLO
+  }
 }
 
-enum EstadoCheckin {
-    SAFE
-    EVACUATING
-    NEEDS_ASSISTANCE
-    OFF_CAMPUS
+package "Persistencia · patrón Repository" {
+  interface EventoRepository <<Repository>> {
+      + buscarParaCheckin(id : UUID) : Optional<Evento>
+      + buscarActivosPorRoles(roles : Collection<String>) : List<Evento>
+      + bloquearEvento(id : UUID) : void
+  }
+  interface CheckinRepository <<Repository>> {
+      + save(checkin : Checkin) : Checkin
+      + buscarVigente(eventoId : UUID, usuarioId : UUID) : Optional<Checkin>
+      + contarVigentesPorEstado(eventoId : UUID) : List<ConteoPorEstado>
+      + buscarHistorial(eventoId : UUID, usuarioId : UUID, ...) : Page<Checkin>
+  }
+  interface SolicitudAsistenciaRepository <<Repository>> {
+      + findByEventoIdAndUsuarioId(eventoId : UUID, usuarioId : UUID) : Optional<SolicitudAsistencia>
+      + idsPorEstadoEnvio(estado : EstadoEnvio) : List<UUID>
+      + tomarPendiente(id : UUID) : Optional<SolicitudAsistencia>
+  }
 }
 
-enum TipoUbicacion {
-    EDIFICIO
-    ESPACIO
-    PUNTO_ENCUENTRO
-}
-
-enum EstadoEnvio {
-    ENVIADA
-    PENDIENTE_ENVIO
-    RECHAZADA
-}
-
-class RequesterIdentity <<record>> {
-    - userId : UUID
-    - roles : Set<String>
-    - permisos : Set<String>
-    + tienePermiso(permiso : Permiso) : boolean
-    + rolesComoCabecera() : String
-    + permisosComoCabecera() : String
-}
-
-enum Permiso {
-    CHECKIN_WRITE
-    CHECKIN_READ_OWN
-    ASSISTANCE_REQUEST
-    DASHBOARD_READ
-    HISTORY_READ
-    --
-    - code : String
-    + getCode() : String
-}
-
-class AuditEvent <<record>> {
-    - id : UUID
-    - accion : AuditAction
-    - resultado : AuditResult
-    - usuarioId : UUID
-    - usuarioRoles : String
-    - usuarioPermisos : String
-    - detalle : String
-    - correlationId : String
-    - fecha : Instant
-    - recursoAfectado : String
-    - contexto : AuditContext
-}
-
-class AuditContext <<record>> {
-    - eventoId : UUID
-    - simulacro : Boolean
-    - atributos : Map<String, Object>
-    + {static} de(evento : Evento) : AuditContext
-    + con(clave : String, valor : Object) : AuditContext
-    + tipoEvento() : String
-}
-
-enum AuditAction {
-    REGISTRO_CHECKIN
-    CAMBIO_ESTADO_CHECKIN
-    SOLICITUD_ASISTENCIA
-    CAMBIO_ESTADO_EVENTO
-}
-
-enum AuditResult {
-    EXITO
-    FALLO
-}
-
+' ---- Dominio
 Evento "1" -- "0..*" Checkin : recibe (eventoId) >
+Checkin "1" -- "0..1" SolicitudAsistencia : origina (checkinId) >
 Evento "1" -- "0..*" SolicitudAsistencia : agrupa (eventoId) >
-Checkin "1" -- "0..*" SolicitudAsistencia : origina (checkinId) >
 Evento "0..*" --> "1" EstadoEvento : estado
 Checkin "0..*" --> "1" EstadoCheckin : estado
 Checkin "0..*" --> "0..1" TipoUbicacion : ubicacionTipo
@@ -145,25 +202,64 @@ SolicitudAsistencia "0..*" --> "1" TipoUbicacion : ubicacionTipo
 SolicitudAsistencia "0..*" --> "1" EstadoEnvio : estadoEnvio
 RequesterIdentity "0..*" -- "0..*" Permiso : tiene (permisos) >
 RequesterIdentity "1" -- "0..*" Checkin : reporta (usuarioId) >
+
+' ---- Repository
+Evento "0..*" <-- "1" EventoRepository : persiste <
+Checkin "0..*" <-- "1" CheckinRepository : persiste <
+SolicitudAsistencia "0..*" <-- "1" SolicitudAsistenciaRepository : persiste <
+
+' ---- Adaptadores hacia otros microservicios
+SolicitudAsistenciaClient <|.. Ms05SolicitudAsistenciaClient
+SolicitudAsistenciaClient "1" --> "0..*" SolicitudAsistencia : envía a MS05 >
+SolicitudAsistenciaClient "1" ..> "0..*" ResultadoEnvioMs05 : devuelve
+
+' ---- Auditoría
+AuditRecorder "1" --> "1" AuditEventPublisher : publica con >
+AuditEventPublisher <|.. AuditEventPublisherImpl
+AuditRecorder "1" ..> "0..*" AuditEvent : crea
 AuditEvent "1" *-- "1" AuditContext : contexto
 AuditContext "0..*" -- "0..1" Evento : describe (eventoId) >
 AuditEvent "0..*" --> "1" AuditAction : accion
 AuditEvent "0..*" --> "1" AuditResult : resultado
 
-note right of Checkin
+note left of Checkin
   Solo se agregan (trigger en la BD): el estado
   vigente de una persona es su check-in más
   reciente (vista v_checkins_vigentes).
 end note
+
 note bottom of SolicitudAsistencia
-  Se crea con el check-in NEEDS_ASSISTANCE y se
-  envía a MS05 después del commit; si MS05 falla
-  queda PENDIENTE_ENVIO y la reenvía la tarea
-  periódica con la identidad guardada.
+  <b>Patrón Outbox con reintento.</b> La solicitud se guarda
+  en la misma transacción del check-in NEEDS_ASSISTANCE y se
+  envía a MS05 después del commit; si MS05 falla queda
+  PENDIENTE_ENVIO y ReenvioSolicitudesTarea la reenvía con la
+  identidad guardada, así no se pierde un pedido de ayuda.
 end note
-note top of RequesterIdentity
-  Identidad del solicitante, construida con
-  X-User-Id, X-User-Role y X-User-Permission
-  que inyecta el API Gateway (MS04 no ve el JWT).
+
+note top of EventoRepository
+  <b>Patrón Repository.</b> Cada interfaz (Spring Data) expone
+  las consultas de una entidad y esconde el SQL nativo (vistas,
+  bloqueos asesores), así los servicios no dependen de la BD.
+end note
+
+note bottom of Ms05SolicitudAsistenciaClient
+  <b>Patrón Adaptador (puerto y adaptador).</b> El servicio
+  depende de la interfaz SolicitudAsistenciaClient; el adaptador
+  la traduce al API de MS05 por el Gateway y se reemplaza por un
+  doble en las pruebas. Siguen el mismo patrón, sin dibujarse:
+  PoblacionObjetivoClient, PuntoEncuentroClient,
+  UsuarioNombresClient y ZonasBrigadistaClient.
+end note
+
+note bottom of ResultadoEnvioMs05
+  <b>Métodos de fábrica estáticos.</b> creada, rechazada y
+  noDisponible (y AuditContext.de) construyen solo
+  combinaciones válidas, con un nombre que dice qué pasó.
+end note
+
+note top of AuditRecorder
+  <b>Patrón Fachada.</b> Los servicios auditan con una sola
+  llamada: AuditRecorder arma el AuditEvent (fecha, recurso,
+  identidad) y un fallo al auditar nunca altera la respuesta.
 end note
 @enduml

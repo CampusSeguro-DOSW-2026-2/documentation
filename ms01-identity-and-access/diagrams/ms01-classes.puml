@@ -1,160 +1,235 @@
-@startuml ms01_clases
-' UML · Clases: estructura estática del dominio de MS01 (usuarios, roles y permisos en BD, registro, recuperación y auditoría).
-' Fuente: ms01-identity-and-access (develop) entity/*, security/RequesterIdentity, audit/AuditEvent, AuditAction, AuditResult. Sin DTOs, controladores ni utilidades.
+@startuml ms01-classes
+' UML · Clases: estructura estática del dominio de MS01 (usuarios, roles y permisos, registro, recuperación, identidad y auditoría) y los patrones de diseño que la rodean.
+' Fuente: ms01-identity-and-access (develop, 1b1f6a2) entity/*, repository/*, security/RequesterIdentity, audit/*. Sin DTOs, controladores ni utilidades.
 skinparam classAttributeIconSize 0
 skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 55
 hide empty members
-title MS01 · Diagrama de clases
+title MS01 Identidad y acceso · Diagrama de clases
 
-class UserEntity <<@Entity users>> {
-    - id : UUID
-    - firstName : String
-    - secondName : String
-    - firstLastName : String
-    - secondLastName : String
-    - email : String
-    - password : String
-    - roles : Set<RoleEntity>
-    - state : UserState
-    - createdAt : Instant
-    - updatedAt : Instant
-    - validFrom : Instant
-    + getRoleNames() : List<String>
-    + setRoles(roles : Set<RoleEntity>) : void
+package "Dominio (entidades JPA)" {
+  class UserEntity <<@Entity users>> {
+      - id : UUID
+      - firstName : String
+      - secondName : String
+      - firstLastName : String
+      - secondLastName : String
+      - email : String
+      - password : String
+      - state : UserState
+      - createdAt : Instant
+      - updatedAt : Instant
+      - validFrom : Instant
+      + getRoleNames() : List<String>
+      + setRoles(roles : Set<RoleEntity>) : void
+  }
+
+  class RoleEntity <<@Entity roles>> {
+      - id : UUID
+      - name : String
+      - description : String
+      - system : boolean
+      - validFrom : Instant
+      - createdAt : Instant
+      - updatedAt : Instant
+      + isSystem() : boolean
+      + setPermissions(permissions : Set<PermissionEntity>) : void
+  }
+
+  class PermissionEntity <<@Entity permissions>> {
+      - id : UUID
+      - name : String
+      - description : String
+  }
+
+  class PasswordResetCodeEntity <<@Entity password_reset_codes>> {
+      - id : UUID
+      - userId : UUID
+      - codeHash : String
+      - attempts : int
+      - expiresAt : Instant
+      - usedAt : Instant
+      - createdAt : Instant
+      + isActiveAt(now : Instant) : boolean
+  }
+
+  class PendingRegistrationEntity <<@Entity pending_registrations>> {
+      - email : String
+      - firstName : String
+      - secondName : String
+      - firstLastName : String
+      - secondLastName : String
+      - passwordHash : String
+      - codeHash : String
+      - requestTokenHash : String
+      - attempts : int
+      - expiresAt : Instant
+      - codeSentAt : Instant
+      - codesSent : int
+      - windowStartedAt : Instant
+      + isCodeActiveAt(now : Instant) : boolean
+  }
+
+  enum UserState {
+      ACTIVO
+      INACTIVO
+  }
+
+  enum Permission {
+      MS01_PROFILE_READ
+      MS01_PROFILE_WRITE
+      MS01_PASSWORD_CHANGE
+      MS01_SESSION_LOGOUT
+      MS01_ROLE_READ_OWN
+      MS01_ROLE_READ_ALL
+      MS01_ROLE_MANAGE
+      MS01_USER_READ
+      MS01_USER_STATUS
+      MS01_USER_ROLES
+      --
+      - code : String
+      - description : String
+      + getCode() : String
+  }
 }
 
-class RoleEntity <<@Entity roles>> {
-    - id : UUID
-    - name : String
-    - description : String
-    - permissions : Set<PermissionEntity>
-    - system : boolean
-    - validFrom : Instant
-    - createdAt : Instant
-    - updatedAt : Instant
-    + isSystem() : boolean
-    + setPermissions(permissions : Set<PermissionEntity>) : void
+package "Identidad del solicitante" {
+  class RequesterIdentity <<record>> {
+      - userId : UUID
+      - roles : Set<String>
+      - permissions : Set<String>
+      + hasPermission(p : Permission) : boolean
+      + rolesHeader() : String
+  }
 }
 
-class PermissionEntity <<@Entity permissions>> {
-    - id : UUID
-    - name : String
-    - description : String
+
+package "Auditoría · patrones Fachada y Adaptador" {
+  class AuditRecorder <<Fachada>> {
+      - publisher : AuditEventPublisher
+      - clock : Clock
+      + recordAnonymous(action : AuditAction, result : AuditResult, userId : UUID, ...) : void
+      + recordAs(action : AuditAction, result : AuditResult, requester : RequesterIdentity, ...) : void
+      + {static} userResource(userId : UUID) : String
+  }
+
+  interface AuditEventPublisher <<puerto de salida>> {
+      + publish(event : AuditEvent) : void
+  }
+
+  class AuditEventPublisherImpl <<Adaptador>> {
+      - httpClient : HttpClient
+      - endpoint : URI
+      - serviceKey : String
+      + publish(event : AuditEvent) : void
+  }
+
+  class AuditEvent <<record>> {
+      - accion : AuditAction
+      - resultado : AuditResult
+      - usuarioId : UUID
+      - usuarioRoles : String
+      - detalle : String
+      - correlationId : String
+      - fecha : Instant
+      - recursoAfectado : String
+  }
+
+  enum AuditAction {
+      REGISTRO
+      LOGIN
+      LOGOUT
+      CAMBIO_ROL
+      CREACION_ROL
+      EDICION_ROL
+      CAMBIO_PERMISOS_ROL
+      ELIMINACION_ROL
+      CAMBIO_ESTADO
+      CAMBIO_CONTRASENA
+      RECUPERACION
+  }
+
+  enum AuditResult {
+      EXITO
+      FALLO
+  }
 }
 
-enum Permission {
-    MS01_PROFILE_READ
-    MS01_PROFILE_WRITE
-    MS01_PASSWORD_CHANGE
-    MS01_SESSION_LOGOUT
-    MS01_ROLE_READ_OWN
-    MS01_ROLE_READ_ALL
-    MS01_ROLE_MANAGE
-    MS01_USER_READ
-    MS01_USER_STATUS
-    MS01_USER_ROLES
-    --
-    - code : String
-    - description : String
-    + getCode() : String
+package "Persistencia · patrón Repository" {
+  interface UserRepository <<Repository>> {
+      + findByEmail(email : String) : Optional<UserEntity>
+      + searchUsers(correo : String, estado : UserState, ...) : Page<UserEntity>
+      + findByRoleCreatedUpTo(rol : String, creadoAntes : Instant, ...) : Page<UserEntity>
+  }
+  interface RoleRepository <<Repository>> {
+      + findByName(name : String) : Optional<RoleEntity>
+      + findAllByNameIn(names : Collection<String>) : List<RoleEntity>
+      + findWithSessionCutSince(since : Instant) : List<RoleEntity>
+  }
+  interface PermissionRepository <<Repository>> {
+      + findAllByNameStartingWith(prefix : String) : List<PermissionEntity>
+      + deleteByCode(name : String) : int
+  }
+  interface PasswordResetCodeRepository <<Repository>> {
+      + findFirstByUserIdAndUsedAtIsNullOrderByCreatedAtDesc(userId : UUID) : Optional<PasswordResetCodeEntity>
+      + invalidateUnused(userId : UUID, usedAt : Instant) : int
+  }
+  interface PendingRegistrationRepository <<Repository>> {
+      + upsertWithNewCode(email : String, ...) : int
+      + findLockedByEmail(email : String) : Optional<PendingRegistrationEntity>
+      + deleteExpired() : int
+  }
 }
 
-enum UserState {
-    ACTIVO
-    INACTIVO
-}
-
-class PasswordResetCodeEntity <<@Entity password_reset_codes>> {
-    - id : UUID
-    - userId : UUID
-    - codeHash : String
-    - attempts : int
-    - expiresAt : Instant
-    - usedAt : Instant
-    - createdAt : Instant
-    + isActiveAt(now : Instant) : boolean
-}
-
-class PendingRegistrationEntity <<@Entity pending_registrations>> {
-    - email : String
-    - firstName : String
-    - secondName : String
-    - firstLastName : String
-    - secondLastName : String
-    - passwordHash : String
-    - codeHash : String
-    - requestTokenHash : String
-    - attempts : int
-    - expiresAt : Instant
-    - codeSentAt : Instant
-    - codesSent : int
-    - windowStartedAt : Instant
-    + isCodeActiveAt(now : Instant) : boolean
-}
-
-class RequesterIdentity <<record>> {
-    - userId : UUID
-    - roles : Set<String>
-    - permissions : Set<String>
-    + hasPermission(p : Permission) : boolean
-    + hasPermission(code : String) : boolean
-    + rolesHeader() : String
-}
-
-class AuditEvent <<record>> {
-    - accion : AuditAction
-    - resultado : AuditResult
-    - usuarioId : UUID
-    - usuarioRoles : String
-    - detalle : String
-    - correlationId : String
-    - fecha : Instant
-    - recursoAfectado : String
-}
-
-enum AuditAction {
-    REGISTRO
-    LOGIN
-    LOGOUT
-    CAMBIO_ROL
-    CREACION_ROL
-    EDICION_ROL
-    CAMBIO_PERMISOS_ROL
-    ELIMINACION_ROL
-    CAMBIO_ESTADO
-    CAMBIO_CONTRASENA
-    RECUPERACION
-}
-
-enum AuditResult {
-    EXITO
-    FALLO
-}
-
+' ---- Dominio
 UserEntity "0..*" -- "1..*" RoleEntity : tiene (user_roles) >
 RoleEntity "0..*" -- "1..*" PermissionEntity : otorga (role_permissions) >
 UserEntity "0..*" --> "1" UserState : state
-PasswordResetCodeEntity "0..*" -- "1" UserEntity : pertenece a (userId) >
+UserEntity "1" -- "0..*" PasswordResetCodeEntity : recupera con (userId) >
 Permission "0..1" -- "1" PermissionEntity : se sincroniza con (code = name) >
 RequesterIdentity "0..*" -- "1" UserEntity : identifica (userId) >
-AuditEvent "0..*" -- "0..1" UserEntity : ejecutada por (usuarioId) >
+
+' ---- Repository: cada interfaz persiste un tipo de entidad
+UserEntity "0..*" <-- "1" UserRepository : persiste <
+RoleEntity "0..*" <-- "1" RoleRepository : persiste <
+PermissionEntity "0..*" <-- "1" PermissionRepository : persiste <
+PasswordResetCodeEntity "0..*" <-- "1" PasswordResetCodeRepository : persiste <
+PendingRegistrationEntity "0..*" <-- "1" PendingRegistrationRepository : persiste <
+
+' ---- Auditoría
+AuditRecorder "1" --> "1" AuditEventPublisher : publica con >
+AuditEventPublisher <|.. AuditEventPublisherImpl
+AuditRecorder "1" ..> "0..*" AuditEvent : crea
 AuditEvent "0..*" --> "1" AuditAction : accion
 AuditEvent "0..*" --> "1" AuditResult : resultado
+AuditEvent "0..*" -- "0..1" UserEntity : ejecutada por (usuarioId) >
 
-note right of PendingRegistrationEntity
+note left of PendingRegistrationEntity
   Registro sin verificar, sin relación con users:
-  al verificar el código de 6 dígitos se crea el
+  al confirmar el código de 6 dígitos se crea el
   UserEntity con el rol ESTUDIANTE y se borra la fila.
 end note
-note top of RequesterIdentity
-  Identidad del solicitante, construida con
-  X-User-Id, X-User-Role y X-User-Permission
-  que inyecta el API Gateway.
+
+note right of UserRepository
+  <b>Patrón Repository.</b> Cada interfaz (Spring Data JPA)
+  expone colecciones de una entidad y esconde el SQL,
+  así los servicios no dependen de cómo se guardan los datos.
 end note
-note bottom of Permission
-  Catálogo de MS01 en el código: al arrancar,
-  PermissionCatalogSynchronizer inserta o borra las
-  filas ms01:* de permissions. Las de ms02 a ms08
-  solo existen en la base de datos.
+
+note top of AuditRecorder
+  <b>Patrón Fachada.</b> Los servicios auditan con una
+  sola llamada: AuditRecorder arma el AuditEvent
+  (fecha, recurso, roles) y garantiza que un fallo
+  al auditar nunca altere la respuesta.
+end note
+
+note bottom of AuditEventPublisherImpl
+  <b>Patrón Adaptador (puerto y adaptador).</b> El dominio
+  solo conoce el puerto AuditEventPublisher; la
+  implementación traduce el evento a un POST asíncrono
+  hacia MS08 por el Gateway, y se puede cambiar sin
+  tocar los servicios.
 end note
 @enduml
