@@ -5,13 +5,13 @@ info:
   description: 'Reporte del estado de las personas, consolidación por punto de encuentro y habilitación del check-in según el estado del evento (MS04 - CampusSeguro).
 
 
-    **Estándares:** cabeceras, errores y paginación siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/integration/standards.md); `x-permiso`/`x-roles` siguen la [matriz de roles y permisos](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/integration/permissions-matrix.md).
+    **Estándares:** cabeceras, errores y paginación siguen los [Estándares de Integración](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/integration/standards.md); `x-permiso` y `x-roles` (roles que tienen el permiso en la asignación inicial) siguen la [matriz de roles y permisos](https://github.com/CampusSeguro-DOSW-2026-2/documentation/blob/main/integration/permissions-matrix.md).
 
 
-    **Rutas protegidas:** reciben `X-User-Id` y `X-User-Role` (roles separados por coma) y aceptan `X-Correlation-ID`. Si faltan las de identidad, MS04 responde 401 `NO_AUTENTICADO`. La identidad nunca viaja en el cuerpo (RN-MS04-06).
+    **Rutas protegidas:** reciben `X-User-Id`, `X-User-Role` (roles separados por coma) y `X-User-Permission` (permisos efectivos separados por coma) y aceptan `X-Correlation-ID`. MS04 autoriza cada operación con `X-User-Permission` contra su `x-permiso`. Si falta alguna de las tres cabeceras de identidad, o tiene un formato inválido, MS04 responde 401 `NO_AUTENTICADO`; sin el permiso, 403 `PROHIBIDO`. La identidad nunca viaja en el cuerpo (RN-MS04-06).
 
 
-    **Rutas internas (solo MS06):** reciben `X-Service-Name` (que el Gateway deriva de la clave de servicio) y aceptan `X-Correlation-ID`. Solo las puede usar `ms06`: sin `X-Service-Name` responden 401 `NO_AUTENTICADO` y con otro servicio, 403 `PROHIBIDO` (RN-MS04-23). No declaran `x-permiso`. Sus cuerpos usan camelCase, como se acordó con MS06; el resto del contrato usa snake_case.
+    **Rutas internas (solo MS06):** reciben `X-Service-Name` (que el Gateway deriva de la clave de servicio) y aceptan `X-Correlation-ID`. Solo las puede usar `ms06`: sin `X-Service-Name` responden 401 `NO_AUTENTICADO` y con otro servicio, 403 `PROHIBIDO` (RN-MS04-23). No declaran `x-permiso`. Sus cuerpos usan camelCase, el formato que consume MS06; el resto del contrato usa snake_case.
 
 
     **Evento:** el `eventoId` es el UUID que asigna MS06 (RN-MS04-01). MS04 solo conoce los eventos que MS06 le envía por `PUT /chi/eventos/{eventoId}/estado` y habilita el check-in solo con el evento `EN_EJECUCION` (RN-MS04-19). Las consultas funcionan en cualquier estado del evento (RN-MS04-22).
@@ -143,6 +143,10 @@ paths:
                 mensaje: La transición de estado no está permitida.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos/{eventoId}/checkins:
     get:
       tags:
@@ -150,7 +154,7 @@ paths:
       summary: Entregar a MS06 el detalle de check-ins del evento (RF-MS04-12, F-06)
       x-acceso: interna
       x-servicio-autorizado: ms06
-      description: 'Ruta interna de MS06. Devuelve un elemento por persona con su estado vigente (su check-in más reciente), del más antiguo al más reciente. `zonaId` es el id del punto de encuentro y solo viene con `SAFE`. `nombre` es nulo si MS01 no respondió. El formato de la respuesta es el acordado con MS06. Funciona con el evento en cualquier estado.'
+      description: 'Ruta interna de MS06. Devuelve un elemento por persona con su estado vigente (su check-in más reciente), del más antiguo al más reciente. `zonaId` es el id del punto de encuentro y solo viene con `SAFE`. `nombre` es nulo si MS01 no respondió. Usa camelCase, el formato que consume MS06. Funciona con el evento en cualquier estado.'
       parameters:
         - $ref: '#/components/parameters/XServiceName'
         - $ref: '#/components/parameters/XCorrelationId'
@@ -180,6 +184,8 @@ paths:
           $ref: '#/components/responses/ForbiddenInternal'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags:
         - Check-in propio
@@ -190,6 +196,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
       requestBody:
@@ -265,6 +272,8 @@ paths:
                 mensaje: El check-in de este evento no está habilitado.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           description: El evento no le aplica al usuario (su rol no está convocado) o el punto de encuentro está inactivo.
           content:
@@ -277,6 +286,8 @@ paths:
                 mensaje: El punto de encuentro no está activo.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '500':
+          $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /chi/eventos/activos:
@@ -290,6 +301,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
       responses:
         '200':
@@ -307,6 +319,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos:
     get:
       tags:
@@ -318,6 +332,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - name: estado
           in: query
@@ -342,6 +357,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos/{eventoId}:
     get:
       tags:
@@ -353,6 +370,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
       responses:
@@ -365,12 +383,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Evento'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos/{eventoId}/checkins/propio:
     get:
       tags:
@@ -382,6 +404,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
       responses:
@@ -391,6 +414,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckinResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -407,6 +432,8 @@ paths:
                 mensaje: No tiene check-in en este evento.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos/{eventoId}/consolidado:
     get:
       tags:
@@ -418,6 +445,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
       responses:
@@ -427,12 +455,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Consolidado'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /chi/eventos/{eventoId}/personas:
     get:
       tags:
@@ -444,6 +478,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
         - name: estado
@@ -474,6 +509,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /chi/eventos/{eventoId}/pendientes:
     get:
       tags:
@@ -485,6 +524,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
         - $ref: '#/components/parameters/Page'
@@ -504,6 +544,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
   /chi/eventos/{eventoId}/asistencia:
@@ -517,6 +559,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
         - $ref: '#/components/parameters/Page'
@@ -536,6 +579,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /chi/eventos/{eventoId}/historial:
     get:
       tags:
@@ -547,6 +594,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
         - name: usuario_id
@@ -577,6 +625,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /chi/eventos/{eventoId}/resultados:
     get:
       tags:
@@ -588,6 +638,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
         - $ref: '#/components/parameters/XCorrelationId'
         - $ref: '#/components/parameters/EventoId'
       responses:
@@ -597,12 +648,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Resultados'
+              example:
+                evento_id: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                simulacro: true
+                estado_evento: FINALIZADO
+                fecha_inicio: '2026-11-20T15:00:00Z'
+                fecha_cierre: '2026-11-20T15:45:00Z'
+                finales: true
+                poblacion_objetivo: 200
+                total_reportados: 177
+                total_pendientes: 23
+                totales_por_estado:
+                  SAFE: 160
+                  EVACUATING: 5
+                  NEEDS_ASSISTANCE: 2
+                  OFF_CAMPUS: 10
+                por_punto_encuentro:
+                  - punto_encuentro_id: 5b2e7c1d-3a4f-4b8e-9a61-2f8c0d3b5a17
+                    total: 160
+                solicitudes_asistencia:
+                  - usuario_id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    solicitud_asistencia:
+                      id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                      estado_envio: ENVIADA
+                primeros_checkins:
+                  - usuario_id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_checkin_en: '2026-11-20T15:04:12Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/EventNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   headers:
     XCorrelationID:
@@ -638,6 +719,14 @@ components:
       schema:
         type: string
         example: BRIGADISTA,ESTUDIANTE
+    XUserPermission:
+      name: X-User-Permission
+      in: header
+      required: true
+      description: Permisos efectivos del usuario autenticado (unión de los permisos de todos sus roles) separados por coma, en orden alfabético.
+      schema:
+        type: string
+        example: ms04:assistance:request,ms04:checkin:read_own,ms04:checkin:write
     XServiceName:
       name: X-Service-Name
       in: header
@@ -686,7 +775,7 @@ components:
                 mensaje: Seleccione el punto de encuentro donde está.
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Unauthorized:
-      description: Faltan las cabeceras de identidad (X-User-Id / X-User-Role).
+      description: Falta alguna de las cabeceras de identidad (X-User-Id, X-User-Role o X-User-Permission) o tiene un formato inválido; el mensaje indica cuál.
       content:
         application/json:
           schema:
@@ -694,7 +783,7 @@ components:
           example:
             status: 401
             codigo: NO_AUTENTICADO
-            mensaje: No autenticado.
+            mensaje: Faltan las cabeceras de identidad (X-User-Id / X-User-Role / X-User-Permission).
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     UnauthorizedInternal:
@@ -706,11 +795,11 @@ components:
           example:
             status: 401
             codigo: NO_AUTENTICADO
-            mensaje: No autenticado.
+            mensaje: Falta la cabecera X-Service-Name.
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
     Forbidden:
-      description: X-User-Role no tiene el permiso requerido por la operación (ver x-permiso).
+      description: X-User-Permission no incluye el permiso que exige la operación (ver x-permiso).
       content:
         application/json:
           schema:
@@ -755,6 +844,30 @@ components:
             status: 503
             codigo: DEPENDENCIA_NO_DISPONIBLE
             mensaje: El servicio no está disponible en este momento. Intente de nuevo.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    UnsupportedMediaType:
+      description: El cuerpo no se envía como `application/json`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 415
+            codigo: TIPO_NO_SOPORTADO
+            mensaje: Tipo de contenido no soportado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalError:
+      description: Error inesperado, sin detalles internos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 500
+            codigo: ERROR_INTERNO
+            mensaje: Error interno del servidor.
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
   schemas:
@@ -872,7 +985,7 @@ components:
           format: date-time
           nullable: true
           description: Fecha/hora en que MS04 recibió `FINALIZADO`; null en los demás estados.
-          example: null
+          example:
         escenario:
           $ref: '#/components/schemas/Escenario'
         rolesConvocados:
@@ -920,7 +1033,7 @@ components:
           format: date-time
           nullable: true
           description: Solo con `FINALIZADO`.
-          example: null
+          example:
         escenario:
           $ref: '#/components/schemas/Escenario'
         roles_convocados:
@@ -995,7 +1108,7 @@ components:
           type: string
           nullable: true
           description: Id de la solicitud en MS05; null mientras no haya llegado.
-          example: null
+          example:
         estado_envio:
           $ref: '#/components/schemas/EstadoEnvio'
     CheckinResponse:
@@ -1038,7 +1151,7 @@ components:
           example: '2026-11-20T15:04:12Z'
     DetalleCheckinMs06:
       type: object
-      description: Estado vigente de una persona en el evento, en el formato acordado con MS06.
+      description: Estado vigente de una persona en el evento, en el formato que consume MS06.
       required:
         - usuarioId
         - estado
@@ -1067,7 +1180,7 @@ components:
           example: '2026-11-20T15:04:12Z'
     DetalleCheckinsMs06:
       type: object
-      description: Formato acordado con MS06 para la ruta interna (no es el de los listados protegidos).
+      description: Formato que consume MS06 en la ruta interna (no es el de los listados protegidos).
       required:
         - page
         - size
@@ -1271,7 +1384,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          example: null
+          example:
         ubicacion:
           allOf:
             - $ref: '#/components/schemas/Ubicacion'

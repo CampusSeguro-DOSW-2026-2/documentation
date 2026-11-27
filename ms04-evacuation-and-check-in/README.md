@@ -6,7 +6,9 @@ Reporte del estado de las personas (Estoy a salvo, Me estoy evacuando, Requiero 
 |---|---|
 | [`1_requirements.md`](1_requirements.md) | Estados del evento y del check-in, RF-MS04-01…13, reglas de negocio y RNF. |
 | [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios y entradas F-01…F-07 (incluidas las rutas internas de MS06): campos, validaciones y mensajes. |
-| [`3_data-model.md`](3_data-model.md) | Tablas (eventos, check-ins y solicitudes de asistencia), vista del estado vigente, reglas de integridad y operaciones. |
+| [`3_data-model.md`](3_data-model.md) | Justificación de la base relacional, tablas (eventos, check-ins y solicitudes de asistencia), vista del estado vigente, reglas de integridad y operaciones. |
+| [`quality-and-tests.md`](quality-and-tests.md) | Estrategia y tecnologías de prueba, resultados, cobertura, análisis estático (PMD y SpotBugs) y relación con SonarCloud. |
+| [`security.md`](security.md) | Identidad propagada por el Gateway, autorización por permiso, rutas internas de MS06, clave de servicio, mTLS y manejo de datos sensibles. |
 | [`api/openapi.yml`](api/openapi.yml) | Contrato OpenAPI 3 (rutas `/api/v1/chi/eventos`): endpoints, permisos (`x-permiso`), esquemas y errores. |
 | [`diagrams/`](diagrams/) | C4 (contexto, contenedores y componentes), modelo de datos físico, clases, secuencia y despliegue en AWS. |
 

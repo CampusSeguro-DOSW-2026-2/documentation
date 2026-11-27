@@ -107,7 +107,7 @@ Muestra todos los check-ins del evento, no solo el más reciente de cada usuario
 ### F-05 · Estado del evento (MS06)
 Referencia: **RF-MS04-11** (`PUT /{eventoId}/estado`, ruta interna)
 
-Cuerpo que envía MS06 cada vez que programa, reprograma, cancela la programación, inicia o finaliza un evento. Los nombres de los campos son los acordados con MS06 (camelCase). No es una pantalla (RG-10).
+Cuerpo que envía MS06 cada vez que programa, reprograma, cancela la programación, inicia o finaliza un evento. Los nombres de los campos están en camelCase, el formato que usa MS06. No es una pantalla (RG-10).
 
 | Campo | Tipo | Obligatorio | Longitud / formato | Reglas de validación | Mensaje de error | Ejemplo válido |
 |---|---|---|---|---|---|---|

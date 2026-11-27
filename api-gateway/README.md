@@ -8,19 +8,18 @@ El Gateway es la única puerta HTTP de CampusSeguro, tanto para el tráfico exte
 |---|---|
 | [1_requirements.md](1_requirements.md) | RF-GW-01…08 con reglas y criterios de aceptación. |
 | [contracts.md](contracts.md) | Pipeline, tabla de rutas, políticas de acceso, errores propios, configuración y aislamiento en la nube. |
-| [quality-and-tests.md](quality-and-tests.md) | RNF-GW-01…07 y pruebas de integración INT-GW-01…19. |
+| [quality-and-tests.md](quality-and-tests.md) | RNF-GW-01…07, estrategia y tecnologías de prueba, cobertura, análisis estático y pruebas de integración INT-GW-01…19. |
+| [security.md](security.md) | Validación del JWT, propagación de la identidad, claves de servicio, CORS, mTLS y manejo de datos sensibles en el GW. |
 | [api/openapi.yml](api/openapi.yml) | Contrato OpenAPI 3 del GW: rutas expuestas, política de acceso, credenciales, cabeceras y errores propios. Estándar para que el frontend y los MS llamen al GW. |
-| [diagrams/gw-c4-1-context.drawio.svg](diagrams/gw-c4-1-context.drawio.svg) | C4 nivel 1: quién usa el GW (comunidad del campus, equipo de operación) y con qué sistemas interactúa (aplicación web, MS01, MS02–MS08), sin tecnología. |
-| [diagrams/gw-c4-2-containers.drawio.svg](diagrams/gw-c4-2-containers.drawio.svg) | C4 nivel 2: frontend, GW y MS01…MS08 con su tecnología, el bus de rutas con mTLS y las llamadas internas con clave de servicio. |
 | [diagrams/gw-c4-3-components.drawio.svg](diagrams/gw-c4-3-components.drawio.svg) | C4 nivel 3 (UML 2): la cadena de filtros del GW en su orden real, los componentes que requiere cada filtro, la consulta periódica de los cortes de sesión a MS01 y la salida con mTLS a MS01…MS08. |
 | [diagrams/gw-deployment-azure.drawio.svg](diagrams/gw-deployment-azure.drawio.svg) | Despliegue: VM del GW en Azure con NSG, Caddy de borde con Let's Encrypt, stacks `gw-prod` y `gw-test` con su certificado de cliente, y la salida con mTLS a la VM de cada MS. |
-| [diagrams/gw-classes.puml](diagrams/gw-classes.puml) · [SVG](diagrams/gw-classes.svg) | Clases (UML): tabla de rutas, políticas de acceso, identidad del usuario y del servicio llamante, cortes de sesión y errores propios. |
+| [diagrams/gw-classes.puml](diagrams/gw-classes.puml) · [SVG](diagrams/gw-classes.svg) | C4 nivel 4, código (clases UML): tabla de rutas, políticas de acceso, identidad del usuario y del servicio llamante, cortes de sesión y errores propios. |
 | Edición de los diagramas | Los `.drawio.svg` se abren y se editan en [draw.io](https://app.diagrams.net/); el `.svg` de clases se genera desde su `.puml` con PlantUML. |
 | [Estándares de integración](../integration/standards.md) | Valores y contratos compartidos con todos los squads. Es la fuente de verdad. |
 | [Matriz de roles y permisos](../integration/permissions-matrix.md) | Asignación inicial de permisos por rol. El GW no la aplica: cada MS autoriza con `X-User-Permission`. |
 | [Conexión al API Gateway](../integration/gateway-connection.md) | Guía para que un squad conecte su microservicio en la nube. |
 
-Los contratos OpenAPI de los microservicios están en la carpeta `api/` de cada uno, y el GW solo enruta lo publicado allí.
+Los contratos OpenAPI de los microservicios están en la carpeta `api/` de cada uno, y el GW enruta los prefijos de la [tabla de rutas](contracts.md#2-tabla-de-enrutamiento).
 
 ## Alcance
 

@@ -4,9 +4,10 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
 
 ## Índice de Contenido
 1. [Alcance](#alcance)
-2. [Convenciones](#convenciones)
-3. [Almacenamiento seguro](#almacenamiento-seguro)
-4. [Tablas](#tablas)
+2. [Por qué una base de datos relacional](#por-qué-una-base-de-datos-relacional)
+3. [Convenciones](#convenciones)
+4. [Almacenamiento seguro](#almacenamiento-seguro)
+5. [Tablas](#tablas)
     - [users](#users)
     - [roles](#roles)
     - [permissions](#permissions)
@@ -14,12 +15,12 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
     - [user_roles](#user_roles)
     - [password_reset_codes](#password_reset_codes)
     - [pending_registrations](#pending_registrations)
-5. [Relaciones](#relaciones)
-6. [Correspondencia entre API y columnas](#correspondencia-entre-api-y-columnas)
-7. [Reglas de integridad](#reglas-de-integridad)
-8. [Operaciones transaccionales y consultas](#operaciones-transaccionales-y-consultas)
-9. [Configuración](#configuración)
-10. [Datos iniciales](#datos-iniciales)
+6. [Relaciones](#relaciones)
+7. [Correspondencia entre API y columnas](#correspondencia-entre-api-y-columnas)
+8. [Reglas de integridad](#reglas-de-integridad)
+9. [Operaciones transaccionales y consultas](#operaciones-transaccionales-y-consultas)
+10. [Configuración](#configuración)
+11. [Datos iniciales](#datos-iniciales)
 
 ---
 
@@ -33,6 +34,24 @@ MS01 tiene su propia base de datos PostgreSQL ([RNF-MS01-01](1_requirements.md#r
 * **Datos de otros dominios** (alertas, check-ins, etc.): pertenecen a sus propios microservicios.
 
 **Fuente de verdad de los permisos:** la base de datos. La tabla `permissions` es el único catálogo de códigos de permiso y de sus descripciones, y `role_permissions` guarda qué permisos tiene cada rol ([RN-MS01-14](1_requirements.md#rf-ms01-05-gestión-de-roles-y-permisos)). El código de MS01 solo define sus propios permisos (`ms01:*`); quién escribe cada parte del catálogo está en [`permissions`](#permissions).
+
+---
+
+## Por qué una base de datos relacional
+
+MS01 usa PostgreSQL, una base relacional, y no una base NoSQL (documental o de clave-valor), porque sus datos y sus reglas son relacionales:
+
+| Necesidad de MS01 | Cómo la resuelve PostgreSQL | Qué pasaría con una base NoSQL |
+|---|---|---|
+| Un usuario tiene varios roles y un rol tiene varios permisos; los permisos efectivos son la unión de los permisos de todos los roles del usuario | Tablas de unión `user_roles` y `role_permissions` con claves foráneas, y una consulta con `JOIN` al iniciar sesión | Habría que copiar los roles y los permisos dentro de cada documento de usuario y mantener esas copias sincronizadas |
+| Renombrar o borrar un rol, cambiar sus permisos o retirar un permiso del catálogo afecta a muchos usuarios a la vez | Un solo `UPDATE` o `DELETE`: las demás tablas apuntan al `id` del rol, y las cascadas y la transacción aplican todo o nada | El cambio tocaría cada documento que tiene la copia del rol o del permiso, sin la garantía de que todos queden iguales |
+| Reglas que dependen de varias filas: todo rol conserva `ms01:profile:read` y `ms01:session:logout`, `ms01:role:manage` solo en `ADMIN`, los roles de sistema no se borran | Restricciones `CHECK`, `UNIQUE`, claves foráneas y triggers (uno de ellos diferido, que revisa el estado final de la transacción) | Las reglas quedarían solo en el código; una escritura directa o un script podría dejar datos inválidos |
+| Unicidad del correo y del nombre de rol, incluso con peticiones simultáneas | `UNIQUE` (`uq_users_email`, `uq_roles_name`) y la llave primaria de `pending_registrations` con `INSERT ... ON CONFLICT` | La unicidad entre documentos depende de índices propios de cada producto y no cubre todas las combinaciones |
+| Operaciones que escriben varias tablas y deben aplicarse completas: borrar un rol reasignando a sus usuarios, cambiar roles y registrar el corte de sesión, confirmar un registro | Transacciones ACID con bloqueo de filas (`SELECT ... FOR UPDATE`) | Las transacciones entre documentos son limitadas o más costosas, y un fallo a mitad podría dejar el cambio aplicado a medias |
+| Un solo reloj para los cortes de sesión y el `iat` del token, compartido por todas las instancias de MS01 | `now()` de la base de datos, truncado a segundos | Cada instancia dependería de su propio reloj |
+| Búsqueda parcial por correo y filtros por estado y rol, con paginación | Índice GIN `pg_trgm` sobre el correo, índices por estado y por rol, `ORDER BY` y `LIMIT/OFFSET` | Exigiría índices de texto propios del producto o recorrer documentos |
+
+El volumen de datos de MS01 (usuarios de una universidad y unas decenas de roles y permisos) no necesita la escalabilidad horizontal que justifica una base NoSQL, y el esquema es estable y conocido de antemano. Las instancias de MS01 no guardan estado propio: todas comparten esta base, así que el servicio puede ejecutarse con varias instancias sin cambiar el modelo.
 
 ---
 

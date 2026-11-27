@@ -24,7 +24,11 @@ info:
     **Errores:** los del GW usan `ErrorResponse` (GW-C §4). Los errores de un MS se propagan sin cambios si cumplen `ErrorResponse` (cinco campos, `status` = código HTTP, `correlation_id` = el de la petición); si no, el GW responde `502`. Cada operación lista solo su respuesta exitosa y los errores del GW; los errores de negocio están en el contrato del MS.
 
 
-    **Rutas no listadas:** `404 NO_ENCONTRADO` sin llamar a ningún MS. El preflight CORS (`OPTIONS`) lo resuelve el GW (EST §2.1). Una ruta se agrega aquí y en GW-C solo cuando el MS la publica en su `openapi.yml`. La consulta interna de cortes de sesión de MS01 (`/api/v1/internal/session-cuts`) la consume el propio GW y no se publica.'
+    **Rutas que publica este contrato:** todas las operaciones de MS01 y MS04, las rutas públicas de MS02 y las rutas internas de MS01, MS06 y MS08. Las demás operaciones de MS02, MS03, MS05, MS06, MS07 y MS08 se reenvían por la tabla de prefijos de GW-C §1 con la política `PROTEGIDA` y se documentan en el `openapi.yml` de cada MS.
+
+
+
+    **Rutas fuera de la tabla de prefijos:** `404 NO_ENCONTRADO` sin llamar a ningún MS. Una ruta dentro de un prefijo llega al MS dueño, que responde con su propio `ErrorResponse` si no la tiene. El preflight CORS (`OPTIONS`) lo resuelve el GW (EST §2.1). La consulta interna de cortes de sesión de MS01 (`/api/v1/internal/session-cuts`) la consume el propio GW y no se publica.'
 servers:
   - url: http://localhost:8080
     description: Acceso externo (desarrollo local)
@@ -51,6 +55,10 @@ tags:
     description: Rutas protegidas de `ms01-identity-and-access`. Cada MS autoriza con `X-User-Permission` contra el `x-permiso` de su contrato; el GW no autoriza.
   - name: MS01 · Interno
     description: Rutas internas de `ms01-identity-and-access` (solo MS con clave de servicio). MS01 autoriza por `X-Service-Name`, no por `X-User-Permission`.
+  - name: MS02 · Público
+    description: Rutas públicas de `ms02-campus-and-security` para la lectura de los códigos QR (lista cerrada de EST §2).
+  - name: MS04 · Protegido
+    description: Rutas de `ms04-evacuation-and-check-in`. Los usuarios llaman con JWT y MS04 autoriza con `X-User-Permission`; MS06 llama con su clave de servicio a las rutas que MS04 autoriza por `X-Service-Name`.
   - name: MS06 · Interno
     description: Rutas internas de `ms06-drills` (solo MS con clave de servicio). MS06 autoriza por `X-Service-Name`.
   - name: MS08 · Interno
@@ -150,6 +158,12 @@ paths:
             application/json:
               schema:
                 $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/RegisterResponse'
+              example:
+                id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                correo: maria.perez@escuelaing.edu.co
+                roles:
+                  - ESTUDIANTE
+                estado: ACTIVO
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -266,6 +280,159 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/MensajeOk'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/public/spaces:
+    get:
+      tags:
+        - MS02 · Público
+      summary: Consultar un espacio por su QR (sin sesión)
+      description: Sin sesión. Edificio, piso y la evacuación recomendada; si el espacio no está disponible devuelve un aviso. El GW la reenvía sin credencial.
+      x-politica: PUBLICA
+      x-destino: MS02_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Datos públicos (MS02).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: "../../ms02-campus-and-security/api/openapi.yml#/components/schemas/EspacioPublicoResponse"
+              example:
+                nombre: Salón B-201
+                tipo: SALON
+                edificio: Bloque B
+                piso: 2
+                disponible: true
+                evacuacion:
+                  tieneRuta: true
+                  zonaSegura: Plazoleta central
+                  ubicacionZonaSegura: Frente al Bloque B
+                  recorrido: Salga a la izquierda, baje por la escalera norte y siga hasta la plazoleta central.
+                  estado: DISPONIBLE
+                  recomendaciones:
+                    - titulo: Sismo
+                      recomendacion: Aléjese de las ventanas y no use el ascensor.
+                tieneFotografia: false
+                guia:
+                  indicacion: Siga la ruta hasta la salida norte.
+                  escaleras:
+                    - Escalera norte
+                  salida: Salida norte
+                  salidaLatitud: 4.78263
+                  salidaLongitud: -74.04251
+                  zonaSegura: Plazoleta central
+                  distanciaMetros: 85.0
+                  duracionSegundos: 70.0
+                  pasos:
+                    - instruccion: Baje por la escalera norte hasta el primer piso.
+                      distanciaMetros: 30.0
+                    - instruccion: Salga por la salida norte y camine hasta la plazoleta central.
+                      distanciaMetros: 55.0
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/public/exits:
+    get:
+      tags:
+        - MS02 · Público
+      summary: Consultar una salida por su QR (sin sesión)
+      description: Sin sesión. Edificio, piso y coordenadas de la salida. El GW la reenvía sin credencial.
+      x-politica: PUBLICA
+      x-destino: MS02_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Datos públicos (MS02).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: "../../ms02-campus-and-security/api/openapi.yml#/components/schemas/SalidaPublicaResponse"
+              example:
+                nombre: Salida norte
+                edificio: Bloque B
+                piso: 1
+                latitud: 4.78263
+                longitud: -74.04251
+                disponible: true
+                tieneFotografia: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/public/safe-zones:
+    get:
+      tags:
+        - MS02 · Público
+      summary: Consultar una zona segura por su QR (sin sesión)
+      description: Sin sesión. Ubicación, coordenadas y si es punto de encuentro. El GW la reenvía sin credencial.
+      x-politica: PUBLICA
+      x-destino: MS02_URI
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Datos públicos (MS02).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: "../../ms02-campus-and-security/api/openapi.yml#/components/schemas/ZonaSeguraPublicaResponse"
+              example:
+                codigo: ZS-01
+                nombre: Plazoleta central
+                ubicacion: Frente al Bloque B
+                puntoEncuentro: true
+                latitud: 4.78301
+                longitud: -74.04219
+                disponible: true
+                tieneFotografia: false
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -409,6 +576,22 @@ paths:
             application/json:
               schema:
                 $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/UserPage'
+              example:
+                contenido:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_nombre: María
+                    segundo_nombre: José
+                    primer_apellido: Pérez
+                    segundo_apellido: Gómez
+                    correo: maria.perez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                      - ESTUDIANTE
+                    estado: ACTIVO
+                page: 0
+                size: 20
+                total_elementos: 1
+                total_paginas: 1
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -470,6 +653,11 @@ paths:
           application/json:
             schema:
               $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/ChangeStatusRequest'
+            example:
+              ids:
+                - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                - 5d2e8f10-6a4b-4c93-b7e1-3f9a0c2d4e68
+              estado: INACTIVO
       responses:
         '200':
           description: Resultado por usuario (MS01).
@@ -480,6 +668,14 @@ paths:
             application/json:
               schema:
                 $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/ChangeStatusResponse'
+              example:
+                resultados:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    estado_anterior: ACTIVO
+                    estado_nuevo: INACTIVO
+                  - id: 5d2e8f10-6a4b-4c93-b7e1-3f9a0c2d4e68
+                    estado_anterior: INACTIVO
+                    estado_nuevo: INACTIVO
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -823,6 +1019,761 @@ paths:
           $ref: '#/components/responses/BadGateway'
         '504':
           $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/estado:
+    put:
+      tags:
+        - MS04 · Protegido
+      summary: Recibir el estado del evento y habilitar o deshabilitar el check-in (RF-MS04-11, F-05)
+      description: 'Ruta de MS06. En el GW es `PROTEGIDA`: MS06 la llama con su clave de servicio y sin `X-User-*`, y el GW inyecta `X-Service-Name: ms06`. MS04 autoriza por `X-Service-Name` y solo acepta `ms06`; una petición con JWT llega sin `X-Service-Name` y MS04 responde 401.'
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EstadoEventoRequest'
+            examples:
+              programar:
+                summary: Programar o reprogramar un simulacro
+                value:
+                  eventoId: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                  nombre: Simulacro de evacuación bloque A
+                  simulacro: true
+                  estado: PROGRAMADO
+                  fechaInicio: '2026-11-20T10:00:00-05:00'
+                  escenario:
+                    edificios: [Bloque A]
+                    zonas: [Zona norte]
+                  rolesConvocados: [ESTUDIANTE, PROFESOR]
+              habilitar:
+                summary: Iniciar el simulacro (habilita el check-in)
+                value:
+                  eventoId: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                  nombre: Simulacro de evacuación bloque A
+                  simulacro: true
+                  estado: EN_EJECUCION
+                  fechaInicio: '2026-11-20T10:00:00-05:00'
+                  escenario:
+                    edificios: [Bloque A]
+                    zonas: [Zona norte]
+                  rolesConvocados: [ESTUDIANTE, PROFESOR]
+              deshabilitar:
+                summary: Finalizar el evento (deshabilita el check-in)
+                value:
+                  eventoId: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                  nombre: Simulacro de evacuación bloque A
+                  simulacro: true
+                  estado: FINALIZADO
+                  escenario:
+                    edificios: [Bloque A]
+                    zonas: [Zona norte]
+                  rolesConvocados: [ESTUDIANTE, PROFESOR]
+              cancelarProgramacion:
+                summary: Cancelar la programación (el evento perdió su fecha de inicio)
+                value:
+                  eventoId: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                  nombre: Simulacro de evacuación bloque A
+                  simulacro: true
+                  estado: BORRADOR
+                  rolesConvocados: [ESTUDIANTE, PROFESOR]
+              emergenciaIniciada:
+                summary: Evento real que MS06 inicia (habilita el check-in)
+                value:
+                  eventoId: 2b9e4f61-8c3d-4a57-b1e0-6f7a9d3c1e84
+                  nombre: Evacuación por emergencia
+                  simulacro: false
+                  estado: EN_EJECUCION
+                  rolesConvocados: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR]
+      responses:
+        '201':
+          description: Evento nuevo guardado (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EventoInterno'
+        '200':
+          description: Evento actualizado, o repetido sin cambios (idempotente) (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EventoInterno'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/checkins:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Entregar a MS06 el detalle de check-ins del evento (RF-MS04-12, F-06)
+      description: 'Ruta de MS06. En el GW es `PROTEGIDA`: MS06 la llama con su clave de servicio y sin `X-User-*`, y el GW inyecta `X-Service-Name: ms06`. MS04 autoriza por `X-Service-Name` y solo acepta `ms06`; una petición con JWT llega sin `X-Service-Name` y MS04 responde 401.'
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      security:
+        - serviceKey: []
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EstadoCheckin'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de check-ins vigentes (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/DetalleCheckinsMs06'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+    post:
+      tags:
+        - MS04 · Protegido
+      summary: Registrar o actualizar el propio check-in (RF-MS04-02, RF-MS04-03, RF-MS04-04, F-01)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:checkin:write, ms04:assistance:request`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/CheckinRequest'
+            examples:
+              estoyASalvo:
+                summary: Estoy a salvo
+                value:
+                  estado: SAFE
+                  punto_encuentro_id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              meEstoyEvacuando:
+                summary: Me estoy evacuando
+                value:
+                  estado: EVACUATING
+              requieroAsistencia:
+                summary: Requiero asistencia
+                value:
+                  estado: NEEDS_ASSISTANCE
+                  ubicacion:
+                    tipo: EDIFICIO
+                    id: 9b2e4c71-0d3a-4f6e-8c15-7a1b2d3e4f50
+              noEstoyEnElCampus:
+                summary: No estoy en el campus
+                value:
+                  estado: OFF_CAMPUS
+      responses:
+        '201':
+          description: Check-in registrado (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/CheckinResponse'
+        '200':
+          description: Check-in nuevo agregado como estado vigente (o el vigente sin cambios si el estado es igual) (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/CheckinResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/activos:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Consultar eventos activos que le aplican al usuario (RF-MS04-01)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:checkin:read_own`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+      responses:
+        '200':
+          description: Eventos activos (puede ser una lista vacía) (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/Evento'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Listar eventos en cualquier estado (RF-MS04-13, F-07)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EstadoEvento'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de eventos (puede estar vacía) (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EventoPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Consultar un evento en cualquier estado (RF-MS04-13)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      responses:
+        '200':
+          description: Evento (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/Evento'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/checkins/propio:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Consultar el propio estado vigente (RF-MS04-05)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:checkin:read_own`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      responses:
+        '200':
+          description: Estado vigente del usuario (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/CheckinResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/consolidado:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Consolidado del evento por estado y punto de encuentro (RF-MS04-06)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      responses:
+        '200':
+          description: Consolidado (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/Consolidado'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/personas:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Listar personas por estado y punto de encuentro (RF-MS04-06, F-02)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EstadoCheckin'
+        - name: punto_encuentro_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de estados vigentes (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/CheckinPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/pendientes:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Personas pendientes (RF-MS04-07, F-03)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de pendientes (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/PendientePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/asistencia:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Personas que requieren asistencia (RF-MS04-08, F-03)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:dashboard:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página de personas que requieren asistencia (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/AsistenciaPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/historial:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Histórico de check-ins del evento (RF-MS04-09, F-04)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:history:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+        - name: usuario_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          example: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+        - name: estado
+          in: query
+          description: Omitir equivale a Todos.
+          schema:
+            $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/EstadoCheckin'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Página del histórico (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/HistorialPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
+  /api/v1/chi/eventos/{eventoId}/resultados:
+    get:
+      tags:
+        - MS04 · Protegido
+      summary: Resultados del evento (RF-MS04-10)
+      description: MS04 autoriza con `X-User-Permission` (permiso `ms04:history:read`, ver el contrato de MS04).
+      x-politica: PROTEGIDA
+      x-destino: MS04_URI
+      parameters:
+        - $ref: '#/components/parameters/XCorrelationId'
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRole'
+        - $ref: '#/components/parameters/XUserPermission'
+        - name: eventoId
+          in: path
+          required: true
+          description: Id (UUID) que asigna MS06 al evento (RN-MS04-01).
+          schema:
+            type: string
+            format: uuid
+            example: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+      responses:
+        '200':
+          description: Resultados del evento (MS04).
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/XCorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '../../ms04-evacuation-and-check-in/api/openapi.yml#/components/schemas/Resultados'
+              example:
+                evento_id: 7c1d5b2e-4f3a-4e8b-9a61-0d2f8c3b5a17
+                simulacro: true
+                estado_evento: FINALIZADO
+                fecha_inicio: '2026-11-20T15:00:00Z'
+                fecha_cierre: '2026-11-20T15:45:00Z'
+                finales: true
+                poblacion_objetivo: 200
+                total_reportados: 177
+                total_pendientes: 23
+                totales_por_estado:
+                  SAFE: 160
+                  EVACUATING: 5
+                  NEEDS_ASSISTANCE: 2
+                  OFF_CAMPUS: 10
+                por_punto_encuentro:
+                  - punto_encuentro_id: 5b2e7c1d-3a4f-4b8e-9a61-2f8c0d3b5a17
+                    total: 160
+                solicitudes_asistencia:
+                  - usuario_id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    solicitud_asistencia:
+                      id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                      estado_envio: ENVIADA
+                primeros_checkins:
+                  - usuario_id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_checkin_en: '2026-11-20T15:04:12Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
   /api/v1/users/batch:
     post:
       tags:
@@ -883,6 +1834,29 @@ paths:
             application/json:
               schema:
                 $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/UserPage'
+              example:
+                contenido:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    primer_nombre: María
+                    segundo_nombre: José
+                    primer_apellido: Pérez
+                    segundo_apellido: Gómez
+                    correo: maria.perez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                      - ESTUDIANTE
+                    estado: ACTIVO
+                  - id: 7a1d4e2b-5c3f-4a8e-b9d0-2e6f1c4a7b35
+                    primer_nombre: Juan
+                    primer_apellido: Rodríguez
+                    correo: juan.rodriguez@escuelaing.edu.co
+                    roles:
+                      - BRIGADISTA
+                    estado: INACTIVO
+                page: 0
+                size: 100
+                total_elementos: 2
+                total_paginas: 1
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -952,8 +1926,24 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              description: Evento de auditoría de EST §12.
+              $ref: ../../ms08-analytics-and-audit/api/openapi.yaml#/components/schemas/AuditEventRequest
+            example:
+              id: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
+              usuario_id: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b
+              modulo: MS04
+              accion: REGISTRO_CHECKIN
+              recurso_afectado: checkin:chk-901
+              resultado: EXITO
+              fecha_hora: "2026-11-20T15:02:10Z"
+              correlation_id: 9c4d1f2a-7b3e-4d8a-a1c2-5e6f7a8b9c0d
+              detalle: Check-in registrado en punto de encuentro Bloque B
+              evento_id: 11111111-1111-4111-8111-111111111111
+              tipo_evento: SIMULACRO
+              atributos:
+                estado: SAFE
+                punto_encuentro: PE_BLOQUE_B
+                ubicacion_tipo: BUILDING
+                ubicacion_id: bloque-b
       responses:
         '202':
           description: Evento aceptado (MS08).
@@ -1061,6 +2051,17 @@ components:
         application/json:
           schema:
             $ref: '../../ms01-identity-and-access/api/openapi.yml#/components/schemas/User'
+          example:
+            id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+            primer_nombre: María
+            segundo_nombre: José
+            primer_apellido: Pérez
+            segundo_apellido: Gómez
+            correo: maria.perez@escuelaing.edu.co
+            roles:
+              - BRIGADISTA
+              - ESTUDIANTE
+            estado: ACTIVO
     BadRequest:
       description: 'GW: varias cabeceras `Authorization` o `X-Service-Key`, `Authorization` junto con `X-Service-Key`, o identidad de usuario incompleta, repetida o con formato inválido (`X-User-Id`, `X-User-Role`, `X-User-Permission`) en una llamada interna. También se propagan los 400 válidos del MS.'
       headers:
