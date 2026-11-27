@@ -27,11 +27,18 @@ La carpeta de un microservicio contiene solo lo que ese microservicio necesita:
 ├── 1_requirements.md     requerimientos funcionales, reglas de negocio y requerimientos no funcionales
 ├── 2_forms-inputs.md     formularios y validaciones de entrada (si tiene formularios)
 ├── 3_data-model.md       modelo de datos (si tiene base de datos)
+├── quality-and-tests.md  calidad y pruebas
+├── security.md           seguridad
 ├── api/
 │   └── openapi.yml       contrato OpenAPI 3
 ├── diagrams/             diagramas y sus fuentes editables
 └── integration-guide.md  guía para los demás squads (solo si el microservicio ofrece una)
 ```
+
+`quality-and-tests.md` y `security.md` son obligatorios en todo microservicio y en el API Gateway:
+
+* **`quality-and-tests.md`:** estrategia de pruebas (qué se prueba en cada nivel y cómo), tecnologías de prueba y por qué se usan, resultado de la ejecución de Maven Surefire (pruebas, fallos, errores y omitidas), cobertura de JaCoCo (total y por paquete: instrucciones, ramas, líneas y métodos), análisis estático con PMD y SpotBugs (hallazgos y cómo se corrigieron, y cada exclusión con su motivo), cómo ejecutar las pruebas en local y su relación con SonarCloud. Las cifras indican la rama y el commit de los que salen.
+* **`security.md`:** cómo el microservicio recibe la identidad (cabeceras que inyecta el Gateway) y autoriza cada operación, sus rutas internas y la clave de servicio con la que llama a otros microservicios, CORS y mTLS, el manejo de los datos sensibles (qué guarda, qué registra en logs y qué nunca expone) y las demás medidas de seguridad. El registro, la autenticación y la formación del JWT se documentan en el `security.md` de MS01, y la validación del token en el del API Gateway; los demás enlazan a ellos.
 
 Un microservicio que todavía no tiene documentación conserva su carpeta con un archivo `.gitkeep`. Un documento propio de un microservicio, como `jwt-spec.md` en MS01, se agrega con un nombre que lo describa.
 
@@ -47,14 +54,16 @@ Cada dato se escribe en un único documento y los demás enlazan a él. Así se 
 | Cómo conectar un microservicio al API Gateway | `integration/gateway-connection.md` |
 | Endpoints, métodos, parámetros, respuestas y el permiso de cada operación | `api/openapi.yml` del microservicio |
 | Comportamiento: requerimientos, reglas de negocio y flujos | `1_requirements.md` del microservicio |
-| Tablas, columnas y restricciones | `3_data-model.md` del microservicio |
+| Tablas, columnas y restricciones, y por qué se eligió ese tipo de base de datos | `3_data-model.md` del microservicio |
+| Pruebas, cobertura y análisis estático | `quality-and-tests.md` del microservicio |
+| Medidas de seguridad | `security.md` del microservicio |
 
 El `x-permiso` de cada operación del `openapi.yml` coincide con un código de la matriz de permisos; cuando una operación acepta más de uno, se escriben separados por `|`. El `x-roles` es informativo y no autoriza nada. El Gateway solo enruta las rutas publicadas en los `openapi.yml`.
 
 ## Nombres de archivos y carpetas
 
 * En inglés, solo caracteres ASCII, en minúsculas y con guiones: `data-model`, `gateway-connection`. Sin espacios, tildes ni mayúsculas.
-* La numeración se usa únicamente en `1_requirements.md`, `2_forms-inputs.md` y `3_data-model.md`.
+* La numeración se usa únicamente en `1_requirements.md`, `2_forms-inputs.md` y `3_data-model.md`. `quality-and-tests.md` y `security.md` no llevan número.
 * Las carpetas de los microservicios se llaman como su repositorio (`ms05-brigades-and-incidents`).
 * El contrato es siempre `api/openapi.yml`.
 * Los diagramas van en `diagrams/` y se llaman `<prefijo>-<vista>.<extensión>`, donde el prefijo es `ms<NN>` o `gw`: `ms04-c4-3-components.drawio.svg`, `ms01-classes.puml`, `ms03-er.drawio.svg`. Se conserva siempre la fuente editable: un `.drawio.svg` se abre y se edita con [draw.io](https://app.diagrams.net/), y un `.svg` generado con PlantUML va junto a su `.puml`.

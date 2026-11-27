@@ -58,11 +58,7 @@ tags:
   - name: Integracion MS06 (Eventos)
     description: Endpoints internos exclusivos para MS06 (estado operativo del evento, brigadistas e indicadores)
   - name: Auditoria
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
     description: Consulta inmutable de eventos de auditoria por evento, recurso o listado general (permisos ms08:audit_drill:read o ms08:audit_real_event:read)
-=======
-    description: Consulta inmutable de eventos de auditoria por evento, recurso o listado general (permisos `ms08:audit_real_event:read` o `ms08:audit_drill:read`)
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
   - name: Salud (Actuator)
     description: Verificacion de salud del contenedor para despliegue y red interna campus-edge
 
@@ -85,11 +81,7 @@ paths:
         Consulta los usuarios con rol BRIGADISTA en MS01, sincroniza su estado
         operativo en MS05 y devuelve sus asignaciones vigentes. Si no se envia
         `nombreBrigadista` (o se envia vacio), devuelve todos los brigadistas.
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         Requiere el permiso `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
-=======
-        Requiere el permiso `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
@@ -145,11 +137,7 @@ paths:
       summary: Activar o cambiar el estado de disponibilidad de un brigadista (con respuesta detallada)
       description: |
         Permite activar o pasar a inactivo a un brigadista. Puede invocarlo un
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         coordinador/organizador (`ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales)) para cualquier
-=======
-        coordinador/organizador (`ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros)) para cualquier
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
         brigadista, o el propio brigadista (`ms05:panel:read_own`) cuando
         `brigadistaId` coincide con su `X-User-Id`.
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:panel:read_own (propio)
@@ -199,11 +187,7 @@ paths:
       description: |
         Cambia el estado de un brigadista (`ACTIVO` o `INACTIVO`) validando en
         MS01 que el usuario tenga rol de brigadista. Exclusivo para quien posea
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         el permiso `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
-=======
-        el permiso `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
@@ -632,11 +616,7 @@ paths:
       summary: Consultar el detalle de una asignacion especifica
       description: |
         Devuelve los datos de una asignacion por su UUID. Requiere
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read`.
-=======
-        `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:incident:read`.
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read
       x-roles:
         - COORDINADOR
@@ -711,11 +691,7 @@ paths:
       summary: Retirar una asignacion vigente
       description: |
         Cambia el estado de la asignacion a `RETIRADA`. Requiere el permiso
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales).
-=======
-        `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real
       x-roles:
         - COORDINADOR
@@ -750,11 +726,7 @@ paths:
       summary: Listar todas las asignaciones de un evento
       description: |
         Devuelve todas las asignaciones asociadas a un evento. Requiere
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read`.
-=======
-        `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:incident:read`.
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read
       x-roles:
         - COORDINADOR
@@ -789,11 +761,7 @@ paths:
       description: |
         Un brigadista con `ms05:panel:read_own` puede consultar unicamente sus
         propias asignaciones (`brigadistaId == X-User-Id`). Quienes tengan
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:incident:read` pueden consultar las de
-=======
-        `ms05:brigadier:assign_to_real` (eventos reales) o `ms05:brigadier:assign_to_drill` (simulacros) o `ms05:incident:read` pueden consultar las de
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
         cualquier brigadista.
       x-permiso: ms05:brigadier:assign_to_drill | ms05:brigadier:assign_to_real | ms05:incident:read | ms05:panel:read_own (propio)
       x-roles:
@@ -1012,20 +980,10 @@ paths:
         Devuelve una pagina de incidentes no eliminados del evento (`contenido`,
         `page`, `size`, `total_elementos`, `total_paginas`). Soporta filtrado
         por prioridad, estado y ubicacion, asi como ordenamiento dinamico.
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         Requiere `ms05:incident:read`. Con `soloPropios=true` devuelve solo los
         incidentes que reporto el usuario ("Mis incidentes") y basta
         `ms05:incident:manage_own`.
       x-permiso: ms05:incident:read | ms05:incident:manage_own (soloPropios=true)
-=======
-        Requiere `ms05:incident:read`.
-      x-permiso: ms05:incident:read | ms05:incident:manage_own
-      x-roles:
-        - BRIGADISTA
-        - COORDINADOR
-        - ORGANIZADOR
-        - AUDITOR
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       parameters:
         - name: soloPropios
           in: query
@@ -1194,13 +1152,8 @@ paths:
       summary: Eliminar logicamente un incidente resuelto
       description: |
         Marca `eliminado = true` en el incidente (solo permitido si el incidente
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
-        se encuentra en estado `RESUELTO` o `CERRADO`). Requiere
-        `ms05:assistance:assign_to_drill` o `ms05:assistance:assign_to_real` según el tipo de evento.
-=======
         se encuentra en estado `RESUELTO`; en cualquier otro estado responde 409). Requiere
-        `ms05:assistance:assign_to_real` (eventos reales) o `ms05:assistance:assign_to_drill` (simulacros) (COORDINADOR).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
+        `ms05:assistance:assign_to_real` (eventos reales) o `ms05:assistance:assign_to_drill` (simulacros).
       x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
@@ -1237,11 +1190,7 @@ paths:
         transiciona el estado a `ASIGNADO` (si estaba `REPORTADO`), registra el
         cambio en `historial_incidente` y envia una alerta operativa a MS03
         (`POST /api/v1/alertas`) para notificar por correo al brigadista.
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         Requiere `ms05:assistance:assign_to_drill` (simulacros) o `ms05:assistance:assign_to_real` (eventos reales).
-=======
-        Requiere `ms05:assistance:assign_to_real` (eventos reales) o `ms05:assistance:assign_to_drill` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
@@ -1377,11 +1326,7 @@ paths:
       summary: Cerrar definitivamente un incidente resuelto
       description: |
         Transiciona el incidente de `RESUELTO` a `CERRADO` y registra
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `fechaCierre`. Requiere el permiso del tipo de evento (`ms05:assistance:assign_to_drill` o `ms05:assistance:assign_to_real`).
-=======
-        `fechaCierre`. Exclusivo para el coordinador (`ms05:assistance:assign_to_real` (eventos reales) o `ms05:assistance:assign_to_drill` (simulacros)).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms05:assistance:assign_to_drill | ms05:assistance:assign_to_real
       x-roles:
         - COORDINADOR
@@ -1656,11 +1601,7 @@ paths:
       summary: Consultar todos los registros de auditoria de MS05
       description: |
         Devuelve la bitacora completa de auditoria de asignaciones,
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         solicitudes, incidentes y evidencias. Requiere `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
-=======
-        solicitudes, incidentes y evidencias. Requiere `ms08:audit_real_event:read` (eventos reales) o `ms08:audit_drill:read` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
@@ -1692,11 +1633,7 @@ paths:
       summary: Consultar los registros de auditoria asociados a un evento
       description: |
         Filtra los eventos de auditoria por `eventoId`. Requiere
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
-=======
-        `ms08:audit_real_event:read` (eventos reales) o `ms08:audit_drill:read` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
@@ -1741,11 +1678,7 @@ paths:
       summary: Consultar los registros de auditoria de un recurso especifico
       description: |
         Devuelve los eventos de auditoria filtrados por `recursoTipo` y
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         `recursoId`. Requiere `ms08:audit_drill:read` o `ms08:audit_real_event:read`.
-=======
-        `recursoId`. Requiere `ms08:audit_real_event:read` (eventos reales) o `ms08:audit_drill:read` (simulacros).
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
       x-permiso: ms08:audit_drill:read | ms08:audit_real_event:read
       x-roles:
         - AUDITOR
@@ -1850,11 +1783,7 @@ components:
         solicitudes de usuario.
       schema:
         type: string
-<<<<<<< HEAD:ms05-brigadeMembers-and-incidents/api/openapi.yml
         example: ms05:assistance:assign_to_real,ms05:brigadier:assign_to_real,ms05:incident:read,ms05:incident:report
-=======
-        example: ms05:brigadier:assign_to_real,ms05:incident:read,ms05:incident:report,ms05:assistance:assign_to_real
->>>>>>> d990ad428503cb8a2429f1b0baf262cbfca49c39:ms05-brigades-and-incidents/api/openapi.yml
     UserRoleHeader:
       name: X-User-Role
       in: header

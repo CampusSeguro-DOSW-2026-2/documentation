@@ -4,17 +4,18 @@ Base de datos PostgreSQL propia de MS04 ([RNF-MS04-08](1_requirements.md#requeri
 
 ## Índice de Contenido
 1. [Alcance](#alcance)
-2. [Convenciones](#convenciones)
-3. [Tablas](#tablas)
+2. [Por qué una base de datos relacional](#por-qué-una-base-de-datos-relacional)
+3. [Convenciones](#convenciones)
+4. [Tablas](#tablas)
     - [eventos](#eventos)
     - [checkins](#checkins)
     - [Vista v_checkins_vigentes](#v_checkins_vigentes)
     - [solicitudes_asistencia](#solicitudes_asistencia)
-4. [Relaciones](#relaciones)
-5. [Correspondencia API ↔ columnas](#correspondencia-api)
-6. [Reglas de integridad](#reglas-de-integridad)
-7. [Operaciones transaccionales y consultas](#operaciones)
-8. [Datos iniciales y tareas periódicas](#datos-iniciales)
+5. [Relaciones](#relaciones)
+6. [Correspondencia API ↔ columnas](#correspondencia-api)
+7. [Reglas de integridad](#reglas-de-integridad)
+8. [Operaciones transaccionales y consultas](#operaciones)
+9. [Datos iniciales y tareas periódicas](#datos-iniciales)
 
 ---
 
@@ -33,6 +34,23 @@ Base de datos PostgreSQL propia de MS04 ([RNF-MS04-08](1_requirements.md#requeri
 
 ---
 
+## Por qué una base de datos relacional
+
+MS04 usa PostgreSQL, una base relacional, y no una base NoSQL (documental o de clave-valor), porque sus datos y sus reglas son relacionales y la exactitud del conteo de personas durante una evacuación depende de ellas:
+
+| Necesidad de MS04 | Cómo la resuelve PostgreSQL | Qué pasaría con una base NoSQL |
+|---|---|---|
+| Un evento tiene muchos check-ins y solicitudes de asistencia, y ninguno puede existir sin su evento | Claves foráneas de `checkins` y `solicitudes_asistencia` hacia `eventos` (`ON DELETE RESTRICT`) | La referencia al evento sería un valor más, sin garantía de que el evento exista |
+| El estado vigente de cada persona es su check-in más reciente, y los anteriores son el histórico | Vista `v_checkins_vigentes` con `DISTINCT ON` sobre un índice (`evento_id`, `usuario_id`, `registrado_en DESC`, `numero DESC`) | Habría que mantener aparte un documento de "estado actual" sincronizado con el histórico, o recorrer todos los reportes en cada consulta |
+| Consolidado por estado y por punto de encuentro, pendientes y resultados con totales exactos | `GROUP BY` y `COUNT` sobre la vista, en una sola consulta | Los totales se calcularían en la aplicación o con agregaciones propias de cada producto |
+| 500 check-ins simultáneos sin duplicados y con un solo estado vigente por persona | Transacciones ACID y un bloqueo por usuario y evento antes de leer su estado vigente | Sin transacciones entre documentos, dos reportes simultáneos podrían dejar estados inconsistentes |
+| Los check-ins nunca se modifican ni se borran, y un evento finalizado no admite escrituras | Triggers que rechazan `UPDATE`, `DELETE` y `TRUNCATE` sobre `checkins`, y restricciones `CHECK` sobre los estados | La regla quedaría solo en el código; una escritura directa podría alterar el histórico |
+| Combinaciones válidas de datos: punto de encuentro solo con `SAFE`, ubicación solo con `NEEDS_ASSISTANCE`, fecha de cierre solo con `FINALIZADO`, una solicitud por persona y evento | Restricciones `CHECK` y `UNIQUE` | La validación dependería de que todas las escrituras pasen por el mismo código |
+
+El esquema es estable y conocido de antemano (tres tablas y una vista), y el volumen de un evento (alrededor de 5000 personas con unos pocos reportes cada una) está muy por debajo de lo que justifica la escalabilidad horizontal de una base NoSQL. Las listas que MS04 solo guarda y devuelve completas (roles convocados y escenario) usan arreglos de PostgreSQL, sin necesitar documentos.
+
+---
+
 <a id="convenciones"></a>
 ## Convenciones
 
@@ -47,7 +65,7 @@ Base de datos PostgreSQL propia de MS04 ([RNF-MS04-08](1_requirements.md#requeri
 * Los roles convocados y el escenario son listas de texto (`VARCHAR[]` de PostgreSQL), porque MS04 solo los guarda y los devuelve completos; nunca se filtra por un elemento de ellas, salvo los roles convocados al calcular a quién le aplica un evento.
 * Los estados del evento, los estados del check-in, el tipo de ubicación y el estado de envío se guardan como texto con `@Enumerated(EnumType.STRING)` (nunca `ORDINAL`) y la base de datos los valida con un `CHECK`. Cambiar un catálogo exige actualizar el enum y el `CHECK` en la misma migración y Pull Request.
 * Los check-ins nunca se actualizan ni se eliminan, y no hay borrado físico de ningún registro ([RN-MS04-08](1_requirements.md#rn-ms04-08), [RN-MS04-17](1_requirements.md#rn-ms04-17)).
-* El esquema se versiona con los scripts SQL numerados de `database/` (`001` a `006`). En una base nueva corren en orden al crear el volumen de PostgreSQL; en una base que ya existe, cada script nuevo se aplica una vez a mano. La aplicación solo valida el esquema (`ddl-auto: validate`) y nunca lo genera.
+* El esquema se versiona con los scripts SQL numerados de `database/` (`001` a `007`). En una base nueva corren en orden al crear el volumen de PostgreSQL; en una base que ya existe, cada script nuevo se aplica una vez a mano. La aplicación solo valida el esquema (`ddl-auto: validate`) y nunca lo genera.
 
 ---
 
@@ -149,7 +167,7 @@ Ninguna tabla tiene llaves foráneas hacia otros microservicios: `usuario_id`, `
 <a id="correspondencia-api"></a>
 ## Correspondencia API ↔ columnas
 
-Donde aparecen dos nombres, el primero es el de las rutas internas acordadas con MS06 (camelCase) y el segundo el del contrato protegido de MS04 (snake_case).
+Donde aparecen dos nombres, el primero es el de las rutas internas de MS06 (camelCase) y el segundo el del contrato protegido de MS04 (snake_case).
 
 | Campo del contrato | Columna | Notas |
 |---|---|---|
@@ -232,7 +250,7 @@ Cada operación de escritura es una sola transacción: o se aplica completa o no
 
 **Filtro del BRIGADISTA ([RN-MS04-14](1_requirements.md#rn-ms04-14)):** las consultas anteriores se restringen a los check-ins vigentes `SAFE` cuyo `punto_encuentro_id` está en sus zonas y `NEEDS_ASSISTANCE` cuya ubicación está en sus zonas, obtenidas de MS05 ([llamadas internas](../integration/standards.md#5-llamadas-internas-ms--gw--ms)). Los check-ins `EVACUATING` y `OFF_CAMPUS` y los pendientes no tienen ubicación en esta base, por eso no se devuelven al BRIGADISTA (sus totales salen en 0).
 
-Los listados protegidos usan `page` (desde 0) y `size` (1 a 100, por defecto 20). El detalle para MS06 usa los mismos parámetros con el formato acordado con MS06.
+Los listados protegidos usan `page` (desde 0) y `size` (1 a 100, por defecto 20). El detalle para MS06 usa los mismos parámetros con el formato que consume MS06.
 
 ---
 

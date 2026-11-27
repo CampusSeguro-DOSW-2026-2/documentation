@@ -19,7 +19,7 @@ Contiene solo lo propio del Gateway: el pipeline, la tabla de rutas, las políti
 
 ## 2. Tabla de enrutamiento
 
-Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../integration/gateway-connection.md) y deben estar publicados en el `api/openapi.yml` de la carpeta de su microservicio. El GW conserva la ruta completa al reenviar. Cada ruta activa se publica también, por operación y con su política, en [api/openapi.yml](api/openapi.yml).
+Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../integration/gateway-connection.md) y deben estar publicados en el `api/openapi.yml` de la carpeta de su microservicio. El GW conserva la ruta completa al reenviar. El [OpenAPI del GW](api/openapi.yml) publica, por operación y con su política, las rutas de MS01 y MS04, las rutas públicas de MS02 y las rutas internas de MS01, MS06 y MS08; las demás operaciones de cada prefijo están en el OpenAPI de su MS.
 
 | Prefijo | Destino | OpenAPI |
 |---|---|---|
@@ -29,9 +29,9 @@ Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../inte
 | `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | [MS03](../ms03-alerts-and-emergencies/api/openapi.yml) |
 | `/api/v1/chi/**` | `MS04_URI` | [MS04](../ms04-evacuation-and-check-in/api/openapi.yml) |
 | `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**`, `/api/v1/asignaciones/**`, `/api/v1/responsabilidades/**` | `MS05_URI` | [MS05](../ms05-brigades-and-incidents/api/openapi.yml) |
-| `/api/v1/eventos`, `/api/v1/eventos/**`, `/api/v1/tipos-evento`, `/api/v1/tipos-evento/**`, `/api/v1/tipos-alerta` | `MS06_URI` | Sin OpenAPI en este repositorio |
-| `/api/v1/training/**`, `/api/v1/tutor/**` | `MS07_URI` | Sin OpenAPI en este repositorio. `/api/v1/tutor/**` espera hasta `GATEWAY_TUTOR_TIMEOUT_MS` |
-| `/api/v1/analitica/**`, `/api/v1/auditoria/**`, `/api/v1/audit/events` | `MS08_URI` | Sin OpenAPI en este repositorio. `audit/events` es el contrato de los [Estándares §12](../integration/standards.md#12-auditoría-ms08) |
+| `/api/v1/eventos`, `/api/v1/eventos/**`, `/api/v1/tipos-evento`, `/api/v1/tipos-evento/**`, `/api/v1/tipos-alerta` | `MS06_URI` | [MS06](../ms06-events/api/openapi.yaml) |
+| `/api/v1/training/**`, `/api/v1/tutor/**` | `MS07_URI` | [MS07](../ms07-training-and-ai-assistant/api/openapi.yml). `/api/v1/tutor/**` espera hasta `GATEWAY_TUTOR_TIMEOUT_MS` |
+| `/api/v1/audit/**`, `/api/v1/analytics/**` | `MS08_URI` | [MS08](../ms08-analytics-and-audit/api/openapi.yaml). `POST /api/v1/audit/events` sigue el contrato de los [Estándares §12](../integration/standards.md#12-auditoría-ms08) |
 
 `GET /api/v1/internal/session-cuts` de MS01 (tag *Interno (Gateway)*) no figura en la tabla: la consume el propio GW (§5, `SESSION_CUTS_URL`) y no se publica a través de él, así que responde `404` aunque se envíe una clave de servicio.
 

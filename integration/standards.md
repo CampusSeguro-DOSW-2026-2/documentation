@@ -165,7 +165,8 @@ El GW es el orquestador de todo el tráfico, así que toda llamada entre servici
 | MS05 → MS03 | Crear la alerta que origina un incidente | `POST /api/v1/alertas` | Usuario que registra el incidente | Protegida |
 | MS06 → MS03 | Crear, programar, activar y archivar la alerta de un simulacro | `POST /api/v1/alertas`, `POST /api/v1/alertas/{id}/programar`, `/activar` y `/archivar` | Usuario ORGANIZADOR | Protegida (`ms03:alert:manage_drill`) |
 | MS03 → MS06 | Replicar el catálogo de tipos de alerta | `GET /api/v1/tipos-alerta` | Identidad de sistema | Interna (`X-Service-Name: ms03`) |
-| MS06 → MS04 | Informar el estado del evento y consultar el consolidado y los check-ins | `/api/v1/chi/eventos/{eventoId}/estado`, `/consolidado` y `/checkins` | Identidad de sistema (`ms04:dashboard:read`) | Protegida |
+| MS06 → MS04 | Informar el estado del evento y consultar sus check-ins | `PUT /api/v1/chi/eventos/{eventoId}/estado`, `GET /api/v1/chi/eventos/{eventoId}/checkins` | Ninguna | Protegida en el GW (con clave de servicio); MS04 autoriza por `X-Service-Name: ms06` |
+| MS06 → MS04 | Consultar el consolidado y los resultados de un evento | `GET /api/v1/chi/eventos/{eventoId}/consolidado` (`ms04:dashboard:read`), `GET /api/v1/chi/eventos/{eventoId}/resultados` (`ms04:history:read`) | Usuario por el que actúa MS06 | Protegida |
 | MS06 → MS05 | Informar el estado del evento y consultar los brigadistas y los indicadores | `/api/v1/bei/eventos/{eventoId}/estado`, `/brigadistas` y `/indicadores` | Ninguna | MS05 autoriza por `X-Service-Name: ms06` |
 | GW → MS01 | Consultar cada 4 s los cortes de sesión | `GET /api/v1/internal/session-cuts` | Ninguna | Interna, solo para el GW (`X-Service-Name: gateway`) |
 

@@ -68,6 +68,10 @@ paths:
                 mensaje: El correo ya está registrado.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/register/verify:
@@ -92,6 +96,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RegisterResponse'
+              example:
+                id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                correo: maria.perez@escuelaing.edu.co
+                roles:
+                  - ESTUDIANTE
+                estado: ACTIVO
         '400':
           description: Código incorrecto, vencido o reemplazado, token de otro registro, correo sin registro pendiente (mensaje genérico) o datos inválidos.
           content:
@@ -116,6 +126,10 @@ paths:
                 mensaje: El correo ya está registrado.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/register/resend:
@@ -141,6 +155,10 @@ paths:
                 mensaje: Si hay un registro pendiente para este correo, enviamos un nuevo código de verificación.
         '400':
           $ref: '#/components/responses/BadRequest'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/login:
@@ -187,6 +205,10 @@ paths:
                 mensaje: Cuenta inactiva. Contacte al administrador.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/logout:
@@ -208,6 +230,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -236,6 +260,10 @@ paths:
                 mensaje: Si el correo está registrado, enviamos un código de recuperación.
         '400':
           $ref: '#/components/responses/BadRequest'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /auth/password/reset:
@@ -268,6 +296,10 @@ paths:
                 mensaje: Código incorrecto o vencido.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XCorrelationId'
   /users/me/password:
@@ -276,7 +308,7 @@ paths:
         - Recuperación y cambio de clave
       summary: Cambiar contraseña autenticado (RF-MS01-08, F-06)
       x-permiso: ms01:password:change
-      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       requestBody:
         required: true
         content:
@@ -290,18 +322,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MensajeResponse'
+              example:
+                mensaje: Contraseña actualizada correctamente.
         '400':
           description: Contraseña actual incorrecta, nueva inválida/igual a la actual o confirmación distinta.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores:
+                  - campo: contrasena_actual
+                    mensaje: La contraseña actual es incorrecta.
+                correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -313,7 +359,7 @@ paths:
         - Perfil propio
       summary: Consultar usuario autenticado (RF-MS01-03, RF-MS01-06)
       x-permiso: ms01:profile:read
-      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       description: Identifica al usuario por `X-User-Id`.
       responses:
         '200':
@@ -322,12 +368,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              example: &id001
+                id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                primer_nombre: María
+                segundo_nombre: José
+                primer_apellido: Pérez
+                segundo_apellido: Gómez
+                correo: maria.perez@escuelaing.edu.co
+                roles:
+                  - BRIGADISTA
+                  - ESTUDIANTE
+                estado: ACTIVO
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -338,7 +397,7 @@ paths:
         - Perfil propio
       summary: Actualizar perfil propio (RF-MS01-06, F-03)
       x-permiso: ms01:profile:write
-      x-roles: [ ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR ]
+      x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
       description: Solo nombres y apellidos. Enviar correo, roles, estado o id se rechaza con 400 (RN-MS01-15).
       requestBody:
         required: true
@@ -353,6 +412,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              example: *id001
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -361,6 +421,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -416,12 +480,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserPage'
+              example:
+                contenido:
+                  - *id001
+                page: 0
+                size: 20
+                total_elementos: 1
+                total_paginas: 1
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /users/{id}:
     get:
       tags:
@@ -442,6 +515,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+              example: *id001
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -450,6 +524,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /users/status:
     patch:
       tags:
@@ -464,6 +540,11 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ChangeStatusRequest'
+            example:
+              ids:
+                - 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                - 5d2e8f10-6a4b-4c93-b7e1-3f9a0c2d4e68
+              estado: INACTIVO
       responses:
         '200':
           description: Resultado por usuario.
@@ -471,6 +552,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChangeStatusResponse'
+              example:
+                resultados:
+                  - id: 3f6c2a9e-8b1d-4c7a-9e2f-1a5b7c9d0e42
+                    estado_anterior: ACTIVO
+                    estado_nuevo: INACTIVO
+                  - id: 5d2e8f10-6a4b-4c93-b7e1-3f9a0c2d4e68
+                    estado_anterior: INACTIVO
+                    estado_nuevo: INACTIVO
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -489,6 +578,10 @@ paths:
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -499,9 +592,8 @@ paths:
       tags:
         - Roles y permisos
       summary: Consultar roles y permisos (RF-MS01-05)
-      x-permiso: [ms01:role:read_own, ms01:role:read_all]
       x-roles: [ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR, ORGANIZADOR, ADMIN, AUDITOR]
-      description: ADMIN recibe el catálogo completo; los demás usuarios solo sus propios roles (según `X-User-Role`).
+      description: 'No exige un permiso propio: todo usuario autenticado consulta sus roles con sus permisos. Quien tiene `ms01:role:read_all` recibe todos los roles del sistema; los demás, solo los suyos (según `X-User-Role`), ordenados por nombre.'
       responses:
         '200':
           description: Roles con sus permisos.
@@ -513,6 +605,8 @@ paths:
                   $ref: '#/components/schemas/RolePermissions'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
       parameters:
         - $ref: '#/components/parameters/XUserId'
         - $ref: '#/components/parameters/XUserRole'
@@ -557,8 +651,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /users/roles:
     patch:
       tags:
@@ -603,8 +701,12 @@ paths:
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
         '404':
           $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/MaxRolesPerUser'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /roles/details:
     get:
       tags:
@@ -665,6 +767,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /roles/alert-recipients:
     get:
       tags:
@@ -704,6 +808,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /roles/{rol}:
     get:
       tags:
@@ -733,6 +839,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/RoleNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
     put:
       tags:
         - Roles y permisos
@@ -779,6 +887,10 @@ paths:
                 mensaje: Los roles de sistema no se pueden renombrar.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
     delete:
       tags:
         - Roles y permisos
@@ -815,6 +927,8 @@ paths:
                 mensaje: Los roles de sistema no se pueden eliminar.
                 errores: []
                 correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+        '500':
+          $ref: '#/components/responses/InternalError'
   /roles/{rol}/permissions:
     put:
       tags:
@@ -850,8 +964,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/RoleNotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/BusinessRule'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /permissions:
     get:
       tags:
@@ -885,6 +1003,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /users/batch:
     post:
       tags:
@@ -925,6 +1045,10 @@ paths:
           $ref: '#/components/responses/InternalUnauthorized'
         '403':
           $ref: '#/components/responses/InternalForbidden'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /users/by-role:
     get:
       tags:
@@ -998,6 +1122,8 @@ paths:
           $ref: '#/components/responses/InternalUnauthorized'
         '403':
           $ref: '#/components/responses/InternalForbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /internal/session-cuts:
     get:
       tags:
@@ -1027,6 +1153,8 @@ paths:
           $ref: '#/components/responses/InternalUnauthorized'
         '403':
           $ref: '#/components/responses/InternalForbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   headers:
     XCorrelationID:
@@ -1214,6 +1342,30 @@ components:
             status: 422
             codigo: REGLA_NEGOCIO
             mensaje: Un usuario no puede tener más de 50 roles.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    UnsupportedMediaType:
+      description: El cuerpo no se envió como application/json.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 415
+            codigo: TIPO_NO_SOPORTADO
+            mensaje: Tipo de contenido no soportado.
+            errores: []
+            correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
+    InternalError:
+      description: Error inesperado de MS01; la respuesta no incluye detalles internos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 500
+            codigo: ERROR_INTERNO
+            mensaje: Error interno del servidor.
             errores: []
             correlation_id: c19b472d-7a2a-4d3b-a12b-abcdef123456
   schemas:
