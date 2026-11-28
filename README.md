@@ -26,7 +26,7 @@ Repositorio central de la documentación de CampusSeguro: las reglas que compart
 | MS03 — Alertas y emergencias | [`ms03-alerts-and-emergencies/`](ms03-alerts-and-emergencies/) | [`ms03-alerts-and-emergencies`](https://github.com/CampusSeguro-DOSW-2026-2/ms03-alerts-and-emergencies) |
 | MS04 — Evacuación y check-in | [`ms04-evacuation-and-check-in/`](ms04-evacuation-and-check-in/) | [`ms04-evacuation-and-check-in`](https://github.com/CampusSeguro-DOSW-2026-2/ms04-evacuation-and-check-in) |
 | MS05 — Brigadistas e incidentes | [`ms05-brigades-and-incidents/`](ms05-brigades-and-incidents/) | [`ms05-brigades-and-incidents`](https://github.com/CampusSeguro-DOSW-2026-2/ms05-brigades-and-incidents) |
-| MS06 — Eventos | [`ms06-events/`](ms06-events/) | [`ms06-drills`](https://github.com/CampusSeguro-DOSW-2026-2/ms06-drills) |
+| MS06 — Eventos | [`ms06-drills/`](ms06-drills/) | [`ms06-drills`](https://github.com/CampusSeguro-DOSW-2026-2/ms06-drills) |
 | MS07 — Formación y asistente de IA | [`ms07-training-and-ai-assistant/`](ms07-training-and-ai-assistant/) | [`ms07-training-and-ai-assistant`](https://github.com/CampusSeguro-DOSW-2026-2/ms07-training-and-ai-assistant) |
 | MS08 — Analítica y auditoría | [`ms08-analytics-and-audit/`](ms08-analytics-and-audit/) | [`ms08-analytics-and-audit`](https://github.com/CampusSeguro-DOSW-2026-2/ms08-analytics-and-audit) |
 | Frontend | — | [`frontend`](https://github.com/CampusSeguro-DOSW-2026-2/frontend) |

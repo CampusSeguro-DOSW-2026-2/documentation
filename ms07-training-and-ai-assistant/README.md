@@ -5,9 +5,12 @@ Documentación del microservicio de formación preventiva y asistente de intelig
 ## Documentos
 
 - [Requerimientos](1_requirements.md): funcionalidades, reglas de negocio y comportamiento del servicio.
+- [Formularios y entradas](2_forms-inputs.md): campos, validaciones y mensajes.
 - [Modelo de datos](3_data-model.md): entidades, tablas, relaciones y restricciones.
 - [Contrato API](api/openapi.yml): especificación OpenAPI 3 de los endpoints.
 - [Diagramas](diagrams/README.md): componentes, despliegue, modelo de datos físico y clases.
+- [Calidad y pruebas](quality-and-tests.md): estrategia de pruebas, resultados y cobertura.
+- [Seguridad](security.md): identidad, autorización por permiso, llamadas salientes y datos sensibles.
 
 ## Alcance
 
@@ -15,7 +18,7 @@ MS07 administra categorías y contenidos de formación preventiva, evaluaciones,
 
 ## Integración
 
-La autenticación y la propagación de identidad son responsabilidad del API Gateway. MS07 recibe las cabeceras de identidad y autorización y valida los permisos mediante `X-User-Permission`.
+La autenticación y la propagación de identidad las hace el API Gateway. MS07 recibe las cabeceras de identidad y autoriza con `X-User-Permission` ([seguridad](security.md)).
 
 - La asignación de permisos a los roles se encuentra en la [Matriz de permisos](../integration/permissions-matrix.md).
 - Las reglas transversales de comunicación están definidas en los [Estándares de integración](../integration/standards.md).

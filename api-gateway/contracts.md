@@ -29,9 +29,9 @@ Los prefijos los pide cada squad con la guía [Conexión al API Gateway](../inte
 | `/api/v1/alertas`, `/api/v1/alertas/**` | `MS03_URI` | [MS03](../ms03-alerts-and-emergencies/api/openapi.yml) |
 | `/api/v1/chi/**` | `MS04_URI` | [MS04](../ms04-evacuation-and-check-in/api/openapi.yml) |
 | `/api/v1/brigadistas/**`, `/api/v1/incidentes/**`, `/api/v1/bei/**`, `/api/v1/asignaciones/**`, `/api/v1/responsabilidades/**` | `MS05_URI` | [MS05](../ms05-brigades-and-incidents/api/openapi.yml) |
-| `/api/v1/eventos`, `/api/v1/eventos/**`, `/api/v1/tipos-evento`, `/api/v1/tipos-evento/**`, `/api/v1/tipos-alerta` | `MS06_URI` | [MS06](../ms06-events/api/openapi.yaml) |
+| `/api/v1/eventos`, `/api/v1/eventos/**`, `/api/v1/tipos-evento`, `/api/v1/tipos-evento/**`, `/api/v1/tipos-alerta` | `MS06_URI` | [MS06](../ms06-drills/api/openapi.yml) |
 | `/api/v1/training/**`, `/api/v1/tutor/**` | `MS07_URI` | [MS07](../ms07-training-and-ai-assistant/api/openapi.yml). `/api/v1/tutor/**` espera hasta `GATEWAY_TUTOR_TIMEOUT_MS` |
-| `/api/v1/audit/**`, `/api/v1/analytics/**` | `MS08_URI` | [MS08](../ms08-analytics-and-audit/api/openapi.yaml). `POST /api/v1/audit/events` sigue el contrato de los [Estándares §12](../integration/standards.md#12-auditoría-ms08) |
+| `/api/v1/audit/**`, `/api/v1/analytics/**` | `MS08_URI` | [MS08](../ms08-analytics-and-audit/api/openapi.yml). `POST /api/v1/audit/events` sigue el contrato de los [Estándares §12](../integration/standards.md#12-auditoría-ms08) |
 
 `GET /api/v1/internal/session-cuts` de MS01 (tag *Interno (Gateway)*) no figura en la tabla: la consume el propio GW (§5, `SESSION_CUTS_URL`) y no se publica a través de él, así que responde `404` aunque se envíe una clave de servicio.
 

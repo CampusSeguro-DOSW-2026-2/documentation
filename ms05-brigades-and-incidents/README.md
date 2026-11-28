@@ -5,9 +5,11 @@ Activación, búsqueda y asignación de brigadistas a edificios, zonas seguras y
 | Documento | Contenido |
 |---|---|
 | [`1_requirements.md`](1_requirements.md) | RF-BEI-01…09 y reglas de negocio. |
+| [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios y entradas: campos, validaciones y mensajes. |
 | [`3_data-model.md`](3_data-model.md) | Tablas, catálogos, relaciones y reglas de integridad de la base de datos de MS05. |
 | [`api/openapi.yml`](api/openapi.yml) | Contrato OpenAPI 3: endpoints, permisos (`x-permiso`), esquemas y errores. |
-| [`requerimientos/Backlog_MS05_BrigadistasEIncidentes.docx`](requerimientos/Backlog_MS05_BrigadistasEIncidentes.docx) | Backlog de Jira del squad (documento de Word). |
+| [`quality-and-tests.md`](quality-and-tests.md) | Pruebas, cobertura y análisis estático. |
+| [`security.md`](security.md) | Identidad, autorización por permiso, rutas internas de MS06, llamadas salientes y evidencias. |
 
 ### Diagramas
 

@@ -7,8 +7,11 @@ Cada tema se documenta en un solo archivo; los demás enlazan a él.
 | Documento | Única fuente de |
 |---|---|
 | [`1_requirements.md`](1_requirements.md) | Comportamiento: RF-ALT-01…06 y reglas de negocio. |
+| [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios y entradas: campos, validaciones y mensajes. |
+| [`3_data-model.md`](3_data-model.md) | Tablas, relaciones, reglas de integridad y migraciones. |
 | [`api/openapi.yml`](api/openapi.yml) | Contrato OpenAPI 3.1: endpoints, permisos (`x-permiso`), esquemas y errores. |
-| [`requerimientos/Backlog_MS03_Alertas.docx`](requerimientos/Backlog_MS03_Alertas.docx) | Backlog de Jira del squad (documento de Word). |
+| [`quality-and-tests.md`](quality-and-tests.md) | Pruebas, cobertura y análisis estático. |
+| [`security.md`](security.md) | Identidad, autorización por permiso, llamadas salientes y datos sensibles. |
 
 ### Diagramas
 

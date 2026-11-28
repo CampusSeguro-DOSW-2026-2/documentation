@@ -266,13 +266,13 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 |:--|:--|
 | **Código** | RF-ALT-05 |
 | **Nombre** | Notificar alerta |
-| **Descripción** | Envía notificaciones vía correo electrónico mediante **Resend** a los destinatarios definidos cuando una alerta pasa a estado Activa, y permite que cada destinatario confirme que la recibió. |
+| **Descripción** | Envía notificaciones vía correo electrónico mediante **Brevo** a los destinatarios definidos cuando una alerta pasa a estado Activa, y permite que cada destinatario confirme que la recibió. |
 | **Actor principal** | Sistema (envío de notificación) / Usuario destinatario con cualquier rol del sistema (confirmación) |
 | **Precondiciones** | La alerta debe estar en estado Activa. Para confirmar la recepción, el usuario debe estar autenticado y ser parte de los destinatarios definidos para esa alerta. |
 
 **Cómo se ejecutará**
 
-- **Automáticamente:** Una vez la alerta pasa a estado activo (llega la fecha y hora de programación), se retoma el listado de usuarios definidos como destinatarios y sus respectivos tokens, y, mediante Resend, se envía una notificación al correo de cada uno; luego se registra el resultado del envío.
+- **Automáticamente:** Una vez la alerta pasa a estado activo (llega la fecha y hora de programación), se retoma el listado de usuarios definidos como destinatarios con su correo, obtenido de MS01, y, mediante Brevo, se envía una notificación al correo de cada uno; luego se registra el resultado del envío.
 - **Manualmente:** Una vez el destinatario recibe el correo, podrá acceder al aplicativo, y en la pantalla principal podrá notificar que recibió la alerta. La confirmación se guardará con fecha y hora.
 
 ### 2. Datos de entrada
@@ -305,7 +305,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 
 | Paso | Actor | Descripción | Excepciones |
 |:--:|:--|:--|:--|
-| A1 | Sistema | Detecta que el envío a un destinatario específico falló (por ejemplo, token de dispositivo inválido o servicio de Resend). | Registra el fallo sin afectar el estado de la alerta ni el envío a los demás destinatarios. |
+| A1 | Sistema | Detecta que el envío a un destinatario específico falló (por ejemplo, una dirección inválida o una falla del proveedor de correo Brevo). | Registra el fallo sin afectar el estado de la alerta ni el envío a los demás destinatarios. |
 | A2 | Sistema | Detecta que el usuario ya había confirmado previamente la recepción de esa alerta. | No duplica el registro y retorna la confirmación ya existente. |
 | A3 | Sistema | Detecta que la alerta indicada no se encuentra en estado Activa. | Rechaza la confirmación indicando que la alerta no está vigente. |
 

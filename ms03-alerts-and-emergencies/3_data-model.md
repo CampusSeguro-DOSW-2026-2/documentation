@@ -15,6 +15,7 @@ MS03 tiene su propia base de datos PostgreSQL (`campusseguro_alerts`). Ningún o
     - [notification_deliveries](#notification_deliveries)
     - [alert_confirmations](#alert_confirmations)
     - [audit_events](#audit_events)
+    - [audit_outbox](#audit_outbox)
 5. [Relaciones](#relaciones)
 6. [Correspondencia entre API y columnas](#correspondencia-entre-api-y-columnas)
 7. [Reglas de integridad](#reglas-de-integridad)
@@ -35,7 +36,7 @@ MS03 tiene su propia base de datos PostgreSQL (`campusseguro_alerts`). Ningún o
 * **Contenido de los correos y claves del proveedor:** MS03 no guarda el cuerpo de los mensajes; la clave de Brevo es un secreto del entorno.
 * **Sesiones y tokens:** los valida el Gateway. MS03 no ve el JWT.
 
-**Fuente de verdad de la auditoría:** hoy es la tabla local `audit_events`. MS03 todavía no envía sus hechos a MS08 (ver [Operaciones](#operaciones-transaccionales-y-consultas)).
+**Auditoría:** `audit_events` es el historial propio de cada alerta, que se consulta con `GET /api/v1/alertas/{id}/auditoria`. Los hechos del [catálogo de auditoría](../integration/audit-catalog.md) se envían además a MS08 a través de la tabla de salida [`audit_outbox`](#audit_outbox).
 
 ---
 
@@ -204,6 +205,22 @@ Historial de lo que le pasa a cada alerta. Solo se inserta.
 
 **Índices:** `idx_audit_alert_created` (`alert_id`, `created_at`).
 
+### audit_outbox
+Tabla de salida de los hechos de auditoría que se envían a MS08.
+
+| Columna | Tipo | Nulo | Restricciones | Descripción |
+|---|---|---|---|---|
+| `id` | UUID | No | PK | Identificador del hecho; viaja como `id` a MS08, que con él descarta los duplicados. |
+| `payload` | TEXT | No | — | Cuerpo JSON que se envía a `POST /api/v1/audit/events`. |
+| `estado` | VARCHAR(20) | No | CHECK `chh_audit_outbox_estado`: `PENDIENTE`, `ENVIANDO`, `ENVIADO` o `DESCARTADO` | Estado del envío. |
+| `intentos` | INTEGER | No | CHECK `chh_audit_outbox_intentos` (`>= 0`); por defecto 0 | Intentos de envío realizados. |
+| `proximo_intento` | TIMESTAMPTZ | No | — | Cuándo se puede volver a intentar. |
+| `ultimo_error` | VARCHAR(500) | Sí | — | Último error del envío. |
+| `enviado_en` | TIMESTAMPTZ | Sí | — | Cuándo MS08 lo aceptó. |
+| `created_at`, `updated_at` | TIMESTAMPTZ | No | Por defecto `now()` | Creación y último cambio. |
+
+**Índices:** `idx_audit_outbox_pendientes` (`proximo_intento`, solo `PENDIENTE`) e `idx_audit_outbox_enviando` (`updated_at`, solo `ENVIANDO`). Un lote que queda en `ENVIANDO` por un reinicio vuelve a `PENDIENTE` después de 2 minutos (`AUDIT_STUCK_TIMEOUT_MS`).
+
 ---
 
 ## Relaciones
@@ -283,7 +300,7 @@ alerts        1 ── N audit_events
 * **Bandeja del usuario** (`GET /api/v1/alertas/mias`): alertas dirigidas al usuario por identificador, por rol o por envío registrado. Por defecto solo `ACTIVE`; admite `ARCHIVED` y `ALL`; nunca devuelve `DRAFT` ni `SCHEDULED`.
 * **Detalle** (`GET /api/v1/alertas/{id}`) y **auditoría** (`GET /api/v1/alertas/{id}/auditoria`).
 
-> **Pendiente:** MS03 todavía no envía sus hechos de auditoría a MS08 (`POST /api/v1/audit/events`). Hasta que lo haga, `audit_events` es su única bitácora y MS08 no recibe las acciones de MS03 del [catálogo de auditoría](../integration/audit-catalog.md).
+**Envío de la auditoría a MS08:** cada operación que audita guarda, en la misma transacción, el hecho para MS08 en [`audit_outbox`](#audit_outbox). Un proceso programado lo envía cada 5 s (`AUDIT_DISPATCH_INTERVAL_MS`) en lotes de hasta 50 (`AUDIT_BATCH_SIZE`) a `POST /api/v1/audit/events`; si MS08 no responde, lo reintenta con espera creciente (de 5 s a 1 h) hasta 10 intentos (`AUDIT_MAX_ATTEMPTS`), y si MS08 lo rechaza o se agotan los intentos lo marca `DESCARTADO`.
 
 ---
 

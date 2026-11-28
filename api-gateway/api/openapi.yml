@@ -1926,7 +1926,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: ../../ms08-analytics-and-audit/api/openapi.yaml#/components/schemas/AuditEventRequest
+              $ref: ../../ms08-analytics-and-audit/api/openapi.yml#/components/schemas/AuditEventRequest
             example:
               id: 8b4e2f10-3c9a-4d71-9e12-5a6b7c8d9e0f
               usuario_id: 3f2a9c1e-7b4d-4e8a-9a55-0c1d2e3f4a5b

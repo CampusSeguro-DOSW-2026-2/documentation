@@ -71,10 +71,8 @@ El `x-permiso` de cada operación del `openapi.yml` coincide con un código de l
 
 Excepciones:
 
-* El backlog de Jira de un squad se conserva con su nombre original dentro de `requerimientos/` (por ejemplo, `requerimientos/Backlog_MS03_Alertas.docx`).
 * Los diagramas de arquitectura de `integration/architecture/` tienen una carpeta con un `README.md` que describe qué debe mostrar el diagrama. Ese `README.md` se elimina cuando se agrega el diagrama.
 * El diagrama de infraestructura global de despliegue conserva su nombre original: `integration/architecture/architecture_diagram/architecture_diagram.drawio.svg`.
-* El archivo `pendiente-llevar-al-README-del-backend.md` de un microservicio reúne el contenido técnico del código que debe vivir en el `README.md` de su repositorio, no aquí. Se elimina cuando el squad lo lleva a ese README.
 
 ## Qué se escribe y qué no
 

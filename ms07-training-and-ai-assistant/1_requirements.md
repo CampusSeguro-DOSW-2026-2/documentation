@@ -1,5 +1,7 @@
 # Requerimientos de MS07 – Formación y asistente IA
 
+Los campos de entrada y sus mensajes están en [2_forms-inputs.md](2_forms-inputs.md); los endpoints, en [api/openapi.yml](api/openapi.yml); y las pruebas, en [quality-and-tests.md](quality-and-tests.md).
+
 ## 1. Descripción
 
 El microservicio MS07 ofrece funcionalidades de formación preventiva para la comunidad de CampusSeguro. Permite consultar contenidos institucionales, realizar evaluaciones cortas, registrar el progreso de los usuarios y consultar al Tutor CampusSeguro.
@@ -44,7 +46,7 @@ Los contratos de endpoints, parámetros, solicitudes, respuestas y permisos se e
 
 El sistema permite que los usuarios autenticados consulten al Tutor CampusSeguro.
 
-El tutor genera respuestas utilizando contenidos preventivos institucionales disponibles en MS07. No debe responder con información ajena al alcance de esos contenidos.
+El tutor genera respuestas utilizando contenidos preventivos institucionales disponibles en MS07. No responde con información ajena al alcance de esos contenidos.
 
 Cuando no existe información suficiente, el tutor indica que no puede responder y remite al protocolo oficial de emergencias de la institución.
 
@@ -58,47 +60,33 @@ Las consultas se registran con metadatos mínimos para auditoría. No se almacen
 - Las preguntas pertenecen a una evaluación y sus opciones pertenecen a una pregunta.
 - Las preguntas y opciones conservan su orden mediante un campo de posición.
 - Al actualizar una evaluación, sus preguntas y opciones se reemplazan como parte de la actualización.
+- Una evaluación tiene de 1 a 50 preguntas, y cada pregunta de 2 a 10 opciones con exactamente una correcta.
+- Una evaluación que ya tiene intentos no se edita: se desactiva y se crea una nueva.
+- Un intento responde una vez cada pregunta de la evaluación y solo se acepta si la evaluación está activa.
+- Un contenido o una evaluación solo se asocia a una categoría activa.
+- El nombre de una categoría es único.
 - Un usuario puede presentar varios intentos de una misma evaluación.
 - El puntaje de un intento está comprendido entre 0 y 100.
 - El seguimiento de visualización mantiene un único registro por usuario y contenido. Las nuevas visualizaciones actualizan la última fecha sin perder la primera.
 - El progreso y los intentos se consultan para el usuario identificado por `X-User-Id`; no se permite consultar el progreso de otro usuario mediante estos endpoints.
 - El tutor utiliza contenidos activos como fuente de información.
+- La pregunta al tutor no puede quedar vacía ni superar 500 caracteres después de limpiarla.
 - Si el tutor no encuentra información suficiente, responde indicando que la consulta está fuera de su alcance.
 - Los registros de auditoría del tutor contienen metadatos y resultado, pero no guardan preguntas ni respuestas.
 
 ## 4. Seguridad y autorización
 
-La autenticación del usuario y la validación del token son responsabilidad del API Gateway. MS07 no valida JWT.
-
-Las rutas protegidas reciben las cabeceras propagadas por Gateway:
-
-- `X-User-Id`: identificador del usuario autenticado.
-- `X-User-Role`: roles propagados por Gateway.
-- `X-User-Permission`: permisos efectivos del usuario.
-- `X-Correlation-ID`: identificador de correlación de la solicitud.
-
-MS07 autoriza las operaciones mediante `X-User-Permission`. No deriva permisos a partir de los roles.
-
-Los permisos utilizados son:
-
-| Permiso | Alcance |
-|---|---|
-| `ms07:content:read` | Consultar categorías y contenidos y registrar visualizaciones. |
-| `ms07:content:manage` | Crear, actualizar, desactivar y reactivar categorías, contenidos y evaluaciones. |
-| `ms07:quiz:take` | Consultar evaluaciones, registrar intentos y consultar el progreso propio. |
-| `ms07:tutor:use` | Consultar al Tutor CampusSeguro. |
-
-La asignación de permisos a los roles se mantiene en la [matriz de permisos](../integration/permissions-matrix.md).
+MS07 no valida el JWT: autoriza cada operación con los permisos de `X-User-Permission` que inyecta el API Gateway (`ms07:content:read`, `ms07:quiz:take`, `ms07:tutor:use` y `ms07:content:manage`). La identidad, la autorización por ruta, las llamadas salientes y el manejo de datos sensibles están en [security.md](security.md), y la asignación de permisos a los roles en la [matriz de permisos](../integration/permissions-matrix.md).
 
 ## 5. Integración con inteligencia artificial
 
 El tutor utiliza adaptadores para comunicarse con proveedores de modelos de lenguaje. El proveedor se selecciona mediante configuración del servicio.
 
-Las variables de configuración incluyen `LLM_PROVIDER`, `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT`, `LLM_MAX_TOKENS` y `LLM_TEMPERATURE`.
+Las variables de configuración son `LLM_PROVIDER`, `LLM_URL`, `LLM_API_KEY`, `LLM_MODEL`, `LLM_TIMEOUT`, `LLM_MAX_TOKENS` y `LLM_TEMPERATURE`.
 
-La clave del proveedor se configura mediante variables de entorno y no debe almacenarse en el repositorio.
+La clave del proveedor llega por variable de entorno y no está en el repositorio.
 
-Si el proveedor no está disponible o se supera el tiempo de espera, el servicio responde con un error de dependencia no disponible.
+Si el proveedor no está disponible, no está configurado o supera el tiempo de espera, el servicio responde `503 DEPENDENCIA_NO_DISPONIBLE`.
 
 ## 6. Auditoría
 

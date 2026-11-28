@@ -77,7 +77,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-02](#rf-ms02-02), [RF-MS02-07](#rf-ms02-07), [RF-MS02-10](#rf-ms02-10) |
 | **Criterios de aceptación** | <ul><li>Crear con nombre y campus activo devuelve 201 con el edificio `ACTIVO`.</li><li>Crear sin campus devuelve 400 con el campo `campusId`.</li><li>Inactivar un edificio con un espacio origen de una ruta `DISPONIBLE` devuelve 422 y no cambia su estado.</li><li>Inactivar un edificio no cambia el estado de sus pisos ni espacios.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -99,7 +98,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-01](#rf-ms02-01), [RF-MS02-03](#rf-ms02-03), [RF-MS02-11](#rf-ms02-11), [RF-MS02-12](#rf-ms02-12) |
 | **Criterios de aceptación** | <ul><li>Registrar el piso 2 dos veces en el mismo edificio devuelve 409 la segunda vez.</li><li>Inactivar un piso con una salida activa devuelve 422 y nombra la salida.</li><li>Los pisos se listan ordenados por número.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -121,7 +119,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-02](#rf-ms02-02), [RF-MS02-05](#rf-ms02-05), [RF-MS02-06](#rf-ms02-06) |
 | **Criterios de aceptación** | <ul><li>Registrar un espacio en un piso inactivo devuelve 422.</li><li>Un espacio activo de un piso inactivo responde `disponible: false`.</li><li>Por defecto los listados solo devuelven espacios disponibles; `incluirInactivos=true` devuelve todos.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -143,7 +140,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-05](#rf-ms02-05), [RF-MS02-10](#rf-ms02-10), [RF-MS02-13](#rf-ms02-13) |
 | **Criterios de aceptación** | <ul><li>Registrar dos zonas con el código `MP-H-01` devuelve 409 la segunda vez.</li><li>`GET /safe-zones?puntoEncuentro=true` solo devuelve puntos de encuentro; `sinCoordenadas=true` lista las que aún no tienen coordenadas.</li><li>Inactivar una zona destino de una ruta `RESTRINGIDA` devuelve 422.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -165,7 +161,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-03](#rf-ms02-03), [RF-MS02-04](#rf-ms02-04), [RF-MS02-06](#rf-ms02-06), [RF-MS02-13](#rf-ms02-13) |
 | **Criterios de aceptación** | <ul><li>Crear una segunda ruta para el mismo espacio devuelve 409.</li><li>Cambiar a `BLOQUEADA` sin motivo devuelve 422.</li><li>Un COORDINADOR puede cambiar el estado pero no crear rutas (403).</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -187,7 +182,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-05](#rf-ms02-05), [RF-MS02-08](#rf-ms02-08), [RF-MS02-12](#rf-ms02-12), [RF-MS02-13](#rf-ms02-13) |
 | **Criterios de aceptación** | <ul><li>Un espacio del piso 3 con una salida en el piso 1 y una escalera disponible 3→1 recibe una guía con esa escalera, la salida y el recorrido exterior.</li><li>Si la única escalera está `BLOQUEADA`, la guía no recomienda salida y explica por qué.</li><li>Consultar un espacio inactivo devuelve 422.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -209,7 +203,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-01](#rf-ms02-01) a [RF-MS02-04](#rf-ms02-04), [RF-MS02-10](#rf-ms02-10) a [RF-MS02-12](#rf-ms02-12) |
 | **Criterios de aceptación** | <ul><li>Reactivar un edificio no reactiva sus pisos.</li><li>Reactivar un espacio de un piso inactivo devuelve 422.</li></ul> |
 | **Prioridad** | Media |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -231,7 +224,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-06](#rf-ms02-06) |
 | **Criterios de aceptación** | <ul><li>Una recomendación de tipo `LABORATORIO` aparece al consultar la ruta de cualquier laboratorio.</li><li>Una recomendación inactiva no aparece en las consultas.</li></ul> |
 | **Prioridad** | Media |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -253,7 +245,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | Todos los de gestión. Lo usan MS04 (puntos de encuentro y ubicaciones) y MS06 (escenarios). |
 | **Criterios de aceptación** | <ul><li>Un edificio inactivo no aparece en `GET /buildings` y sí con `incluirInactivos=true`.</li><li>Un id inexistente devuelve 404 `NO_ENCONTRADO`.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -275,7 +266,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-01](#rf-ms02-01), [RF-MS02-04](#rf-ms02-04), [RF-MS02-07](#rf-ms02-07) |
 | **Criterios de aceptación** | <ul><li>Inactivar un campus con un edificio activo devuelve 422.</li><li>Una zona abierta con solo latitud devuelve 422.</li></ul> |
 | **Prioridad** | Media |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -297,7 +287,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-02](#rf-ms02-02), [RF-MS02-06](#rf-ms02-06), [RF-MS02-13](#rf-ms02-13) |
 | **Criterios de aceptación** | <ul><li>Registrar una salida con latitud 95 devuelve 400 con el campo `latitud`.</li><li>Al registrar una salida aparecen sus rutas exteriores sin que el administrador las cree.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -319,7 +308,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-02](#rf-ms02-02), [RF-MS02-06](#rf-ms02-06) |
 | **Criterios de aceptación** | <ul><li>Registrar una escalera con un solo piso devuelve 400.</li><li>Una escalera `BLOQUEADA` no aparece en la guía de evacuación.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -341,7 +329,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-04](#rf-ms02-04), [RF-MS02-06](#rf-ms02-06), [RF-MS02-11](#rf-ms02-11) |
 | **Criterios de aceptación** | <ul><li>Registrar una salida con coordenadas genera sus rutas sin otra acción.</li><li>`POST /evacuation-routes/exterior/generate` responde cuántas generó y cuántas omitió.</li><li>Con el proveedor caído, `GET /exits/{id}/evacuation-route` sigue devolviendo las rutas guardadas.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -363,7 +350,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-09](#rf-ms02-09) |
 | **Criterios de aceptación** | <ul><li>Subir un PDF devuelve 422.</li><li>Tras subir una foto de un espacio, el espacio responde `tieneFotografia: true`.</li><li>Con `IMAGEN_STORAGE_TYPE=azure`, la foto subida queda como blob del contenedor del entorno y `GET /images/{id}` la devuelve igual que con `local`.</li></ul> |
 | **Prioridad** | Media |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -385,7 +371,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-16](#rf-ms02-16) |
 | **Criterios de aceptación** | <ul><li>El PNG de una salida, leído, contiene `…/#/qr/salidas/{id}`.</li><li>Un usuario sin `ms02:qr:manage` recibe 403.</li></ul> |
 | **Prioridad** | Media |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 <br>
 
@@ -407,7 +392,6 @@ La evacuación tiene dos partes independientes:
 | **Requerimientos asociados** | [RF-MS02-06](#rf-ms02-06), [RF-MS02-15](#rf-ms02-15) |
 | **Criterios de aceptación** | <ul><li>Sin cabeceras de identidad, `GET /public/spaces?id=` de un espacio disponible responde 200 con su evacuación.</li><li>`POST /public/spaces` se rechaza.</li></ul> |
 | **Prioridad** | Alta |
-| **Estado / Squad responsable** | Implementado / Gaia |
 
 ---
 
@@ -418,11 +402,11 @@ La evacuación tiene dos partes independientes:
 |---|---|
 | **RNF-MS02-01** | Aplicación Spring Boot independiente (Java 21, Maven) con Spring Data JPA y base de datos PostgreSQL propia. El esquema se versiona con Flyway (`ddl-auto=validate`). Ningún otro servicio accede a la base. |
 | **RNF-MS02-02** | Todos los endpoints están bajo `/api/v1/` y documentados con OpenAPI 3 (`/v3/api-docs`, publicado en [`api/openapi.yml`](api/openapi.yml)). Cada operación protegida declara `x-permiso` igual a la matriz de roles y permisos; una prueba automática (`ContratoPermisosTest`) lo verifica. |
-| **RNF-MS02-03** | Todo acceso llega por el API Gateway. En las rutas protegidas MS02 recibe `X-User-Id`, `X-User-Role` y `X-User-Permission` y autoriza con `X-User-Permission`; si faltan responde 401 `NO_AUTENTICADO` y si falta el permiso, 403 `PROHIBIDO`. Las tres rutas de `/api/v1/public` no exigen identidad. |
+| **RNF-MS02-03** | Todo acceso llega por el API Gateway. En las rutas protegidas MS02 recibe `X-User-Id`, `X-User-Role` y `X-User-Permission` y autoriza con `X-User-Permission`; si faltan responde 401 `NO_AUTENTICADO` y si falta el permiso, 403 `PROHIBIDO`. Las tres rutas de `/api/v1/public` no exigen identidad ([security.md](security.md)). |
 | **RNF-MS02-04** | Todo error, incluidos los del framework (404, 405 y 400 para tipos de contenido no compatibles), responde con el `ErrorResponse` de los Estándares, sin trazas internas. |
 | **RNF-MS02-05** | Cada línea de log lleva el `X-Correlation-ID`. Las operaciones de escritura quedan en el log, sin tokens ni datos personales. Actuator expone `health`. |
 | **RNF-MS02-06** | La consulta de rutas en una emergencia no depende de servicios externos: usa las rutas exteriores guardadas ([RN-MS02-19](#rn-ms02-19)). El proveedor de navegación es el servicio público de OpenStreetMap con perfil a pie, configurable con `NAVIGATION_BASE_URL`, y tiene timeouts configurables (3 s de conexión y 10 s de lectura por defecto). |
 | **RNF-MS02-07** | Las imágenes se guardan fuera de la base de datos, en un volumen del contenedor o en Azure Blob Storage según la configuración, con un máximo de 5 MB por archivo y solo JPEG, PNG o WEBP. |
 | **RNF-MS02-08** | Secretos y configuración (base de datos, URL del frontend para los QR, proveedor de navegación, almacenamiento de imágenes) fuera del repositorio, en variables de entorno. |
-| **RNF-MS02-09** | Pruebas unitarias y de integración de los servicios, controladores, seguridad y contrato OpenAPI, ejecutadas en GitHub Actions en cada Pull Request. |
+| **RNF-MS02-09** | Pruebas unitarias y de integración de los servicios, controladores, seguridad y contrato OpenAPI, ejecutadas en GitHub Actions en cada push y Pull Request ([quality-and-tests.md](quality-and-tests.md)). |
 | **RNF-MS02-10** | Ejecución en contenedor Docker. La imagen se publica en GHCR y se despliega en una VM de Azure detrás del Gateway, con firewall que solo acepta la IP del Gateway y mTLS en un Caddy de borde, con stacks separados de prueba y producción ([despliegue](diagrams/ms02-deployment-azure.drawio.svg)). |

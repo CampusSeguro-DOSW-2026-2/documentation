@@ -19,7 +19,7 @@ MS08 tiene su propia base de datos MongoDB. Ningún otro microservicio la lee ni
 
 ## Alcance
 
-**Se almacena:** los hechos de auditoría que los demás microservicios envían ([RF-AYA-01](1_requirements.md)): quién hizo qué, sobre qué recurso, cuándo y con qué resultado, más los identificadores y códigos con los que se calculan los indicadores.
+**Se almacena:** los hechos de auditoría que los demás microservicios envían ([RF-AYA-01](1_requirements.md#rf-aya-01)): quién hizo qué, sobre qué recurso, cuándo y con qué resultado, más los identificadores y códigos con los que se calculan los indicadores.
 
 **No se almacena:**
 * **Indicadores:** no se guardan. Se calculan en cada consulta con los hechos disponibles, así que incluyen los que lleguen con retraso.
@@ -38,7 +38,7 @@ MS08 tiene su propia base de datos MongoDB. Ningún otro microservicio la lee ni
 * Los nombres de los campos del documento están en `snake_case` y en español, los mismos que el contrato OpenAPI y el cuerpo de `POST /api/v1/audit/events` (`usuario_id`, `recurso_afectado`, `fecha_hora`…). La excepción es el identificador del documento, que MongoDB guarda como `_id` y la API devuelve como `id`.
 * Fechas y horas en UTC (`Date` de MongoDB). La zona horaria de la aplicación (`America/Bogota`) solo se usa para la hora de la limpieza programada ([Configuración](#configuración)).
 * Los identificadores de usuario y de evento se guardan en minúsculas, aunque lleguen en mayúsculas, para que la búsqueda por igualdad funcione sin importar cómo se escriban.
-* Los registros son de **solo inserción**: la API no ofrece operaciones para modificarlos ni borrarlos. El único borrado es el de retención ([RF-AYA-07](1_requirements.md)).
+* Los registros son de **solo inserción**: la API no ofrece operaciones para modificarlos ni borrarlos. El único borrado es el de retención ([RF-AYA-07](1_requirements.md#rf-aya-07)).
 * El esquema lo declara el código (un `record` inmutable), no la base. Los índices los crea `AuditIndexInitializer` al arrancar; crear un índice que ya existe no tiene efecto.
 * Cambiar los días de retención después de creado el índice TTL exige borrar antes el índice anterior (`ttl_fecha_hora`): MongoDB no admite cambiar el tiempo de expiración de un índice con otro valor sin recrearlo.
 
@@ -150,13 +150,13 @@ Cada escritura es un solo `insert`: se guarda completo o no se guarda. No hay tr
 
 | Operación | Lecturas | Escrituras |
 |---|---|---|
-| Registrar un hecho ([RF-AYA-01](1_requirements.md)) | — | `insert` en `audit_events`. Si el `_id` ya existe, no escribe y responde 202. |
-| Consultar registros ([RF-AYA-02](1_requirements.md)) | `find` con los filtros recibidos, paginado | Ninguna |
-| Consultar un registro ([RF-AYA-03](1_requirements.md)) | `findById` | Ninguna |
-| Indicadores de un evento ([RF-AYA-04](1_requirements.md)) | Todos los hechos del `evento_id` (índice `evento_fecha`) | Ninguna: se calculan en memoria y no se guardan |
-| Comparar eventos ([RF-AYA-05](1_requirements.md)) | Los hechos de cada `evento_id` pedido | Ninguna |
-| Ubicaciones más lentas ([RF-AYA-06](1_requirements.md)) | Los hechos de cada `evento_id` pedido | Ninguna |
-| Retención ([RF-AYA-07](1_requirements.md)) | — | Índice TTL: MongoDB borra los vencidos. De respaldo, una tarea diaria (`delete` de los que tienen `fecha_hora` anterior al límite) |
+| Registrar un hecho ([RF-AYA-01](1_requirements.md#rf-aya-01)) | — | `insert` en `audit_events`. Si el `_id` ya existe, no escribe y responde 202. |
+| Consultar registros ([RF-AYA-02](1_requirements.md#rf-aya-02)) | `find` con los filtros recibidos, paginado | Ninguna |
+| Consultar un registro ([RF-AYA-03](1_requirements.md#rf-aya-03)) | `findById` | Ninguna |
+| Indicadores de un evento ([RF-AYA-04](1_requirements.md#rf-aya-04)) | Todos los hechos del `evento_id` (índice `evento_fecha`) | Ninguna: se calculan en memoria y no se guardan |
+| Comparar eventos ([RF-AYA-05](1_requirements.md#rf-aya-05)) | Los hechos de cada `evento_id` pedido | Ninguna |
+| Ubicaciones más lentas ([RF-AYA-06](1_requirements.md#rf-aya-06)) | Los hechos de cada `evento_id` pedido | Ninguna |
+| Retención ([RF-AYA-07](1_requirements.md#rf-aya-07)) | — | Índice TTL: MongoDB borra los vencidos. De respaldo, una tarea diaria (`delete` de los que tienen `fecha_hora` anterior al límite) |
 
 **Listado `GET /api/v1/audit/events`** (parámetros en [F-02](2_forms-inputs.md#f-02-búsqueda-y-filtros-de-auditoría)):
 * Filtros por igualdad: `modulo`, `accion`, `usuario_id`, `evento_id`, `recurso_afectado`, `correlation_id`. Todos opcionales y combinables.

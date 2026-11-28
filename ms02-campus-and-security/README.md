@@ -10,6 +10,8 @@ Cada tema se documenta en un solo archivo; los demás enlazan a él.
 | [`2_forms-inputs.md`](2_forms-inputs.md) | Formularios y entradas F-01…F-13: campos, validaciones y mensajes. |
 | [`3_data-model.md`](3_data-model.md) | Tablas, relaciones, reglas de integridad y migraciones. |
 | [`api/openapi.yml`](api/openapi.yml) | Contrato OpenAPI 3, exportado de `/v3/api-docs.yaml` del servicio: endpoints, permisos (`x-permiso`), esquemas y errores. |
+| [`quality-and-tests.md`](quality-and-tests.md) | Pruebas, cobertura y análisis estático. |
+| [`security.md`](security.md) | Identidad, autorización por permiso, consulta pública por QR, llamadas salientes y datos sensibles. |
 
 ### Diagramas
 

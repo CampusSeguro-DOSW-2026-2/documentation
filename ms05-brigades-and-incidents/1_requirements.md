@@ -223,7 +223,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 | prioridad | Gravedad del incidente reportado. | Objeto (enum) | Gravedad del incidente ocurrido. Puede ser Emergencia (prioridad alta, emergencias vitales), Urgencia (prioridad media, emergencias que no se puede solucionar sola) moderada, Poca urgencia (prioridad baja, no hay riesgo en la vida del usuario) | Sí |
 | ubicacion | Lugar donde ocurre el incidente: edificio, espacio o punto de encuentro. | Objeto (enum + ID) | El objeto debe existir según los tipos definidos por el módulo de campus y seguridad (RF-CAMP). | Sí |
 | descripcion | Descripción de lo ocurrido. | Texto largo | Longitud máxima definida (por ejemplo, 1000 caracteres). | No |
-| evidencia | Archivos de apoyo para atender la emergencia. | Lista de objetos | Pueden ser archivos imágenes (png), videos (mp4) o documentos (pdf). | No |
+| evidencia | Archivos de apoyo para atender la emergencia. | Lista de objetos | Pueden ser imágenes (JPG, PNG, WEBP, GIF, BMP, TIFF o HEIC), videos (MP4) o documentos (PDF). | No |
 
 ### 3. Datos de salida
 
@@ -267,7 +267,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 |:--|:--|
 | **Código** | RF-BEI-05 |
 | **Nombre** | Editar incidente |
-| **Descripción** | Permite adjuntar a un incidente una descripción y, cuando corresponda, máximo cinco archivos de evidencia (pueden ser fotos (png), videos (mp4) o documentos (pdf)), así como consultar las evidencias registradas. También permite cambiar la prioridad: así la persona completa la solicitud de asistencia que MS04 crea desde el check-in «Requiero asistencia» con la prioridad por defecto, sin crear otra. |
+| **Descripción** | Permite adjuntar a un incidente una descripción y, cuando corresponda, máximo cinco archivos de evidencia (pueden ser imágenes (JPG, PNG, WEBP, GIF, BMP, TIFF o HEIC), videos (MP4) o documentos (PDF)), así como consultar las evidencias registradas. También permite cambiar la prioridad: así la persona completa la solicitud de asistencia que MS04 crea desde el check-in «Requiero asistencia» con la prioridad por defecto, sin crear otra. |
 | **Actor principal** | **Usuario general** (estudiantes, profesores, personal administrativo, coordinadores, organizadores, administradores, brigadista): para una solicitud propia<br>**Brigadistas**: para solicitudes ajenas. |
 | **Precondiciones** | Debe existir el incidente y debe estar en un estado diferente a cerrado. Cualquier actor debe estar autenticado para editar un incidente propio, para editar un incidente de un tercero debe tener el rol de brigadista y debe estar activo. |
 
@@ -282,7 +282,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 |:--|:--|:--|:--|:--:|
 | descripcion | Descripción de la evidencia. | Texto | Longitud máxima definida (por ejemplo, 500 caracteres). | No |
 | prioridadId | Nueva prioridad del incidente. | Número | Debe existir en el catálogo de prioridades; si no se envía, se conserva la actual. | No |
-| evidencia | Archivo de evidencia que apoyan la atención del incidente. | Lista de Objetos | Formatos permitidos: fotos (png), videos (mp4) o documentos (pdf) | No |
+| evidencia | Archivo de evidencia que apoyan la atención del incidente. | Lista de Objetos | Formatos permitidos: imágenes (JPG, PNG, WEBP, GIF, BMP, TIFF o HEIC), videos (MP4) o documentos (PDF) | No |
 
 ### 3. Datos de salida
 
@@ -552,7 +552,7 @@ Este documento detalla cada uno de los requerimientos funcionales del microservi
 | 7 | Un incidentes solo podrá registrarse mientras el evento esté activo. La atención, resolución y cierre pueden continuar después de finalizado el evento. |
 | 8 | Toda transición de estado debe registrar la fecha y hora en que ocurre, de modo que el módulo de auditoría y analítica pueda calcular indicadores como el tiempo hasta la primera atención. |
 | 9 | Toda acción relevante (asignación, modificación, retiro, creación, cambios de estado y evidencias) debe quedar registrada en el módulo de auditoría con el usuario o servicio responsable, la acción, el recurso afectado, y la fecha/hora. |
-| 10 | Se pueden subir máximo 5 evidencias en formato png, pdf, docs, mp4. |
+| 10 | Se pueden subir máximo 5 evidencias por incidente: imágenes (JPG, PNG, WEBP, GIF, BMP, TIFF o HEIC), videos (MP4) o documentos (PDF). |
 | 11 | Solo el módulo de eventos puede acceder directamente a la base de datos de brigadistas e incidentes; toda interacción debe realizarse mediante los endpoints expuestos. |
 | 12 | Una asignación solo puede estar en alguno de los siguientes estados: Vigente, Retirada. |
 | 13 | Una vez un incidente inicia a ser atendido solo aparecerá en la pantalla del brigadista que inicio la atención. |

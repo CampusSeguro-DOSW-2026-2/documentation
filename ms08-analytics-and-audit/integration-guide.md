@@ -149,6 +149,6 @@ Su servicio **no** consulta la auditoría: la ofrece MS08 a los usuarios, con es
 ## 8. Pruebas locales
 
 * No necesita MS08: use un servidor simulado (WireMock o similar) que responda `202`.
-* Deje el envío apagado con una variable (p. ej. `AUDIT_ENABLED=false`) hasta que MS08 esté desplegado.
+* Para trabajar sin MS08, apague el envío con una variable de su servicio (p. ej. `AUDIT_ENABLED=false`).
 * Pruebe como mínimo: el cuerpo exacto que envía su servicio, que un fallo de MS08 no cambia la respuesta al usuario y que no incluye datos prohibidos.
 * Antes de integrar: ¿envía `X-Service-Key` y `X-Correlation-ID`? ¿`fecha_hora` es la real, en UTC? ¿las acciones de un evento llevan `evento_id` y `tipo_evento`? ¿publicó su catálogo?
