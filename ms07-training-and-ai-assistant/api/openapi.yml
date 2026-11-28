@@ -491,6 +491,31 @@ paths:
       tags:
       - Tutor
       summary: Consultar al tutor CampusSeguro
+      description: 'El tutor responde sobre prevención y actuación ante cualquier emergencia o evento del campus
+
+        que esté en los contenidos activos: sismos, incendios, fugas o derrames de sustancias, evacuación,
+
+        personas lesionadas y primeros auxilios básicos, puntos de encuentro, simulacros y prevención en salones,
+
+        laboratorios, auditorios y oficinas. Solo usa esos contenidos; si no tienen información, responde
+
+        sufficient en false y remite al protocolo oficial sin llamar a la IA.
+
+
+        Datos personales: antes de enviar la pregunta a la IA, MS07 reemplaza correos, teléfonos, números de
+
+        documento, números de tarjeta, enlaces y nombres dichos de forma explícita por [correo], [teléfono],
+
+        [documento], [tarjeta], [enlace] y [nombre]. La petición a la IA no lleva la identidad del usuario ni el
+
+        correlation id, y la consulta queda en la auditoría sin el texto de la pregunta ni de la respuesta.
+
+
+        Límite de uso: por defecto 10 preguntas por minuto y 100 por día por usuario (TUTOR_RATE_PER_MINUTE y
+
+        TUTOR_RATE_PER_DAY). Al superarlo responde 429 DEMASIADAS_SOLICITUDES y la pregunta no llega a la IA.
+
+        '
       operationId: askTutor
       x-permiso: ms07:tutor:use
       parameters:
@@ -517,9 +542,28 @@ paths:
           description: Usuario no autenticado
         '403':
           description: Permiso insuficiente
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
           description: Proveedor de IA no disponible
 components:
+  responses:
+    TooManyRequests:
+      description: 'El usuario superó su límite de uso (tutor: preguntas por minuto o por día; borradores de
+
+        evaluación con IA: 5 por hora). La solicitud no se procesa ni llega a la IA.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 429
+            codigo: DEMASIADAS_SOLICITUDES
+            mensaje: Hizo varias preguntas seguidas. Espere un momento y vuelva a intentarlo.
+            errores: []
+            correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
   parameters:
     UserId:
       name: X-User-Id
