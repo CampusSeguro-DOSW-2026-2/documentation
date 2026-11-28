@@ -11,6 +11,7 @@ Repositorio central de la documentación de CampusSeguro: las reglas que compart
 | Conexión de un microservicio al API Gateway en la nube | [`integration/gateway-connection.md`](integration/gateway-connection.md) |
 | Acciones de auditoría de cada microservicio e indicadores que alimentan | [`integration/audit-catalog.md`](integration/audit-catalog.md) |
 | Diagramas de arquitectura del sistema (C4 contexto y contenedores) | [`integration/architecture/`](integration/architecture/) |
+| Infraestructura global de despliegue (Azure y AWS) | [`integration/architecture/architecture_diagram/architecture_diagram.drawio.svg`](integration/architecture/architecture_diagram/architecture_diagram.drawio.svg) |
 | Requerimientos, contrato, modelo de datos y diagramas de cada microservicio | La carpeta del microservicio (tabla siguiente) |
 | Guías paso a paso: agregar un microservicio al gateway y desplegar el frontend | [Wiki](https://github.com/CampusSeguro-DOSW-2026-2/documentation/wiki) |
 | Convenciones para escribir y cambiar la documentación | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
@@ -25,7 +26,7 @@ Repositorio central de la documentación de CampusSeguro: las reglas que compart
 | MS03 — Alertas y emergencias | [`ms03-alerts-and-emergencies/`](ms03-alerts-and-emergencies/) | [`ms03-alerts-and-emergencies`](https://github.com/CampusSeguro-DOSW-2026-2/ms03-alerts-and-emergencies) |
 | MS04 — Evacuación y check-in | [`ms04-evacuation-and-check-in/`](ms04-evacuation-and-check-in/) | [`ms04-evacuation-and-check-in`](https://github.com/CampusSeguro-DOSW-2026-2/ms04-evacuation-and-check-in) |
 | MS05 — Brigadistas e incidentes | [`ms05-brigades-and-incidents/`](ms05-brigades-and-incidents/) | [`ms05-brigades-and-incidents`](https://github.com/CampusSeguro-DOSW-2026-2/ms05-brigades-and-incidents) |
-| MS06 — Eventos | [`ms06-drills/`](ms06-drills/) | [`ms06-drills`](https://github.com/CampusSeguro-DOSW-2026-2/ms06-drills) |
+| MS06 — Eventos | [`ms06-events/`](ms06-events/) | [`ms06-drills`](https://github.com/CampusSeguro-DOSW-2026-2/ms06-drills) |
 | MS07 — Formación y asistente de IA | [`ms07-training-and-ai-assistant/`](ms07-training-and-ai-assistant/) | [`ms07-training-and-ai-assistant`](https://github.com/CampusSeguro-DOSW-2026-2/ms07-training-and-ai-assistant) |
 | MS08 — Analítica y auditoría | [`ms08-analytics-and-audit/`](ms08-analytics-and-audit/) | [`ms08-analytics-and-audit`](https://github.com/CampusSeguro-DOSW-2026-2/ms08-analytics-and-audit) |
 | Frontend | — | [`frontend`](https://github.com/CampusSeguro-DOSW-2026-2/frontend) |

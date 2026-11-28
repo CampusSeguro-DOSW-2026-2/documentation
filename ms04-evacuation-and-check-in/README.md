@@ -10,6 +10,6 @@ Reporte del estado de las personas (Estoy a salvo, Me estoy evacuando, Requiero 
 | [`quality-and-tests.md`](quality-and-tests.md) | Estrategia y tecnologías de prueba, resultados, cobertura, análisis estático (PMD y SpotBugs) y relación con SonarCloud. |
 | [`security.md`](security.md) | Identidad propagada por el Gateway, autorización por permiso, rutas internas de MS06, clave de servicio, mTLS y manejo de datos sensibles. |
 | [`api/openapi.yml`](api/openapi.yml) | Contrato OpenAPI 3 (rutas `/api/v1/chi/eventos`): endpoints, permisos (`x-permiso`), esquemas y errores. |
-| [`diagrams/`](diagrams/) | C4 (contexto, contenedores y componentes), modelo de datos físico, clases, secuencia y despliegue en AWS. |
+| [`diagrams/`](diagrams/) | C4 de componentes, modelo de datos físico, clases y despliegue en AWS. |
 
 **Para otros squads:** las reglas transversales están en los [Estándares](../integration/standards.md) y los permisos en la [matriz de roles y permisos](../integration/permissions-matrix.md). Las llamadas de MS04 a MS01, MS02 y MS05, las de MS06 a MS04 y los eventos de auditoría hacia MS08 están en la [tabla de llamadas internas](../integration/standards.md#5-llamadas-internas-ms--gw--ms) y en el [catálogo de auditoría](../integration/audit-catalog.md#ms04--evacuación-y-check-in).
