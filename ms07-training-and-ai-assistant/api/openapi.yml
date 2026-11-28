@@ -486,11 +486,276 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EvaluationResponse'
+  /api/v1/training/evaluation-drafts:
+    post:
+      tags:
+      - Evaluations
+      summary: Pedir a la IA un borrador de evaluación
+      description: 'Inicia la generación de un borrador de evaluación con los contenidos activos de la categoría
+
+        (RF-14). Generar de 3 a 10 preguntas puede tardar más que el tiempo de espera del API Gateway, por eso
+
+        la operación es asíncrona: responde 202 con el borrador EN_PROCESO y el cliente consulta
+
+        GET /api/v1/training/evaluation-drafts/{id} hasta que quede LISTO o FALLIDO.
+
+
+        La IA nunca guarda nada: el borrador tiene la forma exacta del cuerpo de POST /api/v1/training/evaluations
+
+        y el ADMIN lo revisa y lo guarda con esa operación. Cada ADMIN puede pedir 5 borradores por hora.
+
+        La solicitud queda en la auditoría como EVALUACION_GENERADA_IA, sin el contenido del borrador.
+
+        '
+      operationId: startEvaluationDraft
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EvaluationDraftRequest'
+            example:
+              categoryId: 00000000-0000-0000-0000-000000000005
+              questions: 5
+              topic: Derrames de sustancias
+      responses:
+        '202':
+          description: El borrador se está generando
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationDraftResponse'
+              example:
+                id: 5b8e2c1a-3f4d-4e6b-9a7c-1d2e3f4a5b6c
+                status: EN_PROCESO
+        '400':
+          description: Falta la categoría, questions está fuera de 3 a 10 o el tema tiene más de 150 caracteres
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '401':
+          description: Usuario no autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 401
+                codigo: NO_AUTENTICADO
+                mensaje: Falta la identidad del usuario.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '403':
+          description: Permiso insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 403
+                codigo: PROHIBIDO
+                mensaje: No tiene permiso para realizar esta operación.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '404':
+          description: La categoría no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: La categoría no existe.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '422':
+          description: La categoría está inactiva o no tiene contenidos activos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La categoría 'Laboratorios' no tiene contenidos activos para generar preguntas.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '503':
+          description: Hay demasiados borradores en cola; intente en unos minutos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 503
+                codigo: DEPENDENCIA_NO_DISPONIBLE
+                mensaje: Hay muchas evaluaciones generándose en este momento. Intente de nuevo en unos minutos.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+  /api/v1/training/evaluation-drafts/{id}:
+    get:
+      tags:
+      - Evaluations
+      summary: Consultar un borrador de evaluación
+      description: 'Estado del borrador: EN_PROCESO, LISTO (con draft) o FALLIDO (con message en español).
+
+        Solo lo puede consultar el usuario que lo pidió; si es otro usuario o ya pasaron 30 minutos, responde 404.
+
+        '
+      operationId: getEvaluationDraft
+      x-permiso: ms07:content:manage
+      parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/UserId'
+      - $ref: '#/components/parameters/UserRole'
+      - $ref: '#/components/parameters/UserPermission'
+      - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200':
+          description: Estado del borrador
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationDraftResponse'
+              examples:
+                enProceso:
+                  summary: Todavía se está generando
+                  value:
+                    id: 5b8e2c1a-3f4d-4e6b-9a7c-1d2e3f4a5b6c
+                    status: EN_PROCESO
+                listo:
+                  summary: Borrador listo para revisar
+                  value:
+                    id: 5b8e2c1a-3f4d-4e6b-9a7c-1d2e3f4a5b6c
+                    status: LISTO
+                    draft:
+                      title: Derrames en el laboratorio
+                      topic: Derrames de sustancias
+                      categoryId: 00000000-0000-0000-0000-000000000005
+                      questions:
+                      - statement: ¿A quién se debe avisar primero ante un derrame?
+                        options:
+                        - text: Al responsable del laboratorio y a los brigadistas
+                          correct: true
+                        - text: A un compañero de clase
+                          correct: false
+                        - text: Al servicio de cafetería
+                          correct: false
+                fallido:
+                  summary: La IA no generó preguntas válidas
+                  value:
+                    id: 5b8e2c1a-3f4d-4e6b-9a7c-1d2e3f4a5b6c
+                    status: FALLIDO
+                    message: La IA no generó preguntas válidas a partir de los contenidos de la categoría. Intente
+                      de nuevo.
+        '400':
+          description: El id no es un UUID válido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 400
+                codigo: VALIDACION
+                mensaje: Datos inválidos.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '401':
+          description: Usuario no autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 401
+                codigo: NO_AUTENTICADO
+                mensaje: Falta la identidad del usuario.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '403':
+          description: Permiso insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 403
+                codigo: PROHIBIDO
+                mensaje: No tiene permiso para realizar esta operación.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '404':
+          description: El borrador no existe, ya venció o lo pidió otro usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 404
+                codigo: NO_ENCONTRADO
+                mensaje: El borrador no existe o ya venció.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '422':
+          description: Regla de negocio no cumplida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 422
+                codigo: REGLA_NEGOCIO
+                mensaje: La solicitud no cumple una regla de negocio.
+                errores: []
+                correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /api/v1/tutor/questions:
     post:
       tags:
       - Tutor
       summary: Consultar al tutor CampusSeguro
+      description: 'El tutor responde sobre prevención y actuación ante cualquier emergencia o evento del campus
+
+        que esté en los contenidos activos: sismos, incendios, fugas o derrames de sustancias, evacuación,
+
+        personas lesionadas y primeros auxilios básicos, puntos de encuentro, simulacros y prevención en salones,
+
+        laboratorios, auditorios y oficinas. Solo usa esos contenidos; si no tienen información, responde
+
+        sufficient en false y remite al protocolo oficial sin llamar a la IA.
+
+
+        Datos personales: antes de enviar la pregunta a la IA, MS07 reemplaza correos, teléfonos, números de
+
+        documento, números de tarjeta, enlaces y nombres dichos de forma explícita por [correo], [teléfono],
+
+        [documento], [tarjeta], [enlace] y [nombre]. La petición a la IA no lleva la identidad del usuario ni el
+
+        correlation id, y la consulta queda en la auditoría sin el texto de la pregunta ni de la respuesta.
+
+
+        Límite de uso: por defecto 10 preguntas por minuto y 100 por día por usuario (TUTOR_RATE_PER_MINUTE y
+
+        TUTOR_RATE_PER_DAY). Al superarlo responde 429 DEMASIADAS_SOLICITUDES y la pregunta no llega a la IA.
+
+        '
       operationId: askTutor
       x-permiso: ms07:tutor:use
       parameters:
@@ -517,9 +782,28 @@ paths:
           description: Usuario no autenticado
         '403':
           description: Permiso insuficiente
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '503':
           description: Proveedor de IA no disponible
 components:
+  responses:
+    TooManyRequests:
+      description: 'El usuario superó su límite de uso (tutor: preguntas por minuto o por día; borradores de
+
+        evaluación con IA: 5 por hora). La solicitud no se procesa ni llega a la IA.
+
+        '
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 429
+            codigo: DEMASIADAS_SOLICITUDES
+            mensaje: Hizo varias preguntas seguidas. Espere un momento y vuelva a intentarlo.
+            errores: []
+            correlation_id: 7de5efc3-7c50-4a2c-ac97-8d3f0940cba9
   parameters:
     UserId:
       name: X-User-Id
@@ -1055,6 +1339,47 @@ components:
       - size
       - total_elementos
       - total_paginas
+    EvaluationDraftRequest:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+          description: Categoría activa con al menos un contenido activo
+        questions:
+          type: integer
+          minimum: 3
+          maximum: 10
+          default: 5
+          description: Número de preguntas del borrador
+        topic:
+          type: string
+          maxLength: 150
+          description: Tema en el que debe enfocarse el borrador (opcional)
+      required:
+      - categoryId
+    EvaluationDraftResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - EN_PROCESO
+          - LISTO
+          - FALLIDO
+        draft:
+          allOf:
+          - $ref: '#/components/schemas/EvaluationRequest'
+          description: Solo con LISTO. Misma forma del cuerpo de POST /api/v1/training/evaluations
+        message:
+          type: string
+          description: Solo con FALLIDO. Motivo en español
+      required:
+      - id
+      - status
     ErrorResponse:
       type: object
       properties:
